@@ -1,0 +1,10 @@
+{
+ "type": "FeatureCollection",
+ "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+ "features": [
+  {"type": "Feature", "properties": {"id": 300, "object_type": "source"}, "geometry": {"type": "Point", "coordinates": [37.410236768, 55.665523522]}},
+  {"type": "Feature", "properties": {"id": 100, "object_type": "heat_network", "diameter": 300}, "geometry": {"type": "LineString", "coordinates": [[37.410236768, 55.665523522], [37.415004007, 55.665585184]]}},
+  {"type": "Feature", "properties": {"id": "oks_A", "object_type": "restriction", "restriction_type": "oks"}, "geometry": {"type": "Polygon", "coordinates": [[[37.410680723, 55.666338074], [37.411157456, 55.666344247], [37.411153817, 55.666434067], [37.410835994, 55.666429952], [37.410828713, 55.666609591], [37.410669800, 55.666607533], [37.410680723, 55.666338074]]]}},
+  {"type": "Feature", "properties": {"id": "A", "object_type": "oks_connection_point", "flow_tph": 10.0}, "geometry": {"type": "Point", "coordinates": [37.410737006, 55.666518537]}}
+ ]
+}

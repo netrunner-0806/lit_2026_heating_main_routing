@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Трассы подключения к тепловым сетям</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/webjars/leaflet/1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/style.css?v=8">
+</head>
+<body>
+<header>
+  <div class="brand">Сервис моделирования трасс подключения к тепловым сетям <span class="muted">ЛЦТ 2026</span></div>
+  <nav><a href="/swagger-ui.html" target="_blank">Swagger</a><a href="/reference.html" target="_blank">Справочники</a></nav>
+</header>
+<main>
+  <aside id="panel">
+    <!-- 1. input -->
+    <section class="card">
+      <h3>1. Входной GeoJSON</h3>
+      <input type="file" id="file" accept=".geojson,.json,application/geo+json,application/json">
+      <div class="row"><span>Режим расчёта <span class="info" title="Режим с учётом глубины строит трассу заново, учитывая вертикальное положение коммуникаций.">i</span></span>
+        <div class="segmented" id="modeSwitch">
+          <button type="button" data-mode="PLANAR" class="active">2D</button>
+          <button type="button" data-mode="DEPTH">С учётом глубины</button>
+        </div></div>
+      <label class="row"><span>Неизвестные restriction_type</span>
+        <select id="policy"><option value="IGNORE">игнорировать</option><option value="FORBIDDEN">считать запретом (1 м)</option></select></label>
+      <label class="row"><span>Макс. вариантов</span>
+        <select id="maxVariants"><option>3</option><option>2</option><option>1</option></select></label>
+      <button id="run" class="primary">Загрузить и рассчитать</button>
+      <div id="status" class="status"></div>
+      <div id="stages" class="stages" hidden></div>
+    </section>
+
+    <!-- 2. result -->
+    <section class="card" id="resultCard" hidden>
+      <h3>2. Результат <span id="modeTag" class="tag"></span></h3>
+      <div id="badge" class="badge" hidden></div>
+      <div id="perf" class="perf"></div>
+      <div id="variantTabs" class="tabs"></div>
+      <div id="summary" class="summary"></div>
+      <div id="depthSummary" class="summary depth" hidden></div>
+      <div id="unconnected" class="unconnected"></div>
+      <div class="actions">
+        <a id="download" class="button" download>Скачать result.geojson</a>
+        <button id="rerunOther" class="button secondary" type="button"></button>
+      </div>
+    </section>
+
+    <!-- clicked object (appears on demand) -->
+    <section class="card" id="featureCard" hidden>
+      <h3>Объект</h3>
+      <div id="inspector" class="inspector"></div>
+      <details><summary>Все свойства</summary><div id="feature" class="feature"></div></details>
+    </section>
+
+    <!-- 3. map layers -->
+    <section class="card">
+      <h3>Слои</h3>
+      <div id="layers" class="layers"></div>
+      <label><input type="checkbox" id="basemap" checked> Подложка OpenStreetMap Standard (нужен интернет)</label>
+      <label class="row" id="colorModeRow" hidden><span>Цвет новой сети</span>
+        <select id="colorMode"><option value="default">по умолчанию</option><option value="depth">по глубине</option></select></label>
+      <div id="depthLegend" class="depthLegend" hidden></div>
+    </section>
+
+    <!-- collapsed by default -->
+    <details class="card" id="diagCard" hidden>
+      <summary><span class="h">Диагностика входа</span><span id="diagLine" class="line"></span></summary>
+      <div id="diagnostics" class="diag"></div>
+    </details>
+
+    <details class="card" id="explainCard" hidden>
+      <summary><span class="h">Почему так?</span><span id="explainLine" class="line"></span></summary>
+      <div id="explainSummary" class="explainSummary"></div>
+    </details>
+
+    <details class="card" id="profileCard" hidden>
+      <summary><span class="h">Продольный профиль</span><span class="line">глубина вдоль трассы к ОКС</span></summary>
+      <label class="row"><span>Точка подключения</span><select id="profileOks"></select></label>
+      <div id="profile" class="profile"></div>
+      <div id="profileHover" class="notes"></div>
+    </details>
+
+    <details class="card" id="modeCompareCard" hidden>
+      <summary><span class="h">2D и режим с учётом глубины</span><span id="modeCompareLine" class="line"></span></summary>
+      <div id="modeCompare" class="comparison"></div>
+    </details>
+
+    <details class="card" id="techCard" hidden>
+      <summary><span class="h">Технические детали</span><span class="line">валидатор · варианты · метрики · журнал решений</span></summary>
+      <div id="techJob" class="notes"></div>
+      <div id="validation" class="validation"></div>
+      <div id="comparison" class="comparison"></div>
+      <div id="techPerf" class="notes"></div>
+      <div class="actions"><a id="downloadReport" class="button secondary" target="_blank">Отчёт JSON</a><a id="downloadCsv" class="button secondary" download>CSV</a></div>
+      <details><summary>Журнал решений (сырые события)</summary><div id="explain" class="explain"></div></details>
+    </details>
+
+    <details class="card" id="jobsCard">
+      <summary><span class="h">Последние задания</span></summary>
+      <div id="jobs" class="jobs"></div>
+    </details>
+  </aside>
+  <div id="map"></div>
+</main>
+<script src="/webjars/leaflet/1.9.4/dist/leaflet.js"></script>
+<script src="/app.js?v=8"></script>
+</body>
+</html>

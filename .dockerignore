@@ -1,0 +1,12 @@
+target
+build
+data
+docs
+examples
+scripts
+.git
+.idea
+.claude
+.mcp.json
+*.log
+*.md

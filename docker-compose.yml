@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: heatnet-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-heatnet}
+      POSTGRES_USER: ${POSTGRES_USER:-heatnet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
+    volumes:
+      - heatnet-pg:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"   # exposed for local tooling (large-file smoke script); not needed by the app container
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-heatnet} -d ${POSTGRES_DB:-heatnet}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: heatnet-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-heatnet}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-heatnet}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
+      HEATNET_WORKERS: ${HEATNET_WORKERS:-2}
+      HEATNET_MAX_VARIANTS: ${HEATNET_MAX_VARIANTS:-3}
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx6g -XX:+UseG1GC}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - heatnet-data:/app/data
+      - heatnet-tmp:/app/tmp
+    restart: unless-stopped
+
+volumes:
+  heatnet-pg:
+  heatnet-data:
+  heatnet-tmp:

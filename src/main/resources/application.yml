@@ -1,0 +1,53 @@
+server:
+  port: ${SERVER_PORT:8080}
+  tomcat:
+    max-swallow-size: -1
+
+spring:
+  application:
+    name: heatnet-router
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 3GB
+      max-request-size: 3GB
+      file-size-threshold: 1MB
+      location: ${HEATNET_TMP_DIR:${java.io.tmpdir}}
+  # Runtime database: PostgreSQL (docker-compose service "db"). H2 exists only in the test profile.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:heatnet}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:heatnet}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:heatnet}}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate.jdbc.lob.non_contextual_creation: true
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+heatnet:
+  storage-dir: ${HEATNET_STORAGE_DIR:./data/jobs}
+  workers: ${HEATNET_WORKERS:2}
+  max-variants: ${HEATNET_MAX_VARIANTS:3}
+  improve: ${HEATNET_IMPROVE:true}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    ru.lct.heatnet: INFO

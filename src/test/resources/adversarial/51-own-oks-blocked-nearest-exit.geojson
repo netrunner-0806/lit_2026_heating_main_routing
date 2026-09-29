@@ -1,0 +1,11 @@
+{
+ "type": "FeatureCollection",
+ "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+ "features": [
+  {"type": "Feature", "properties": {"id": 300, "object_type": "source"}, "geometry": {"type": "Point", "coordinates": [37.410236768, 55.665523522]}},
+  {"type": "Feature", "properties": {"id": 100, "object_type": "heat_network", "diameter": 300}, "geometry": {"type": "LineString", "coordinates": [[37.410236768, 55.665523522], [37.415004007, 55.665585184]]}},
+  {"type": "Feature", "properties": {"id": "oks_A", "object_type": "restriction", "restriction_type": "oks"}, "geometry": {"type": "Polygon", "coordinates": [[[37.410837814, 55.666385042], [37.411155636, 55.666389157], [37.411151997, 55.666478977], [37.410834173, 55.666474862], [37.410837814, 55.666385042]]]}},
+  {"type": "Feature", "properties": {"id": "A", "object_type": "oks_connection_point", "flow_tph": 10.0}, "geometry": {"type": "Point", "coordinates": [37.410994541, 55.666440991]}},
+  {"type": "Feature", "properties": {"id": 1, "object_type": "restriction", "restriction_type": "park"}, "geometry": {"type": "Polygon", "coordinates": [[[37.410674898, 55.666481786], [37.411310544, 55.666490016], [37.411301809, 55.666705583], [37.410666159, 55.666697353], [37.410674898, 55.666481786]]]}}
+ ]
+}

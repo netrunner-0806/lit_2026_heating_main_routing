@@ -1,0 +1,205 @@
+{
+ "type": "FeatureCollection",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 300,
+    "object_type": "source"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.410236768,
+     55.665523522
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 100,
+    "object_type": "heat_network",
+    "diameter": 300
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.410236768,
+      55.665523522
+     ],
+     [
+      37.415004007,
+      55.665585184
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 1,
+    "object_type": "restriction",
+    "restriction_type": "oks"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.412392375,
+       55.667258897
+      ],
+      [
+       37.412710205,
+       55.667263008
+      ],
+      [
+       37.412702932,
+       55.667442648
+      ],
+      [
+       37.412385101,
+       55.667438537
+      ],
+      [
+       37.412392375,
+       55.667258897
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "far",
+    "object_type": "oks_connection_point",
+    "flow_tph": 12.5
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.412547654,
+     55.667350773
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 2,
+    "object_type": "restriction",
+    "restriction_type": "prohibited_site"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        37.41177127,
+        55.666891393
+       ],
+       [
+        37.413360405,
+        55.666911948
+       ],
+       [
+        37.413324055,
+        55.667810147
+       ],
+       [
+        37.411734884,
+        55.667789591
+       ],
+       [
+        37.41177127,
+        55.666891393
+       ]
+      ],
+      [
+       [
+        37.412081821,
+        55.667075146
+       ],
+       [
+        37.412059994,
+        55.667614065
+       ],
+       [
+        37.413013492,
+        55.667626398
+       ],
+       [
+        37.413035306,
+        55.667087479
+       ],
+       [
+        37.412081821,
+        55.667075146
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 3,
+    "object_type": "restriction",
+    "restriction_type": "oks"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.410854196,
+       55.665980853
+      ],
+      [
+       37.411172016,
+       55.665984968
+      ],
+      [
+       37.411164736,
+       55.666164607
+      ],
+      [
+       37.410846915,
+       55.666160492
+      ],
+      [
+       37.410854196,
+       55.665980853
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "near",
+    "object_type": "oks_connection_point",
+    "flow_tph": 8.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.411009466,
+     55.66607273
+    ]
+   }
+  }
+ ]
+}

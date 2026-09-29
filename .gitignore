@@ -1,0 +1,22 @@
+# build and runtime artifacts
+target/
+build/
+data/
+logs/
+*.log
+*.jar
+*.class
+.jqwik-database
+# local environment and IDE
+.env
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

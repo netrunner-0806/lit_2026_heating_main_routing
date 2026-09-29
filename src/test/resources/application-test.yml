@@ -1,0 +1,13 @@
+# Test profile only: in-memory H2 replaces PostgreSQL so that Spring context tests run without a database server.
+spring:
+  datasource:
+    url: jdbc:h2:mem:heatnet-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+heatnet:
+  storage-dir: ${java.io.tmpdir}/heatnet-test-jobs
+  workers: 1

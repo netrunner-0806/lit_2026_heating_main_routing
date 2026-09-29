@@ -1,0 +1,533 @@
+{
+ "type": "FeatureCollection",
+ "name": "depth-demo",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 900,
+    "object_type": "source",
+    "name": "Demo source"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.410236768,
+     55.665523522
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 100,
+    "object_type": "heat_network",
+    "diameter": 400
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.410236768,
+      55.665523522
+     ],
+     [
+      37.416593091,
+      55.665605696
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 101,
+    "object_type": "heat_network",
+    "diameter": 1200
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.414202927,
+      55.665736595
+     ],
+     [
+      37.416586562,
+      55.665767372
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 200,
+    "object_type": "heat_chamber"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.413414925,
+     55.66556465
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 1,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building A"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.410843275,
+       55.666250312
+      ],
+      [
+       37.411161096,
+       55.666254427
+      ],
+      [
+       37.411153817,
+       55.666434067
+      ],
+      [
+       37.410835994,
+       55.666429952
+      ],
+      [
+       37.410843275,
+       55.666250312
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "A",
+    "object_type": "oks_connection_point",
+    "flow_tph": 20.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.410998545,
+     55.66634219
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 11,
+    "object_type": "restriction",
+    "restriction_type": "gas_pipeline"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.4102344,
+      55.665581905
+     ],
+     [
+      37.412141297,
+      55.665606592
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 2,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building B"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.412432383,
+       55.666270879
+      ],
+      [
+       37.412750204,
+       55.66627499
+      ],
+      [
+       37.412742932,
+       55.66645463
+      ],
+      [
+       37.412425109,
+       55.666450519
+      ],
+      [
+       37.412432383,
+       55.666270879
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "B",
+    "object_type": "oks_connection_point",
+    "flow_tph": 25.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.412587657,
+     55.666362754
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 12,
+    "object_type": "restriction",
+    "restriction_type": "gas_pipeline"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.412301296,
+      55.665581702
+     ],
+     [
+      37.414208195,
+      55.665606356
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 3,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building C"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.415603345,
+       55.666491591
+      ],
+      [
+       37.415921169,
+       55.666495694
+      ],
+      [
+       37.415913911,
+       55.666675334
+      ],
+      [
+       37.415596086,
+       55.666671231
+      ],
+      [
+       37.415603345,
+       55.666491591
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "C",
+    "object_type": "oks_connection_point",
+    "flow_tph": 30.0
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     37.415758628,
+     55.666583462
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 13,
+    "object_type": "restriction",
+    "restriction_type": "power_cable"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.414180404,
+      55.666293479
+     ],
+     [
+      37.416564072,
+      55.666324257
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 14,
+    "object_type": "restriction",
+    "restriction_type": "gas_pipeline"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      37.41418331,
+      55.666221623
+     ],
+     [
+      37.416566974,
+      55.666252401
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 15,
+    "object_type": "restriction",
+    "restriction_type": "road"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.414205107,
+       55.665682703
+      ],
+      [
+       37.416588739,
+       55.66571348
+      ],
+      [
+       37.416584386,
+       55.665821264
+      ],
+      [
+       37.414200747,
+       55.665790487
+      ],
+      [
+       37.414205107,
+       55.665682703
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 4,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building D"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.411623273,
+       55.666619877
+      ],
+      [
+       37.412258923,
+       55.666628103
+      ],
+      [
+       37.41224801,
+       55.666897562
+      ],
+      [
+       37.411612357,
+       55.666889337
+      ],
+      [
+       37.411623273,
+       55.666619877
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 5,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building E"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.413053484,
+       55.666638379
+      ],
+      [
+       37.413848047,
+       55.666648651
+      ],
+      [
+       37.413833512,
+       55.667007931
+      ],
+      [
+       37.413038942,
+       55.666997659
+      ],
+      [
+       37.413053484,
+       55.666638379
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 6,
+    "object_type": "restriction",
+    "restriction_type": "oks",
+    "address": "Building F"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.414805154,
+       55.666571151
+      ],
+      [
+       37.415281891,
+       55.666577307
+      ],
+      [
+       37.415267369,
+       55.666936587
+      ],
+      [
+       37.414790628,
+       55.66693043
+      ],
+      [
+       37.414805154,
+       55.666571151
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 16,
+    "object_type": "restriction",
+    "restriction_type": "water"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.410178496,
+       55.666960638
+      ],
+      [
+       37.411449804,
+       55.6669771
+      ],
+      [
+       37.411427968,
+       55.667516018
+      ],
+      [
+       37.410156642,
+       55.667499556
+      ],
+      [
+       37.410178496,
+       55.666960638
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": 17,
+    "object_type": "restriction",
+    "restriction_type": "park"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       37.414313886,
+       55.666924272
+      ],
+      [
+       37.414711171,
+       55.666929404
+      ],
+      [
+       37.414693012,
+       55.667378504
+      ],
+      [
+       37.414295723,
+       55.667373371
+      ],
+      [
+       37.414313886,
+       55.666924272
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

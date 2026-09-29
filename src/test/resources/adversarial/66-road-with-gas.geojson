@@ -1,0 +1,12 @@
+{
+ "type": "FeatureCollection",
+ "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+ "features": [
+  {"type": "Feature", "properties": {"id": 300, "object_type": "source"}, "geometry": {"type": "Point", "coordinates": [37.410236768, 55.665523522]}},
+  {"type": "Feature", "properties": {"id": 100, "object_type": "heat_network", "diameter": 300}, "geometry": {"type": "LineString", "coordinates": [[37.410236768, 55.665523522], [37.415004007, 55.665585184]]}},
+  {"type": "Feature", "properties": {"id": "oks_A", "object_type": "restriction", "restriction_type": "oks"}, "geometry": {"type": "Polygon", "coordinates": [[[37.410949052, 55.666386482], [37.411107963, 55.666388540], [37.411104323, 55.666478359], [37.410945412, 55.666476302], [37.410949052, 55.666386482]]]}},
+  {"type": "Feature", "properties": {"id": "A", "object_type": "oks_connection_point", "flow_tph": 10.0}, "geometry": {"type": "Point", "coordinates": [37.411027051, 55.666423439]}},
+  {"type": "Feature", "properties": {"id": 1, "object_type": "restriction", "restriction_type": "road"}, "geometry": {"type": "Polygon", "coordinates": [[[37.410222200, 55.665882801], [37.414989484, 55.665944463], [37.414985853, 55.666034283], [37.410218558, 55.665972620], [37.410222200, 55.665882801]]]}},
+  {"type": "Feature", "properties": {"id": 2, "object_type": "restriction", "restriction_type": "gas_pipeline"}, "geometry": {"type": "LineString", "coordinates": [[37.410220379, 55.665927711], [37.414987668, 55.665989373]]}}
+ ]
+}

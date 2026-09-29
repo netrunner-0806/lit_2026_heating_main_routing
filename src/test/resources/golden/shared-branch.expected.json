@@ -1,0 +1,205 @@
+[ {
+  "geometry" : [ 37.4131506, 55.6681674 ],
+  "properties" : {
+    "chamber_kind" : "junction",
+    "cost" : 3000000,
+    "diameter" : 125,
+    "existing_line_id" : null,
+    "object_type" : "heat_chamber",
+    "variant_id" : "v1",
+    "id" : "v1:heat_chamber#1"
+  }
+}, {
+  "geometry" : [ 37.413256, 55.6655626 ],
+  "properties" : {
+    "chamber_kind" : "tie_in_on_existing_network",
+    "cost" : 5000000,
+    "diameter" : 400,
+    "existing_line_id" : 1,
+    "object_type" : "heat_chamber",
+    "variant_id" : "v1",
+    "id" : "v1:heat_chamber#2"
+  }
+}, {
+  "geometry" : [ [ 37.4131433, 55.668347 ], [ 37.4131506, 55.6681674 ] ],
+  "properties" : {
+    "cost" : 1794960,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 100,
+    "end_node_id" : "v1:heat_chamber#1",
+    "flow_tph" : 20,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 20,
+    "link_id" : 2,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "A",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#1"
+  }
+}, {
+  "geometry" : [ [ 37.4131506, 55.6681674 ], [ 37.413256, 55.6655626 ] ],
+  "properties" : {
+    "cost" : 28209750,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 125,
+    "end_node_id" : "v1:heat_chamber#2",
+    "flow_tph" : 40,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 290,
+    "link_id" : 3,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "v1:heat_chamber#1",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#2"
+  }
+}, {
+  "geometry" : [ [ 37.413779, 55.6683552 ], [ 37.4137847, 55.6682139 ], [ 37.4131506, 55.6681674 ] ],
+  "properties" : {
+    "cost" : 5022478,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 100,
+    "end_node_id" : "v1:heat_chamber#1",
+    "flow_tph" : 20,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 55.962,
+    "link_id" : 4,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "B",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#3"
+  }
+}, {
+  "geometry" : null,
+  "properties" : {
+    "attachment_point_count" : 1,
+    "attachment_points" : [ "new chamber on line 1 @400190,6170000" ],
+    "calculated_cost" : 43027188,
+    "chamber_construction_cost" : 8000000,
+    "connected_oks_count" : 2,
+    "construction_cost" : 43027188,
+    "diff_vs_best" : null,
+    "existing_chamber_tie_in_cost" : 0,
+    "existing_chamber_tie_in_count" : 0,
+    "mode" : "planar",
+    "network_construction_cost" : 35027188,
+    "new_network_length" : 365.962,
+    "object_type" : "variant_summary",
+    "rank" : 1,
+    "score" : 2.303,
+    "shared_network_length" : 290,
+    "strategy" : "joint-nearest-first",
+    "unconnected_oks_ids" : [ ],
+    "unconnected_penalty" : 0,
+    "variant_id" : "v1",
+    "id" : "v1:variant_summary#1"
+  }
+}, {
+  "geometry" : [ 37.413256, 55.6655626 ],
+  "properties" : {
+    "chamber_kind" : "tie_in_on_existing_network",
+    "cost" : 5000000,
+    "diameter" : 400,
+    "existing_line_id" : 1,
+    "object_type" : "heat_chamber",
+    "variant_id" : "v2",
+    "id" : "v2:heat_chamber#1"
+  }
+}, {
+  "geometry" : [ 37.4138916, 55.6655708 ],
+  "properties" : {
+    "chamber_kind" : "tie_in_on_existing_network",
+    "cost" : 5000000,
+    "diameter" : 400,
+    "existing_line_id" : 1,
+    "object_type" : "heat_chamber",
+    "variant_id" : "v2",
+    "id" : "v2:heat_chamber#2"
+  }
+}, {
+  "geometry" : [ [ 37.4131433, 55.668347 ], [ 37.413256, 55.6655626 ] ],
+  "properties" : {
+    "cost" : 27821880,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 100,
+    "end_node_id" : "v2:heat_chamber#1",
+    "flow_tph" : 20,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 310,
+    "link_id" : 1,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "A",
+    "variant_id" : "v2",
+    "id" : "v2:heat_network#1"
+  }
+}, {
+  "geometry" : [ [ 37.413779, 55.6683552 ], [ 37.4138916, 55.6655708 ] ],
+  "properties" : {
+    "cost" : 27821880,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 100,
+    "end_node_id" : "v2:heat_chamber#2",
+    "flow_tph" : 20,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 310,
+    "link_id" : 2,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "B",
+    "variant_id" : "v2",
+    "id" : "v2:heat_network#2"
+  }
+}, {
+  "geometry" : null,
+  "properties" : {
+    "attachment_point_count" : 2,
+    "attachment_points" : [ "new chamber on line 1 @400190,6170000", "new chamber on line 1 @400230,6170000" ],
+    "calculated_cost" : 65643760,
+    "chamber_construction_cost" : 10000000,
+    "connected_oks_count" : 2,
+    "construction_cost" : 65643760,
+    "diff_vs_best" : "vs v1: +254.0 m network; +22,616,572 ₽; -290.0 m shared sections; 1 OKS attach at a different point; 2 OKS use a different shared branch; 1 attachment point not used by v1",
+    "existing_chamber_tie_in_cost" : 0,
+    "existing_chamber_tie_in_count" : 0,
+    "mode" : "planar",
+    "network_construction_cost" : 55643760,
+    "new_network_length" : 620,
+    "object_type" : "variant_summary",
+    "rank" : 2,
+    "score" : 3.698,
+    "shared_network_length" : 0,
+    "strategy" : "separate-connections",
+    "unconnected_oks_ids" : [ ],
+    "unconnected_penalty" : 0,
+    "variant_id" : "v2",
+    "id" : "v2:variant_summary#1"
+  }
+} ]

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Справочники расчёта</title>
+  <link rel="stylesheet" href="/style.css?v=6">
+  <style>
+    body { overflow: auto; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    table.ref { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 18px; background: #fff; }
+    table.ref th, table.ref td { border: 1px solid var(--line); padding: 5px 8px; text-align: right; }
+    table.ref th:first-child, table.ref td:first-child { text-align: left; }
+    table.ref th { background: #eef2f6; }
+    h2 { font-size: 18px; margin: 18px 0 8px; }
+    .note { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<header><div class="brand">Справочники расчёта <span class="muted">только чтение · правила актуального технического приложения</span></div><nav><a href="/">← к карте</a></nav></header>
+<div class="page" id="page">Загрузка…</div>
+<script>
+(async () => {
+  const d = await fetch('/api/v1/reference').then((r) => r.json());
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const num = (v) => typeof v === 'number' ? v.toLocaleString('ru-RU') : esc(v);
+  let h = '<h2>Правила кейса (immutable standard configuration)</h2><div class="note">Значения взяты из актуального технического приложения; через UI они не редактируются.</div>';
+  h += '<h2>Таблица 1. Условные диаметры</h2><table class="ref"><tr><th>ДУ, мм</th><th>Пропускная способность, т/ч</th><th>Предельная длина, м</th><th>Стоимость, руб./м</th><th>Ширина пары, м</th><th>Высота, м</th></tr>';
+  d.diameters.forEach((r) => { h += `<tr><td>${r.du}</td><td>${num(r.capacityTph)}</td><td>${num(r.maxLengthM)}</td><td>${num(r.costPerMeter)}</td><td>${r.pairWidthM.toFixed(3)}</td><td>${r.heightM.toFixed(3)}</td></tr>`; });
+  h += '</table><h2>Стоимость камер и врезок</h2><table class="ref"><tr><th>Наибольший ДУ примыкающих участков</th><th>Стоимость новой камеры, руб.</th></tr>' +
+    `<tr><td>50–200</td><td>${num(d.chamberCost.du50_200)}</td></tr><tr><td>250–500</td><td>${num(d.chamberCost.du250_500)}</td></tr><tr><td>600–1000</td><td>${num(d.chamberCost.du600_1000)}</td></tr><tr><td>1200–1400</td><td>${num(d.chamberCost.du1200_1400)}</td></tr>` +
+    `<tr><td>Врезка в существующую камеру (за каждый участок)</td><td>${num(d.chamberCost.existingChamberTieIn)}</td></tr></table>`;
+  h += '<h2>Таблица 2. Пространственные ограничения</h2><table class="ref"><tr><th>Тип</th><th>Правило</th><th>Мин. расстояние, м</th><th>Угол</th><th>Спецучасток</th><th>Kспец</th><th>Правило по глубине</th></tr>';
+  d.restrictions.forEach((r) => { h += `<tr><td>${esc(r.type)}</td><td>${r.kind === 'FORBIDDEN' ? 'пересечение запрещено' : 'специальный проход'}</td><td>${esc(r.clearanceM)}</td><td>${r.minCrossingAngleDeg ? '≥ ' + r.minCrossingAngleDeg + '°' : '—'}</td><td>${r.sectionMode === 'NONE' ? '—' : r.sectionMode === 'POLYGON_PLUS_EXTENT' ? 'полигон + ' + r.sectionExtentM + ' м' : '±' + r.sectionExtentM + ' м от точки пересечения'}</td><td>${r.kind === 'FORBIDDEN' ? '—' : r.kSpec.toFixed(2)}</td><td>${esc(r.depthRule || '—')}</td></tr>`; });
+  h += '</table>';
+  h += `<h2>Режим с учётом глубины</h2><table class="ref"><tr><th>Параметр</th><th>Значение</th></tr><tr><td>Обычная глубина (верх габарита)</td><td>${d.depth.normalDepthM} м</td></tr><tr><td>Минимальная глубина</td><td>${d.depth.minDepthM} м</td></tr><tr><td>Максимальная глубина</td><td>${esc(d.depth.maxDepthM)}</td></tr><tr><td>Максимальный уклон</td><td>${d.depth.maxSlope} м/м</td></tr><tr><td>Kгл</td><td>${esc(d.depth.kDepthFormula)}</td></tr><tr><td>Определение глубины</td><td>${esc(d.depth.depthDefinition)}</td></tr></table>`;
+  h += '<table class="ref"><tr><th>Тип</th><th>Вертикальное правило</th><th>Верх габарита, м</th><th>Высота габарита, м</th><th>Просвет / мин. глубина, м</th></tr>';
+  d.depth.verticalRules.forEach((r) => { h += `<tr><td>${esc(r.type)}</td><td>${esc(r.rule)}</td><td>${r.utilityTopM ?? '—'}</td><td>${esc(r.utilityHeightM ?? '—')}</td><td>${r.verticalClearanceM ?? r.minDepthM}</td></tr>`; });
+  h += '</table>';
+  h += `<h2>Показатель ранжирования</h2><div class="note">${esc(d.score.formula)} · штраф за неподключённую точку ${num(d.score.penaltyFixed)} + ${num(d.score.penaltyPerTph)} · flow_tph · поворот ≤ ${d.score.maxTurnAngleDeg}° · примыканий к камере ≤ ${d.score.maxChamberDegree} · существующая камера используется в пределах ${d.score.existingChamberSnapDistanceM} м</div>`;
+  h += '<h2>Дополнительные настроенные правила</h2><div class="note">Расширение сервиса (heatnet.custom-restrictions в application config). Это не официальные правила кейса; типы таблицы 2 переопределить нельзя.</div>';
+  if (!d.customRestrictions || !d.customRestrictions.length) h += '<div class="note">Пользовательские правила не настроены.</div>';
+  else { h += '<table class="ref"><tr><th>Тип</th><th>Правило</th><th>Мин. расстояние, м</th><th>Угол</th><th>Спецучасток, м</th><th>Kспец</th><th>Вертикальное правило</th></tr>'; d.customRestrictions.forEach((r) => { h += `<tr><td>${esc(r.type)}</td><td>${r.kind}</td><td>${r.clearanceM}</td><td>${r.minCrossingAngleDeg || '—'}</td><td>${r.sectionExtentM || '—'}</td><td>${r.kSpec}</td><td>${esc(r.verticalRule || '—')}</td></tr>`; }); h += '</table>'; }
+  document.getElementById('page').innerHTML = h;
+})();
+</script>
+</body>
+</html>

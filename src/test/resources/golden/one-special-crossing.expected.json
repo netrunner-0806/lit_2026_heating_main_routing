@@ -1,0 +1,117 @@
+[ {
+  "geometry" : [ 37.4118258, 55.6655441 ],
+  "properties" : {
+    "chamber_kind" : "tie_in_on_existing_network",
+    "cost" : 5000000,
+    "diameter" : 400,
+    "existing_line_id" : 1,
+    "object_type" : "heat_chamber",
+    "variant_id" : "v1",
+    "id" : "v1:heat_chamber#1"
+  }
+}, {
+  "geometry" : [ [ 37.4118004, 55.6661728 ], [ 37.4118142, 55.6658315 ] ],
+  "properties" : {
+    "cost" : 3174140,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 80,
+    "end_node_id" : "v1:technical_node#1",
+    "flow_tph" : 10,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 38,
+    "link_id" : 1,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "A",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#1"
+  }
+}, {
+  "geometry" : [ [ 37.4118142, 55.6658315 ], [ 37.4118157, 55.6657956 ] ],
+  "properties" : {
+    "cost" : 417650,
+    "crossed_restrictions" : [ "gas_pipeline#2" ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 80,
+    "end_node_id" : "v1:technical_node#2",
+    "flow_tph" : 10,
+    "k_depth" : 1,
+    "k_spec" : 1.25,
+    "laying_method" : "special",
+    "length" : 4,
+    "link_id" : 1,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "v1:technical_node#1",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#2"
+  }
+}, {
+  "geometry" : [ [ 37.4118157, 55.6657956 ], [ 37.4118258, 55.6655441 ] ],
+  "properties" : {
+    "cost" : 2338840,
+    "crossed_restrictions" : [ ],
+    "crossings" : null,
+    "depth_end" : null,
+    "depth_start" : null,
+    "diameter" : 80,
+    "end_node_id" : "v1:heat_chamber#1",
+    "flow_tph" : 10,
+    "k_depth" : 1,
+    "k_spec" : 1,
+    "laying_method" : "base",
+    "length" : 28,
+    "link_id" : 1,
+    "object_type" : "heat_network",
+    "slope" : null,
+    "start_node_id" : "v1:technical_node#2",
+    "variant_id" : "v1",
+    "id" : "v1:heat_network#3"
+  }
+}, {
+  "geometry" : [ 37.4118142, 55.6658315 ],
+  "properties" : {
+    "object_type" : "technical_node",
+    "variant_id" : "v1",
+    "id" : "v1:technical_node#1"
+  }
+}, {
+  "geometry" : [ 37.4118157, 55.6657956 ],
+  "properties" : {
+    "object_type" : "technical_node",
+    "variant_id" : "v1",
+    "id" : "v1:technical_node#2"
+  }
+}, {
+  "geometry" : null,
+  "properties" : {
+    "attachment_point_count" : 1,
+    "attachment_points" : [ "new chamber on line 1 @400100,6170000" ],
+    "calculated_cost" : 10930630,
+    "chamber_construction_cost" : 5000000,
+    "connected_oks_count" : 1,
+    "construction_cost" : 10930630,
+    "diff_vs_best" : null,
+    "existing_chamber_tie_in_cost" : 0,
+    "existing_chamber_tie_in_count" : 0,
+    "mode" : "planar",
+    "network_construction_cost" : 5930630,
+    "new_network_length" : 70,
+    "object_type" : "variant_summary",
+    "rank" : 1,
+    "score" : 0.516,
+    "shared_network_length" : 0,
+    "strategy" : "joint-nearest-first",
+    "unconnected_oks_ids" : [ ],
+    "unconnected_penalty" : 0,
+    "variant_id" : "v1",
+    "id" : "v1:variant_summary#1"
+  }
+} ]
