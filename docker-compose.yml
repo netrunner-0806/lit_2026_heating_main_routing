@@ -8,8 +8,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
     volumes:
       - heatnet-pg:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"   # exposed for local tooling (large-file smoke script); not needed by the app container
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-heatnet} -d ${POSTGRES_DB:-heatnet}"]
       interval: 5s
@@ -30,14 +30,44 @@ services:
       HEATNET_WORKERS: ${HEATNET_WORKERS:-2}
       HEATNET_MAX_VARIANTS: ${HEATNET_MAX_VARIANTS:-3}
       JAVA_OPTS: ${JAVA_OPTS:--Xmx6g -XX:+UseG1GC}
-    ports:
-      - "${APP_PORT:-8080}:8080"
     volumes:
       - heatnet-data:/app/data
       - heatnet-tmp:/app/tmp
+    networks:
+      - frontend
+      - backend
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    container_name: heatnet-caddy
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - frontend
+    restart: unless-stopped
+
+# caddy <-> app on "frontend", app <-> db on "backend": caddy has no route to db
+networks:
+  frontend:
+  backend:
+    internal: true
 
 volumes:
   heatnet-pg:
   heatnet-data:
   heatnet-tmp:
+  caddy-data:
+  caddy-config:
