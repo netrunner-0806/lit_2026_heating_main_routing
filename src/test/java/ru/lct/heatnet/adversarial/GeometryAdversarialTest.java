@@ -231,13 +231,21 @@ class GeometryAdversarialTest {
     void crossingAnotherExistingLineExactlyAtItsVertex() throws Exception {
         Run r = run("17-cross-existing-at-vertex");
         assertConnectedAndValid(r);
-        assertTrue(r.crosses("heat_network#101"), "crossed at the interior vertex of line 101");
+        assertFalse(r.crosses("heat_network#101"), "29.09 #13 permits attachment to line 101 inside the road");
         assertTrue(r.crosses("road#1"));
-        OutputFeature both = r.lines().stream().filter(f -> String.valueOf(f.prop("crossed_restrictions")).contains("heat_network#101")).findFirst().get();
-        assertEquals(1.6, ((Number) both.prop("k_spec")).doubleValue(), 1e-9, "max Kspec of the overlapping objects");
-        assertEquals(4.0, ((Number) both.prop("length")).doubleValue(), 1e-6);
+        OutputFeature passage = r.lines().stream().filter(f -> "special".equals(f.prop("laying_method"))).findFirst().get();
+        assertEquals(1.6, ((Number) passage.prop("k_spec")).doubleValue(), 1e-9);
+        assertEquals(7.0, ((Number) passage.prop("length")).doubleValue(), 1e-6, "4 m inside road + 3 m at exit");
         assertEquals(1, r.best.network().roots().size());
-        assertEquals(100, r.chambers().get(0).prop("existing_line_id"), "the tie-in is on line 100, not on the crossed line 101");
+        assertEquals(101, r.chambers().get(0).prop("existing_line_id"));
+        // Crossing the same line at its interior vertex without joining is still valid and still exactly 4 m.
+        ru.lct.heatnet.restrictions.SegmentCheck crossing = new ru.lct.heatnet.restrictions.ObstacleSpace(r.input,
+                ru.lct.heatnet.restrictions.ClearanceClass.SMALL).check(
+                ru.lct.heatnet.SyntheticInput.c(52, 60), ru.lct.heatnet.SyntheticInput.c(52, 40));
+        assertTrue(crossing.valid(), crossing.reason());
+        ru.lct.heatnet.restrictions.SpecialPassage heat = crossing.passages().stream()
+                .filter(p -> p.obstacle().isExistingNetwork()).findFirst().orElseThrow();
+        assertEquals(4.0, heat.to() - heat.from(), 1e-6);
     }
 
     @Test

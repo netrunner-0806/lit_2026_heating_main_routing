@@ -470,8 +470,7 @@ class DepthAdversarialTest {
     }
 
     /**
-     * Case 20: another existing line (DU300) runs under a road 12 m before the target line; it cannot be tied into
-     * (inside the road) and must be crossed as a special passage with vertical clearance (ABOVE at 2.5 - Hnew).
+     * Case 20: 29.09 #13 permits tying into the existing line inside the road; there is no utility crossing at the tie-in.
      */
     @Test
     void case20_crossingAnotherExistingLineJustBeforeTheRoot() {
@@ -481,15 +480,13 @@ class DepthAdversarialTest {
                 .build();
         Solved s = run(in, 1);
         Coordinate root = rootOf(s.v, "A");
-        assertEquals(0.0, root.y, 1e-6, "tie-in on line 1, not on the line under the road");
-        OutputFeature x = only(crossingLines(s, "heat_network"), "existing line crossing");
-        Map<String, Object> c = crossing(x, "heat_network");
-        assertEquals("ABOVE", c.get("method"));
-        assertTrue(num(c, "actual_clearance") >= HEAT_CLEAR - 1e-3);
-        assertEquals(HEAT_TOP - HEAT_CLEAR - h(du(x)), d0(x), 1e-3);
-        assertTrue(crosses(x, "road"), "road and existing line share the plateau");
-        assertTrue(d0(x) >= ROAD_MIN);
-        assertTrue(((Number) s.summary().prop("vertical_crossing_count")).intValue() >= 1);
-        assertEquals(1.05 * 1.60 >= 1.60 ? 1.60 : 1.05, ((Number) x.prop("k_spec")).doubleValue(), 1e-9, "max Kspec of the overlapping objects");
+        assertEquals(12.0, root.y, 1e-6, "tie-in on the line inside the road is now allowed");
+        assertTrue(crossingLines(s, "heat_network").isEmpty());
+        OutputFeature x = only(crossingLines(s, "road"), "road passage from the chamber");
+        assertEquals(5.0, len(x), 1e-3, "2 m inside the road + 3 m at exit");
+        assertEquals(3.0, d0(x), 1e-6);
+        assertEquals(3.0, d1(x), 1e-6);
+        assertEquals(1.60, ((Number) x.prop("k_spec")).doubleValue(), 1e-9);
+        assertEquals(0, s.rep.getWarningCount(), s.rep.getIssues().toString());
     }
 }

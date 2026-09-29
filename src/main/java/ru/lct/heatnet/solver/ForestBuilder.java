@@ -42,7 +42,8 @@ import java.util.Map;
 public final class ForestBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(ForestBuilder.class);
-    private static final double JUNCTION_END_MARGIN = 3.0;
+    // No minimum spacing between new chambers (#12, 29.09.2026); only avoid coincident output nodes.
+    private static final double JUNCTION_END_MARGIN = ru.lct.heatnet.geo.GeometryTolerance.NODE_SNAP_M;
     private static final double JUNCTION_SPECIAL_MARGIN = 8.0;
 
     private final SolverContext ctx;

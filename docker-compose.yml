@@ -31,13 +31,23 @@ services:
       HEATNET_MAX_VARIANTS: ${HEATNET_MAX_VARIANTS:-3}
       # Keep multipart spool and job files on one filesystem so transferTo can rename the upload.
       HEATNET_TMP_DIR: /app/data/tmp
-      JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx13g -XX:+UseG1GC}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx13g -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     volumes:
       - heatnet-data:/app/data
       - heatnet-tmp:/app/tmp
     networks:
       - frontend
       - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          health=$$(curl -fsS --max-time 4 http://localhost:8080/actuator/health) &&
+          printf '%s' "$$health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped
 
   caddy:

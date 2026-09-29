@@ -89,10 +89,13 @@ public final class NavGraph {
         Envelope env = space.vertexZoneUnion().getEnvelopeInternal();
         if (env.isNull()) return out;
         env.expandBy(spacing);
+        // The same immutable zone is queried for every grid point; prepare its spatial index once.
+        org.locationtech.jts.geom.prep.PreparedGeometry vertexZone =
+                org.locationtech.jts.geom.prep.PreparedGeometryFactory.prepare(space.vertexZoneUnion());
         for (double x = env.getMinX(); x <= env.getMaxX(); x += spacing) {
             for (double y = env.getMinY(); y <= env.getMaxY(); y += spacing) {
                 Coordinate c = new Coordinate(x, y);
-                if (!space.vertexZoneUnion().intersects(GeometryUtils.point(c))) {
+                if (!vertexZone.intersects(GeometryUtils.point(c))) {
                     if (out.size() >= remaining) throw navigationLimit();
                     out.add(c);
                 }

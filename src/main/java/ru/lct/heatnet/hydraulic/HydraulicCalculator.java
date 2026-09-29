@@ -17,8 +17,8 @@ import java.util.Optional;
  *   <li>DU = minimal DU satisfying the capacity;</li>
  *   <li>DU must not decrease towards the existing network;</li>
  *   <li>max continuous length is checked per leaf-to-root path; a run of equal DU accumulates across nodes and is
- *   reset only where the DU changes; if a run exceeds the limit, the section where the limit is exceeded takes the
- *   next DU (the closest-to-root choice affects the fewest sections because of monotonicity).</li>
+ *   reset only where the DU changes; if a run exceeds the limit, the entire constant-flow part containing the
+ *   exceeded section takes the next DU. Geometry/output splits never reset the hydraulic part.</li>
  * </ol>
  * The three rules are iterated to a fixed point; DUs only grow, so it terminates.
  */
@@ -72,13 +72,10 @@ public final class HydraulicCalculator {
                     if (run > spec.maxLengthM() + 1e-6) {
                         Optional<DiameterSpec> next = DiameterTable.next(l.du());
                         if (!next.isPresent()) return new Result(false, "continuous length " + Math.round(run) + " m exceeds the limit of the largest DU on " + l);
-                        setDu(l, next.get().du());
+                        raiseConstantFlowPart(l, next.get().du());
                         changed = true;
-                        run = l.length();
-                        prevDu = l.du();
-                        if (run > next.get().maxLengthM() + 1e-6) {
-                            // a single section longer than its limit: keep bumping in the next iteration
-                        }
+                        // Earlier links in this path may also have changed DU: recompute the run next iteration.
+                        break;
                     }
                 }
             }
@@ -95,8 +92,23 @@ public final class HydraulicCalculator {
             if (enforceMonotonic(c)) changed = true;
             maxChild = Math.max(maxChild, c.du());
         }
-        if (maxChild > l.du()) { setDu(l, maxChild); changed = true; }
+        if (maxChild > l.du()) { raiseConstantFlowPart(l, maxChild); changed = true; }
         return changed;
+    }
+
+    /** Clarification 29.09.2026 #20: degree-two splits cannot introduce a diameter change. */
+    private static void raiseConstantFlowPart(NetLink link, int du) {
+        NetLink top = link;
+        while (top.parent().parent() != null && top.parent().children().size() == 1
+                && Double.compare(top.flow(), top.parent().parent().flow()) == 0)
+            top = top.parent().parent();
+        for (NetLink l = top; ; ) {
+            if (l.du() < du) setDu(l, du);
+            if (l.child().children().size() != 1) break;
+            NetLink child = l.child().children().get(0);
+            if (Double.compare(child.flow(), l.flow()) != 0) break;
+            l = child;
+        }
     }
 
     // package-private mutators via reflection-free accessors

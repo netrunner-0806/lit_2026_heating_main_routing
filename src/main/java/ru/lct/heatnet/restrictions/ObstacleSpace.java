@@ -48,6 +48,7 @@ public final class ObstacleSpace {
     private static final double SECTION_TOL = ru.lct.heatnet.geo.GeometryTolerance.COORDINATE_EQUALITY_M;
 
     private final ClearanceClass cls;
+    private final List<ru.lct.heatnet.domain.ExistingChamber> chambers;
     private final List<Obstacle> obstacles;
     private final double[] required;
     private final Geometry[] checkZones;
@@ -58,6 +59,7 @@ public final class ObstacleSpace {
 
     public ObstacleSpace(InputModel input, ClearanceClass cls) {
         this.cls = cls;
+        this.chambers = input.chambers();
         List<Obstacle> list = new ArrayList<>();
         for (Restriction r : input.restrictions()) {
             if (r.rule() == null) continue;
@@ -159,7 +161,7 @@ public final class ObstacleSpace {
                 if (!covered(inside, exempt)) return SegmentCheck.invalid("clearance violated: " + o.describe());
                 continue;
             }
-            String err = specialCrossing(o, a, b, len, seg, exempt, passages, dirOk, dirReason);
+            String err = specialCrossing(o, a, b, len, seg, exempt, ex, passages, dirOk, dirReason);
             if (err != null) return SegmentCheck.invalid(err);
         }
         if (!dirOk[0] && !dirOk[1]) return SegmentCheck.invalid(dirReason[0]);
@@ -171,7 +173,7 @@ public final class ObstacleSpace {
      * Evaluates crossings of one special object by the segment; adds passages; returns an error text or null.
      */
     private String specialCrossing(Obstacle o, Coordinate a, Coordinate b, double len, LineString seg,
-                                   List<double[]> exempt, List<SpecialPassage> out, boolean[] dirOk, String[] dirReason) {
+                                   List<double[]> exempt, Exemptions ex, List<SpecialPassage> out, boolean[] dirOk, String[] dirReason) {
         RestrictionRule rule = o.rule();
         double ext = rule.sectionExtentM();
         double coverRadius = rule.crossingCoverRadiusM(cls.representativeDu(), o.ownHalfWidthM());
@@ -184,7 +186,13 @@ public final class ObstacleSpace {
                 boolean entryExempt = inExempt(entry, exempt), exitExempt = inExempt(exit, exempt);
                 if (exit - entry < 1e-6) continue; // touching
                 if (entryExempt && exitExempt) continue;
-                double from = entry - ext, to = exit + ext;
+                boolean roadOrTram = RestrictionRules.ROAD.equals(rule.type()) || RestrictionRules.TRAM_TRACKS.equals(rule.type());
+                boolean startsAtChamber = roadOrTram && entry <= SECTION_TOL
+                        && o.geometry().covers(GeometryUtils.point(a)) && isTieIn(a, ex);
+                boolean endsAtChamber = roadOrTram && exit >= len - SECTION_TOL
+                        && o.geometry().covers(GeometryUtils.point(b)) && isTieIn(b, ex);
+                double from = startsAtChamber ? 0 : entry - ext;
+                double to = endsAtChamber ? len : exit + ext;
                 if (from < -SECTION_TOL || to > len + SECTION_TOL)
                     return "special section of " + o.describe() + " does not fit into one straight segment";
                 // annex 4: the angle is checked at the point of ENTRY relative to the polygon boundary; the entry
@@ -192,11 +200,11 @@ public final class ObstacleSpace {
                 double angEntry = boundaryAngle(o, a, b, at(a, b, len, entry));
                 double angExit = boundaryAngle(o, a, b, at(a, b, len, exit));
                 if (rule.minCrossingAngleDeg() > 0) {
-                    if (angEntry + 1e-6 < rule.minCrossingAngleDeg()) {
+                    if (!startsAtChamber && angEntry + 1e-6 < rule.minCrossingAngleDeg()) {
                         dirOk[0] = false;
                         dirReason[0] = String.format(java.util.Locale.ROOT, "entry angle %.1f° < %.0f° for %s", angEntry, rule.minCrossingAngleDeg(), o.describe());
                     }
-                    if (angExit + 1e-6 < rule.minCrossingAngleDeg()) {
+                    if (!endsAtChamber && angExit + 1e-6 < rule.minCrossingAngleDeg()) {
                         dirOk[1] = false;
                         dirReason[1] = String.format(java.util.Locale.ROOT, "entry angle %.1f° < %.0f° for %s (reverse traversal)", angExit, rule.minCrossingAngleDeg(), o.describe());
                     }
@@ -240,6 +248,20 @@ public final class ObstacleSpace {
         List<double[]> zoneHits = intervals(checkZones[o.index()].intersection(seg), a, len);
         if (!covered(zoneHits, covers)) return "clearance violated alongside " + o.describe();
         return null;
+    }
+
+    /** Only attachment terminals may end inside road/tram; arbitrary graph vertices cannot truncate a passage. */
+    private boolean isTieIn(Coordinate c, Exemptions ex) {
+        if (ex == null || ex.isEmpty()) return false;
+        double tol = ru.lct.heatnet.geo.GeometryTolerance.ON_LINE_M;
+        for (ru.lct.heatnet.domain.ExistingChamber chamber : chambers)
+            if (chamber.coordinate().distance(c) <= tol) return true;
+        Envelope env = new Envelope(c);
+        env.expandBy(tol);
+        for (Obstacle obstacle : query(env))
+            if (obstacle.isExistingNetwork() && ex.exemptAt(obstacle, c)
+                    && obstacle.geometry().distance(GeometryUtils.point(c)) <= tol) return true;
+        return false;
     }
 
     /** True if the point lies on an end vertex of (a part of) the linear obstacle. */

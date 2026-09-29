@@ -52,11 +52,14 @@ public final class ResultValidator {
 
     private final InputModel input;
     private final ExistingNetworkIndex netIndex;
+    private final SpatialValidator spatial;
     private final CrsTransformer crs = CrsTransformer.get();
 
     public ResultValidator(InputModel input) {
         this.input = input;
         this.netIndex = new ExistingNetworkIndex(input);
+        // Input restrictions are unchanged across candidate variants; reuse their read-only spatial index.
+        this.spatial = new SpatialValidator(input, netIndex);
     }
 
     public ValidationReport validate(List<OutputFeature> features) {
@@ -273,7 +276,6 @@ public final class ResultValidator {
         }
         // ---- chains, turns, intersections, spatial ----
         buildChains(vm, rep);
-        SpatialValidator spatial = new SpatialValidator(input, netIndex);
         spatial.validate(vm, rep);
         // ---- technical nodes must be justified by a change of parameters (needs the spatial pass: crossed objects) ----
         for (Node n : vm.nodes.values()) {
@@ -418,6 +420,11 @@ public final class ResultValidator {
             }
             // monotonic: parent chain DU >= this chain DU
             if (c.parentEnd != null && c.parentEnd.kind != NodeKind.OKS) {
+                Chain upChain = chainOfChild.get(c.parentEnd);
+                if (upChain != null && c.parentEnd.degree() == 2
+                        && Math.abs(flow.get(upChain) - q) < 1e-9
+                        && upChain.lines.get(0).du != c.lines.get(0).du)
+                    rep.error("DU_CHANGE_IN_SECTION", "DU changes across a pass-through chamber with constant flow", vid, upChain.lines.get(0).id);
                 for (Line up : c.parentEnd.lines) {
                     if (up.childNode == c.parentEnd && up.du < c.lines.get(0).du)
                         rep.error("DU_DECREASES", "DU " + c.lines.get(0).du + " decreases to " + up.du + " towards the existing network at node " + c.parentEnd.id, vid, up.id);

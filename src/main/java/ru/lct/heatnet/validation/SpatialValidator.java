@@ -260,7 +260,10 @@ final class SpatialValidator {
                     continue;
                 }
                 if (mx - mn < 1e-6) continue;
-                from = mn - ext; to = mx + ext; at = lil.extractPoint(mn);
+                boolean chamberInside = parentIsRoot && mx >= L - SECTION_SNAP_M
+                        && (RestrictionRules.ROAD.equals(rule.type()) || RestrictionRules.TRAM_TRACKS.equals(rule.type()))
+                        && o.geom.covers(GeometryUtils.point(c.parentEnd.coord));
+                from = mn - ext; to = chamberInside ? L : mx + ext; at = lil.extractPoint(mn);
                 // annex 4: the angle is checked at the point of entry (traversal consumer -> existing network);
                 // the exit angle is reported for information only
                 if (rule.minCrossingAngleDeg() > 0) {
@@ -268,7 +271,7 @@ final class SpatialValidator {
                     if (angIn + ANGLE_TOL_DEG < rule.minCrossingAngleDeg())
                         rep.error("CROSSING_ANGLE", String.format(java.util.Locale.ROOT, "entry into %s at %.1f° < %.0f°", o.label, angIn, rule.minCrossingAngleDeg()), vid, lineAt(c, mn));
                     double angOut = boundaryAngle(o.geom, lil, mx);
-                    if (angOut + ANGLE_TOL_DEG < rule.minCrossingAngleDeg())
+                    if (!chamberInside && angOut + ANGLE_TOL_DEG < rule.minCrossingAngleDeg())
                         rep.info("CROSSING_EXIT_ANGLE", String.format(java.util.Locale.ROOT, "exit from %s at %.1f° (entry %.1f°; only the entry angle is mandatory)", o.label, angOut, angIn), vid, lineAt(c, mx));
                 }
             }
