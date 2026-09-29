@@ -35,6 +35,7 @@ import java.util.List;
 @RequestMapping("/api/v1/jobs")
 @Tag(name = "Jobs", description = "Загрузка GeoJSON, запуск расчёта, статус, результаты")
 public class JobController {
+    public static final long MAX_INPUT_PREVIEW_BYTES = 10L * 1024 * 1024;
 
     private final JobService jobs;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -117,6 +118,18 @@ public class JobController {
         JobEntity e = jobs.find(id).orElseThrow(() -> new NotFoundException("job " + id + " not found"));
         if (e.getInputPath() == null) throw new NotFoundException("Input of job " + id + " is not retained (failed jobs keep only metadata and diagnostics)");
         return file(Paths.get(e.getInputPath()), "input-" + id + ".geojson");
+    }
+
+    @GetMapping(value = "/{id}/input-preview.geojson")
+    @Operation(summary = "Предпросмотр небольшого входа для карты (до 10 МиБ); для большого входа — 204")
+    public ResponseEntity<Resource> inputPreview(@PathVariable String id) throws IOException {
+        JobEntity e = jobs.find(id).orElseThrow(() -> new NotFoundException("job " + id + " not found"));
+        if (e.getInputSize() > MAX_INPUT_PREVIEW_BYTES) return ResponseEntity.noContent().build();
+        if (e.getInputPath() == null) return ResponseEntity.noContent().build();
+        Path path = Paths.get(e.getInputPath());
+        if (!Files.isRegularFile(path)) return ResponseEntity.noContent().build();
+        if (Files.size(path) > MAX_INPUT_PREVIEW_BYTES) return ResponseEntity.noContent().build();
+        return file(path, "preview-" + id + ".geojson");
     }
 
     @DeleteMapping("/{id}")

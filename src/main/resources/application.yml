@@ -10,7 +10,7 @@ spring:
     multipart:
       enabled: true
       max-file-size: 3GB
-      max-request-size: 3GB
+      max-request-size: 4GB
       file-size-threshold: 1MB
       location: ${HEATNET_TMP_DIR:${java.io.tmpdir}}
   # Runtime database: PostgreSQL (docker-compose service "db"). H2 exists only in the test profile.

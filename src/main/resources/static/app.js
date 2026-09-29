@@ -4,6 +4,7 @@
   const fmtMoney = (v) => (v == null ? '—' : Math.round(v).toLocaleString('ru-RU') + ' руб.');
   const fmtNum = (v, d = 1) => (v == null ? '—' : Number(v).toLocaleString('ru-RU', { maximumFractionDigits: d, minimumFractionDigits: d }));
   const SCORE_DECIMALS = 4;
+  const MAX_INPUT_PREVIEW_BYTES = 10 * 1024 * 1024;
   const fmtScore = (v) => fmtNum(v, SCORE_DECIMALS);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -61,6 +62,7 @@
   let mode = 'PLANAR';
   let currentJob = null, jobMeta = null, resultData = null, resultGeo = null, inputGeo = null, currentVariant = null, pollTimer = null;
   let reference = null, explainData = null, otherMode = null;
+  let jobVersion = 0, retryCount = 0;
   const STAGES = ['Parsing input', 'Building routing graph', 'Generating variants · flows · DU · depth profiles · cost', 'Validating', 'Done'];
 
   $('modeSwitch').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
@@ -114,36 +116,54 @@
 
   async function openJob(id) {
     currentJob = id;
+    const version = ++jobVersion;
     clearTimeout(pollTimer);
     ['resultCard', 'profileCard', 'explainCard', 'modeCompareCard', 'featureCard', 'techCard'].forEach((id) => { $(id).hidden = true; if ($(id).tagName === 'DETAILS') $(id).open = false; });
-    poll();
+    retryCount = 0;
+    poll(id, version);
   }
 
-  async function poll() {
-    const r = await fetch('/api/v1/jobs/' + currentJob);
-    const j = await r.json();
-    jobMeta = j;
-    if (j.mode && j.mode !== mode) { // the switch reflects the mode of the job being shown
-      mode = j.mode;
-      $('modeSwitch').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.dataset.mode === mode));
-    }
-    renderStages(j.progress, j.status);
-    if (j.status === 'QUEUED' || j.status === 'RUNNING') {
-      setStatus(`Задание ${j.id.slice(0, 8)}… ${j.status} · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
-      pollTimer = setTimeout(poll, 1500);
-      return;
-    }
-    $('run').disabled = false;
-    $('stages').hidden = true; // progress is shown only while the calculation runs
-    renderDiagnostics(j);
-    if (j.status === 'FAILED') {
-      setStatus('Ошибка расчёта: ' + (j.error || '') + '\n' + (j.diagnostics || []).filter((d) => d.severity !== 'INFO').map((d) => `${d.severity} ${d.code}: ${d.text}`).join('\n'), true);
+  async function fetchJson(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.status === 204 ? null : r.json();
+  }
+
+  async function poll(id = currentJob, version = jobVersion) {
+    try {
+      const j = await fetchJson('/api/v1/jobs/' + id);
+      if (id !== currentJob || version !== jobVersion) return;
+      jobMeta = j;
+      if (j.mode && j.mode !== mode) { // the switch reflects the mode of the job being shown
+        mode = j.mode;
+        $('modeSwitch').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.dataset.mode === mode));
+      }
+      renderStages(j.progress, j.status);
+      if (j.status === 'QUEUED' || j.status === 'RUNNING') {
+        setStatus(`Задание ${j.id.slice(0, 8)}… ${j.status} · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
+        retryCount = 0;
+        pollTimer = setTimeout(() => poll(id, version), 1500);
+        return;
+      }
+      $('run').disabled = false;
+      $('stages').hidden = true; // progress is shown only while the calculation runs
+      renderDiagnostics(j);
+      if (j.status === 'FAILED') {
+        setStatus('Ошибка расчёта: ' + (j.error || '') + '\n' + (j.diagnostics || []).filter((d) => d.severity !== 'INFO').map((d) => `${d.severity} ${d.code}: ${d.text}`).join('\n'), true);
+        loadJobs();
+        return;
+      }
+      setStatus(`Готово · ${j.variantCount} вариант(а) · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
+      await loadResult(id, version);
+      if (id !== currentJob || version !== jobVersion) return;
+      retryCount = 0;
       loadJobs();
-      return;
+    } catch (e) {
+      if (id !== currentJob || version !== jobVersion) return;
+      const delay = Math.min(30000, 2000 * Math.pow(2, Math.min(retryCount++, 4)));
+      setStatus(`Не удалось получить статус или результат (${e.message}). Повтор через ${delay / 1000} с…`, true);
+      pollTimer = setTimeout(() => poll(id, version), delay);
     }
-    setStatus(`Готово · ${j.variantCount} вариант(а) · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
-    await loadResult();
-    loadJobs();
   }
 
   function renderDiagnostics(j) {
@@ -172,13 +192,17 @@
     return row ? row.heightM : 0.3;
   }
 
-  async function loadResult() {
+  async function loadResult(id = currentJob, version = jobVersion) {
+    // Never fetch the full input download endpoint for map rendering. Unknown sizes are also skipped.
+    const smallInput = jobMeta && Number.isFinite(jobMeta.inputSize)
+      && jobMeta.inputSize >= 0 && jobMeta.inputSize <= MAX_INPUT_PREVIEW_BYTES;
     const [res, geo, inp] = await Promise.all([
-      fetch('/api/v1/jobs/' + currentJob + '/result').then((r) => r.json()),
-      fetch('/api/v1/jobs/' + currentJob + '/result.geojson').then((r) => r.json()),
-      fetch('/api/v1/jobs/' + currentJob + '/input.geojson').then((r) => r.json()).catch(() => null),
+      fetchJson('/api/v1/jobs/' + id + '/result'),
+      fetchJson('/api/v1/jobs/' + id + '/result.geojson'),
+      smallInput ? fetchJson('/api/v1/jobs/' + id + '/input-preview.geojson') : Promise.resolve(null),
     ]);
     await loadReference();
+    if (id !== currentJob || version !== jobVersion) return;
     resultData = res; resultGeo = geo; inputGeo = inp; explainData = null; otherMode = null;
     const depth = res.mode === 'DEPTH';
     $('modeTag').textContent = depth ? 'режим с учётом глубины' : '2D';
@@ -203,6 +227,7 @@
     });
     drawInput();
     if (res.variants && res.variants.length) showVariant(res.variants[0].variantId);
+    if (!smallInput) setStatus(`Готово · ${jobMeta.variantCount} вариант(а). Большой исходный файл не отображается целиком; на карте показан результат расчёта.`);
     loadModeComparison();
     loadExplain();
   }
@@ -315,11 +340,20 @@
     renderValidation(vid);
     renderProfilePanel(vid);
     renderExplain(vid);
+    if (!inputGeo) {
+      const bounds = L.latLngBounds([]);
+      feats.forEach((f) => {
+        if (f.geometry && f.geometry.type === 'LineString')
+          f.geometry.coordinates.forEach((c) => bounds.extend([c[1], c[0]]));
+      });
+      if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+    }
   }
 
   function renderSummary(s, v) {
     const kv = (k, val, wide) => `<div class="kv${wide ? ' wide' : ''}"><div class="k">${k}</div><div class="v">${val}</div></div>`;
-    const total = (inputGeo ? inputGeo.features : []).filter((f) => f.properties.object_type === 'oks_connection_point').length;
+    const total = jobMeta && jobMeta.connectionPointCount != null ? jobMeta.connectionPointCount
+      : (inputGeo ? inputGeo.features : []).filter((f) => f.properties.object_type === 'oks_connection_point').length;
     const connected = v.connectedOksCount ?? '—';
     $('summary').innerHTML =
       kv('Score', fmtScore(s.score)) + kv('Итоговая стоимость', fmtMoney(s.calculated_cost)) +

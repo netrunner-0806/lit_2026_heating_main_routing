@@ -15,11 +15,11 @@ import ru.lct.heatnet.persistence.JobEntity;
 import ru.lct.heatnet.persistence.JobRepository;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,47 +47,89 @@ public class JobService {
 
     public Path storageDir() { return Paths.get(props.getStorageDir()).toAbsolutePath(); }
 
-    /** Streams the multipart upload straight to the job directory and queues the calculation. */
+    /** Register the received upload before persistence; the servlet provider can move its disk spool. */
     public JobEntity submit(MultipartFile file, ParseOptions.UnknownRestrictionPolicy policy, Integer maxVariants, String mode) throws IOException {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("Empty upload: field 'file' must contain a GeoJSON FeatureCollection");
-        String id = UUID.randomUUID().toString();
-        Path dir = storageDir().resolve(id);
-        Files.createDirectories(dir);
-        Path input = dir.resolve("input.geojson");
-        try (InputStream in = file.getInputStream()) {
-            Files.copy(in, input, StandardCopyOption.REPLACE_EXISTING);
-        }
-        return create(id, input, file.getOriginalFilename(), policy, maxVariants, mode);
+        String normalized = normalizeMode(mode);
+        return persistAndQueue(file.getOriginalFilename(), file.getSize(), policy, maxVariants, normalized,
+                partial -> file.transferTo(partial.toFile()));
     }
 
     /** Re-runs the input of an existing job in another mode (the uploaded file is kept on disk). */
     public JobEntity rerun(String sourceId, String mode) throws IOException {
+        String normalized = normalizeMode(mode);
         JobEntity src = repo.findById(sourceId).orElseThrow(() -> new ru.lct.heatnet.api.NotFoundException("job " + sourceId + " not found"));
         if (src.getInputPath() == null) throw new IllegalArgumentException("Job " + sourceId + " has no retained input (failed jobs are not rerunnable)");
         Path srcInput = Paths.get(src.getInputPath());
         if (!Files.exists(srcInput)) throw new ru.lct.heatnet.api.ConflictException("input of job " + sourceId + " is no longer available");
-        String id = UUID.randomUUID().toString();
-        Path dir = storageDir().resolve(id);
-        Files.createDirectories(dir);
-        Path input = dir.resolve("input.geojson");
-        Files.copy(srcInput, input, StandardCopyOption.REPLACE_EXISTING);
-        return create(id, input, src.getOriginalFilename(), ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), src.getMaxVariants(), mode);
+        return persistAndQueue(src.getOriginalFilename(), Files.size(srcInput),
+                ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), src.getMaxVariants(), normalized,
+                partial -> Files.copy(srcInput, partial));
     }
 
-    private JobEntity create(String id, Path input, String originalFilename, ParseOptions.UnknownRestrictionPolicy policy, Integer maxVariants, String mode) throws IOException {
+    @FunctionalInterface
+    private interface UploadWriter { void write(Path partial) throws IOException; }
+
+    private JobEntity persistAndQueue(String originalFilename, long size, ParseOptions.UnknownRestrictionPolicy policy,
+                                     Integer maxVariants, String mode, UploadWriter writer) throws IOException {
+        String id = UUID.randomUUID().toString();
+        Path dir = storageDir().resolve(id);
+        Path input = dir.resolve("input.geojson");
+        Path partial = dir.resolve("input.part");
         JobEntity e = new JobEntity();
         e.setId(id);
         e.setStatus(JobEntity.Status.QUEUED);
         e.setCreatedAt(Instant.now());
         e.setOriginalFilename(originalFilename);
-        e.setInputSize(Files.size(input));
+        e.setInputSize(size);
         e.setInputPath(input.toString());
-        e.setMode(normalizeMode(mode));
+        e.setMode(mode);
         e.setUnknownRestrictionPolicy((policy == null ? ParseOptions.UnknownRestrictionPolicy.IGNORE : policy).name());
         e.setMaxVariants(maxVariants == null || maxVariants < 1 ? props.getMaxVariants() : Math.min(maxVariants, ru.lct.heatnet.config.Constants.MAX_VARIANTS));
-        e.setProgress("queued");
-        repo.save(e);
-        executor.execute(() -> runner.run(id));
+        e.setProgress("Saving upload");
+        try {
+            // Commit the record first: a crash during persistence leaves a recoverable job, not an orphan file.
+            repo.saveAndFlush(e);
+            Files.createDirectories(dir);
+            writer.write(partial);
+            if (Files.size(partial) != size) throw new IOException("Incomplete upload: saved size differs from received size");
+            try {
+                Files.move(partial, input, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ex) {
+                Files.move(partial, input);
+            }
+            e.setProgress("queued");
+            repo.saveAndFlush(e);
+            executor.execute(() -> runner.run(id));
+        } catch (IOException | RuntimeException ex) {
+            boolean cleaned = false;
+            try {
+                Files.deleteIfExists(partial);
+                Files.deleteIfExists(input);
+                Files.deleteIfExists(dir);
+                cleaned = true;
+            } catch (IOException cleanup) {
+                ex.addSuppressed(cleanup);
+                log.error("Could not clean failed upload {}", id, cleanup);
+            }
+            try {
+                Optional<JobEntity> saved = repo.findById(id);
+                if (saved.isPresent()) {
+                    JobEntity failed = saved.get();
+                    failed.setStatus(JobEntity.Status.FAILED);
+                    failed.setProgress("failed");
+                    failed.setError("Upload could not be saved or scheduled. Please retry.");
+                    failed.setFinishedAt(Instant.now());
+                    if (cleaned) failed.setInputPath(null);
+                    repo.saveAndFlush(failed);
+                }
+            } catch (RuntimeException cleanup) {
+                // If the DB is unavailable, startup recovery handles the committed QUEUED record.
+                ex.addSuppressed(cleanup);
+                log.error("Could not mark failed upload {}; startup recovery will reconcile it", id, cleanup);
+            }
+            throw ex;
+        }
         log.info("job {} queued ({} bytes, {}, mode {})", id, e.getInputSize(), originalFilename, e.getMode());
         return e;
     }

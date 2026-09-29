@@ -29,6 +29,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
       HEATNET_WORKERS: ${HEATNET_WORKERS:-2}
       HEATNET_MAX_VARIANTS: ${HEATNET_MAX_VARIANTS:-3}
+      # Keep multipart spool and job files on one filesystem so transferTo can rename the upload.
+      HEATNET_TMP_DIR: /app/data/tmp
       JAVA_OPTS: ${JAVA_OPTS:--Xmx6g -XX:+UseG1GC}
     volumes:
       - heatnet-data:/app/data

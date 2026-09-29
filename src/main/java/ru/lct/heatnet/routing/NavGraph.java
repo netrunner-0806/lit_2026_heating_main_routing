@@ -20,6 +20,9 @@ import java.util.stream.IntStream;
  * are added dynamically with their own exemptions. Edge weight = effective length (Kspec applied on special sections).
  */
 public final class NavGraph {
+    /** Resource guards, independent of routing/geometric rules. */
+    public static final int MAX_GRID_NODES = 100_000;
+    public static final int MAX_NAVIGATION_NODES = 100_000;
 
     /** Direction constraint for edges leaving a vertex: the turn from the incoming direction must be <= 90°. */
     public static final class Heading {
@@ -44,8 +47,10 @@ public final class NavGraph {
     public NavGraph(ObstacleSpace space, double staticRadius, double helperGridSpacing) {
         this.space = space;
         this.staticRadius = staticRadius;
-        List<Coordinate> vs = new ArrayList<>(space.navigationVertices());
-        if (helperGridSpacing > 0) vs.addAll(helperGrid(space, helperGridSpacing));
+        // Estimate the full bbox grid before collecting or allocating its vertices.
+        if (helperGridSpacing > 0) checkedGridSize(space.vertexZoneUnion().getEnvelopeInternal(), helperGridSpacing);
+        List<Coordinate> vs = space.navigationVertices(MAX_NAVIGATION_NODES);
+        if (helperGridSpacing > 0) vs.addAll(helperGrid(space, helperGridSpacing, MAX_NAVIGATION_NODES - vs.size()));
         for (Coordinate c : vs) {
             coords.add(c);
             exemptions.add(Exemptions.NONE);
@@ -62,7 +67,24 @@ public final class NavGraph {
         buildStaticEdges();
     }
 
-    private static List<Coordinate> helperGrid(ObstacleSpace space, double spacing) {
+    static long checkedGridSize(Envelope source, double spacing) {
+        if (!Double.isFinite(spacing) || spacing <= 0) throw new IllegalArgumentException("Grid spacing must be finite and positive");
+        if (source.isNull()) return 0;
+        Envelope env = new Envelope(source);
+        env.expandBy(spacing);
+        if (env.getMinX() + spacing <= env.getMinX() || env.getMinY() + spacing <= env.getMinY())
+            throw new IllegalArgumentException("Navigation grid coordinates cannot be represented at the requested spacing");
+        double nx = Math.floor(env.getWidth() / spacing) + 1;
+        double ny = Math.floor(env.getHeight() / spacing) + 1;
+        double cells = nx * ny;
+        if (!Double.isFinite(cells) || cells > MAX_GRID_NODES)
+            throw new IllegalArgumentException("Navigation grid exceeds " + MAX_GRID_NODES
+                    + " cells; the input extent is too large for automatic routing");
+        return (long) cells;
+    }
+
+    private static List<Coordinate> helperGrid(ObstacleSpace space, double spacing, int remaining) {
+        checkedGridSize(space.vertexZoneUnion().getEnvelopeInternal(), spacing);
         List<Coordinate> out = new ArrayList<>();
         Envelope env = space.vertexZoneUnion().getEnvelopeInternal();
         if (env.isNull()) return out;
@@ -70,10 +92,18 @@ public final class NavGraph {
         for (double x = env.getMinX(); x <= env.getMaxX(); x += spacing) {
             for (double y = env.getMinY(); y <= env.getMaxY(); y += spacing) {
                 Coordinate c = new Coordinate(x, y);
-                if (!space.vertexZoneUnion().intersects(GeometryUtils.point(c))) out.add(c);
+                if (!space.vertexZoneUnion().intersects(GeometryUtils.point(c))) {
+                    if (out.size() >= remaining) throw navigationLimit();
+                    out.add(c);
+                }
             }
         }
         return out;
+    }
+
+    private static IllegalArgumentException navigationLimit() {
+        return new IllegalArgumentException("Navigation graph exceeds " + MAX_NAVIGATION_NODES
+                + " nodes; the input geometry is too complex for automatic routing");
     }
 
     private void buildStaticEdges() {
@@ -168,6 +198,7 @@ public final class NavGraph {
      * Edges to other dynamic vertices are checked with merged exemptions.
      */
     public synchronized int addVertex(Coordinate c, Exemptions ex, double radius, Heading heading) {
+        if (coords.size() >= MAX_NAVIGATION_NODES) throw navigationLimit();
         int v = coords.size();
         coords.add(c);
         exemptions.add(ex == null ? Exemptions.NONE : ex);

@@ -368,17 +368,21 @@ public final class ObstacleSpace {
      * excluding points inside forbidden check zones.
      */
     public List<Coordinate> navigationVertices() {
+        return navigationVertices(Integer.MAX_VALUE);
+    }
+
+    public List<Coordinate> navigationVertices(int maxNodes) {
         List<Coordinate> out = new ArrayList<>();
         for (Polygon poly : GeometryUtils.polygons(vertexZoneUnion)) {
-            collectConvex(poly.getExteriorRing().getCoordinates(), true, out);
-            for (int i = 0; i < poly.getNumInteriorRing(); i++) collectConvex(poly.getInteriorRingN(i).getCoordinates(), false, out);
+            collectConvex(poly.getExteriorRing().getCoordinates(), true, out, maxNodes);
+            for (int i = 0; i < poly.getNumInteriorRing(); i++) collectConvex(poly.getInteriorRingN(i).getCoordinates(), false, out, maxNodes);
         }
         List<Coordinate> filtered = new ArrayList<>();
         for (Coordinate c : out) if (!insideForbidden(c)) filtered.add(c);
         return filtered;
     }
 
-    private static void collectConvex(Coordinate[] ring, boolean shell, List<Coordinate> out) {
+    private static void collectConvex(Coordinate[] ring, boolean shell, List<Coordinate> out, int maxNodes) {
         if (ring.length < 4) return;
         boolean ccw = Orientation.isCCW(ring);
         // we want the obstacle on the right-hand side while walking the ring: shell -> CW, hole -> CCW
@@ -388,7 +392,11 @@ public final class ObstacleSpace {
             Coordinate prev = ring[(i - 1 + n) % n], cur = ring[i], next = ring[(i + 1) % n];
             if (reverse) { Coordinate t = prev; prev = next; next = t; }
             double cross = (cur.x - prev.x) * (next.y - cur.y) - (cur.y - prev.y) * (next.x - cur.x);
-            if (cross < -1e-9) out.add(cur); // right turn = convex obstacle corner
+            if (cross < -1e-9) {
+                if (out.size() >= maxNodes) throw new IllegalArgumentException("Navigation graph exceeds "
+                        + maxNodes + " obstacle vertices; the input geometry is too complex for automatic routing");
+                out.add(cur); // right turn = convex obstacle corner
+            }
         }
     }
 }
