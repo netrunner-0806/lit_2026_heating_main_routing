@@ -1,0 +1,29 @@
+{
+  "source": "OpenStreetMap contributors",
+  "license": "ODbL 1.0",
+  "copyright_url": "https://www.openstreetmap.org/copyright",
+  "retrieved_utc": "2026-10-16",
+  "road_endpoint": "https://overpass.private.coffee/api/interpreter",
+  "road_snapshot_osm_base": "2026-07-28T02:16:18Z",
+  "bbox": [
+    37.6262685,
+    55.690915329577294,
+    37.658165733407884,
+    55.70554663888263
+  ],
+  "relation_endpoint": "https://api.openstreetmap.org/api/0.6/relation/{id}/full",
+  "relations": [
+    64477,
+    1451187,
+    4206185
+  ],
+  "note": "Overpass tags geom omits relation members; full relations fetched via OSM API. Road and relation snapshots have distinct source timestamps. No organizer dataset claim.",
+  "files_sha256": {
+    "relation-1451187.osm.gz": "231eeaa9e43d6a9cc7377850b5cb50e5ff7052cef350e8338c65b3e4bf08b6ab",
+    "relation-4206185.osm.gz": "ec4793c682cb83567754b2f1a19f0c2160774b6c90b3a2ac62af5c5d529b8f46",
+    "relation-64477.osm.gz": "cd6a0ed0e55d1c452bdb4a0bf44cf760b4ffe6c0251644e90c37397dd5726e6d",
+    "roads.overpass.json": "c0748c4f56784b0f993ac2ceceb1abd9ad69952351a3e9b9dea9dd0d2f663b6a"
+  },
+  "query": "[out:json][timeout:30];(way[highway~\"^(residential|service|living_street|unclassified|tertiary|secondary|primary|trunk|motorway)(_link)?$\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);way[\"area:highway\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);relation[\"area:highway\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);way[natural=water](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);relation[natural=water](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884););out tags geom;",
+  "retrieval_time_precision": "day; individual source timestamps retained in raw files"
+}

@@ -135,8 +135,9 @@ class ObstacleSpaceTest {
         // alongside: 2.0 + 0.685 + 0.2 = 2.885 m from the gas axis
         assertFalse(s.check(c(0, 102.5), c(300, 102.5)).valid());
         assertTrue(s.check(c(0, 103.0), c(300, 103.0)).valid());
-        // very shallow crossing (10 degrees) runs alongside beyond the section: rejected
-        assertFalse(s.check(c(0, 90), c(120, 90 + 120 * Math.tan(Math.toRadians(10))) ).valid());
+        // A real straight crossing has no minimum angle for gas/cable. Its local clearance transition is allowed;
+        // the statutory special section is still exactly 4 m (29.09 clarification 14).
+        assertTrue(s.check(c(0, 90), c(120, 90 + 120 * Math.tan(Math.toRadians(10))) ).valid());
     }
 
     @Test

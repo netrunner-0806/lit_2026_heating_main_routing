@@ -53,13 +53,11 @@ public class JobRunner {
     }
 
     public void run(String id) {
+        // A lost enqueue acknowledgement may submit the same id again. Only one worker may claim it.
+        if (repo.claimQueued(id, Instant.now()) != 1) return;
         Optional<JobEntity> opt = repo.findById(id);
         if (!opt.isPresent()) return;
         JobEntity e = opt.get();
-        e.setStatus(JobEntity.Status.RUNNING);
-        e.setStartedAt(Instant.now());
-        e.setProgress("Parsing input");
-        repo.save(e);
         long t0 = System.currentTimeMillis();
         try {
             ParseOptions options = new ParseOptions(ParseOptions.UnknownRestrictionPolicy.valueOf(e.getUnknownRestrictionPolicy()));
@@ -115,6 +113,9 @@ public class JobRunner {
             log.info("job {} finished in {} ms: {} variants, validation valid={}", id, e.getElapsedMs(), result.variants().size(), report.isValid());
         } catch (InputParseException ex) {
             fail(e, "Invalid input: " + ex.getMessage(), ex.diagnostics(), t0);
+        } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {
+            Diagnostics diag = new Diagnostics(); diag.error("COMPLEXITY_LIMIT", ex.getMessage());
+            fail(e, ex.getMessage(), diag, t0);
         } catch (Exception ex) {
             log.error("job {} failed", id, ex);
             fail(e, "Processing failed: " + ex, null, t0);
@@ -135,22 +136,9 @@ public class JobRunner {
         if (diag != null) {
             try { e.setDiagnosticsJson(mapper.writeValueAsString(diagnostics(diag))); } catch (Exception ignore) { }
         }
-        discardInput(e);
+        // Resource/processing failures must remain diagnosable and explicitly rerunnable.
+        // Only an explicit job deletion removes its persisted input.
         repo.save(e);
-    }
-
-    /** The upload of a failed job is not retained (uploads may be gigabytes); metadata and diagnostics stay. */
-    private void discardInput(JobEntity e) {
-        if (e.getInputPath() == null) return;
-        try {
-            Path p = Paths.get(e.getInputPath());
-            Files.deleteIfExists(p);
-            Files.deleteIfExists(p.resolveSibling("result.geojson"));
-            log.info("job {} failed: input file discarded ({} bytes)", e.getId(), e.getInputSize());
-        } catch (IOException ex) {
-            log.warn("job {}: could not discard the input file: {}", e.getId(), ex.toString());
-        }
-        e.setInputPath(null);
     }
 
     private static String describe(Diagnostics d) {

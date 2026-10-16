@@ -113,10 +113,10 @@ public class JobController {
     }
 
     @GetMapping(value = "/{id}/input.geojson")
-    @Operation(summary = "Скачать загруженный входной GeoJSON (для отображения на карте)")
+    @Operation(summary = "Скачать сохранённый входной GeoJSON")
     public ResponseEntity<Resource> inputGeoJson(@PathVariable String id) throws IOException {
         JobEntity e = jobs.find(id).orElseThrow(() -> new NotFoundException("job " + id + " not found"));
-        if (e.getInputPath() == null) throw new NotFoundException("Input of job " + id + " is not retained (failed jobs keep only metadata and diagnostics)");
+        if (e.getInputPath() == null) throw new NotFoundException("Input of job " + id + " is not retained");
         return file(Paths.get(e.getInputPath()), "input-" + id + ".geojson");
     }
 

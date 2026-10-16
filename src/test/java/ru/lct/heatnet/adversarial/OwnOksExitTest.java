@@ -120,7 +120,7 @@ class OwnOksExitTest {
         assertEquals(0, r.best.connectedCount());
         assertTrue(plan(r.input).isEmpty(), "no approach at all");
         assertTrue(r.report.isValid(), r.issues());
-        assertTrue(r.best.unconnected().values().iterator().next().contains("no feasible approach"));
+        assertTrue(r.best.unconnected().values().iterator().next().startsWith("NO_VALID_OKS_EXIT"));
         assertTrue(r.lines().isEmpty());
     }
 

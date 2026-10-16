@@ -51,13 +51,31 @@ public final class ObstacleSpace {
     private final List<ru.lct.heatnet.domain.ExistingChamber> chambers;
     private final List<Obstacle> obstacles;
     private final double[] required;
-    private final Geometry[] checkZones;
-    private final PreparedGeometry[] preparedCheckZones;
+    private final java.util.concurrent.atomic.AtomicReferenceArray<PreparedGeometry> preparedCheckZones;
     private final STRtree index = new STRtree();
+    /** Optional rejection certificates, never a substitute for the complete obstacle index. */
+    private final STRtree forbiddenInteriors = new STRtree();
     private final PreparedGeometry forbiddenUnion;
-    private final Geometry vertexZoneUnion;
+    private volatile Geometry vertexZoneUnion;
+    private final boolean deferred;
+    private final Envelope navigationRegion;
+    private final Envelope fullNavigationEnvelope = new Envelope();
+    private final java.util.concurrent.atomic.AtomicInteger preparedCount = new java.util.concurrent.atomic.AtomicInteger();
+    private final ru.lct.heatnet.geo.RobustGeometry.Stats geometryStats = new ru.lct.heatnet.geo.RobustGeometry.Stats();
+    public ru.lct.heatnet.geo.RobustGeometry.Stats geometryStats() { return geometryStats; }
 
     public ObstacleSpace(InputModel input, ClearanceClass cls) {
+        this(input, cls, input.restrictions().size() > 2048);
+    }
+
+    /** Deferred mode indexes conservative envelopes of ALL objects; geometry is prepared only when queried. */
+    public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred) {
+        this(input,cls,deferred,null);
+    }
+
+    public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred, Envelope navigationRegion) {
+        this.navigationRegion=navigationRegion==null?null:new Envelope(navigationRegion);
+        this.deferred = deferred || navigationRegion!=null;
         this.cls = cls;
         this.chambers = input.chambers();
         List<Obstacle> list = new ArrayList<>();
@@ -69,24 +87,51 @@ public final class ObstacleSpace {
         for (ExistingNetworkLine l : input.networkLines()) list.add(Obstacle.of(list.size(), l, netRule));
         this.obstacles = Collections.unmodifiableList(list);
         this.required = new double[list.size()];
-        this.checkZones = new Geometry[list.size()];
-        this.preparedCheckZones = new PreparedGeometry[list.size()];
+        this.preparedCheckZones = new java.util.concurrent.atomic.AtomicReferenceArray<>(list.size());
         List<Geometry> forbiddenZones = new ArrayList<>();
         List<Geometry> vertexZones = new ArrayList<>();
         for (Obstacle o : list) {
+            try {
             double d = o.requiredAxisDistance(cls);
             required[o.index()] = d;
+            Envelope navigation = new Envelope(o.geometry().getEnvelopeInternal());
+            navigation.expandBy(d * VERTEX_ZONE_FACTOR + VERTEX_ZONE_MARGIN);
+            fullNavigationEnvelope.expandToInclude(navigation);
+            if(this.deferred) {
+                Envelope check = new Envelope(o.geometry().getEnvelopeInternal());
+                check.expandBy(d); // conservative: a long object crossing a query cannot be discarded by its vertices
+                index.insert(check, o);
+                continue;
+            }
             Geometry z = buffer(o.geometry(), d - CHECK_EPS);
-            checkZones[o.index()] = z;
-            preparedCheckZones[o.index()] = PreparedGeometryFactory.prepare(z);
+            preparedCheckZones.set(o.index(), PreparedGeometryFactory.prepare(z));
+            preparedCount.incrementAndGet();
             index.insert(z.getEnvelopeInternal(), o);
             if (o.isForbidden()) forbiddenZones.add(z);
             vertexZones.add(buffer(o.geometry(), d * VERTEX_ZONE_FACTOR + VERTEX_ZONE_MARGIN));
+            } catch (org.locationtech.jts.geom.TopologyException ex) {
+                throw new ru.lct.heatnet.geo.GeometryProcessingException("clearance buffer " + o.describe(), ex);
+            }
         }
         index.build();
-        Geometry fu = forbiddenZones.isEmpty() ? GeometryUtils.GF.createPolygon() : UnaryUnionOp.union(forbiddenZones);
-        this.forbiddenUnion = PreparedGeometryFactory.prepare(fu);
-        this.vertexZoneUnion = vertexZones.isEmpty() ? GeometryUtils.GF.createPolygon() : UnaryUnionOp.union(vertexZones);
+        // Bound accelerator memory independently of city size. Missing certificates simply use the full checker.
+        List<Obstacle> interiorCandidates = navigationRegion == null ? list : query(navigationRegion);
+        int interiorCount = 0;
+        for (Obstacle o : interiorCandidates) {
+            if (interiorCount >= 4096) break;
+            if (!o.isForbidden() || !(o.geometry() instanceof Polygon) || required[o.index()] <= CHECK_EPS) continue;
+            Polygon polygon = (Polygon) o.geometry();
+            if (polygon.getNumInteriorRing() != 0 || polygon.getNumPoints() != 5) continue;
+            Envelope inner = polygon.getEnvelopeInternal();
+            inner.expandBy(-Math.max(1e-4, Math.max(inner.getWidth(), inner.getHeight()) * 1e-8));
+            // covers is the proof; a rotated/sliver/concave quad that lacks this interior gets no shortcut.
+            if (inner.isNull() || !polygon.covers(GeometryUtils.GF.toGeometry(inner))) continue;
+            forbiddenInteriors.insert(inner, new Object[]{o, inner}); interiorCount++;
+        }
+        forbiddenInteriors.build();
+        Geometry fu = forbiddenZones.isEmpty() ? GeometryUtils.GF.createPolygon() : ru.lct.heatnet.geo.RobustGeometry.union(forbiddenZones, "forbidden clearance union", geometryStats);
+        this.forbiddenUnion = this.deferred ? null : PreparedGeometryFactory.prepare(fu);
+        this.vertexZoneUnion = this.deferred ? null : vertexZones.isEmpty() ? GeometryUtils.GF.createPolygon() : ru.lct.heatnet.geo.RobustGeometry.union(vertexZones, "navigation zone union", geometryStats);
     }
 
     private static Geometry buffer(Geometry g, double dist) {
@@ -97,11 +142,79 @@ public final class ObstacleSpace {
     public ClearanceClass clearanceClass() { return cls; }
     public List<Obstacle> obstacles() { return obstacles; }
     public double requiredDistance(Obstacle o) { return required[o.index()]; }
-    public Geometry vertexZoneUnion() { return vertexZoneUnion; }
+    public Geometry vertexZoneUnion() {
+        Geometry result=vertexZoneUnion;
+        if(result==null) synchronized(this) {
+            if(vertexZoneUnion==null) {
+                vertexZoneUnion=buildNavigationUnion(navigationRegion,ARC_QUADRANT_SEGMENTS,VERTEX_ZONE_FACTOR);
+            }
+            result=vertexZoneUnion;
+        }
+        return result;
+    }
+
+    /** Estimate before allocating any city-wide union. Eager mode retains the historical grid origin exactly. */
+    public Envelope navigationEnvelope() { return navigationRegion!=null?new Envelope(navigationRegion):deferred ? new Envelope(fullNavigationEnvelope) : vertexZoneUnion().getEnvelopeInternal(); }
+    public Envelope initialNavigationRegion() { return navigationRegion==null?null:new Envelope(navigationRegion); }
+    public Envelope fullNavigationEnvelope() { return new Envelope(fullNavigationEnvelope); }
+    public int preparedObjectCount() { return preparedCount.get(); }
+
+    /** Only navigation candidates are spatially selected. Segment checks always query the full obstacle index. */
+    private Geometry buildNavigationUnion(Envelope region,int quadrants,double factor) {
+        List<Obstacle> selected=obstacles;
+        if(region!=null) {
+            double extra=0;for(double d:required)extra=Math.max(extra,d*(factor-1)+VERTEX_ZONE_MARGIN);
+            Envelope query=new Envelope(region);query.expandBy(extra);
+            selected=new ArrayList<>(query(query));
+            selected.sort(java.util.Comparator.comparingInt(Obstacle::index));
+        }
+        List<Geometry> zones=new ArrayList<>();long coordinates=0;
+        long budget=Math.max(50000,Math.min(2000000,Runtime.getRuntime().maxMemory()/1024));
+        for(Obstacle o:selected) {
+            try {
+                double d=required[o.index()]*factor+VERTEX_ZONE_MARGIN;
+                Geometry core=o.geometry();
+                if(region!=null) {
+                    Envelope clip=new Envelope(region);clip.expandBy(d+1);
+                    if(!clip.contains(core.getEnvelopeInternal()))
+                        core=ru.lct.heatnet.geo.RobustGeometry.intersection(core,GeometryUtils.GF.toGeometry(clip),"navigation-only clipping " + o.describe(),geometryStats);
+                }
+                coordinates+=core.getNumPoints();
+                if(coordinates>budget)throw new ru.lct.heatnet.routing.ComplexityLimitException("navigation union input exceeds " + budget + " coordinates; expand/stage the geometry workload");
+                if(!core.isEmpty()) zones.add(BufferOp.bufferOp(core,d,new BufferParameters(quadrants,BufferParameters.CAP_ROUND,BufferParameters.JOIN_ROUND,5.0)));
+            } catch(org.locationtech.jts.geom.TopologyException ex) {
+                throw new ru.lct.heatnet.geo.GeometryProcessingException("navigation buffer " + o.describe(),ex);
+            }
+        }
+        Geometry union=zones.isEmpty()?GeometryUtils.GF.createPolygon():ru.lct.heatnet.geo.RobustGeometry.union(zones,"navigation zone union",geometryStats);
+        return region==null||region.contains(union.getEnvelopeInternal())?union:ru.lct.heatnet.geo.RobustGeometry.intersection(union,GeometryUtils.GF.toGeometry(region),"navigation region boundary",geometryStats);
+    }
+
+    public List<Coordinate> navigationVertices(Envelope region,int maxNodes) {
+        return navigationVertices(buildNavigationUnion(region,ARC_QUADRANT_SEGMENTS,VERTEX_ZONE_FACTOR),maxNodes);
+    }
+
+    private PreparedGeometry prepared(Obstacle o) {
+        PreparedGeometry result=preparedCheckZones.get(o.index());
+        if(result==null) synchronized(o) {
+            result=preparedCheckZones.get(o.index());
+            if(result==null) {
+                try {result=PreparedGeometryFactory.prepare(buffer(o.geometry(),required[o.index()]-CHECK_EPS));}
+                catch(org.locationtech.jts.geom.TopologyException ex) {
+                    throw new ru.lct.heatnet.geo.GeometryProcessingException("clearance buffer " + o.describe(),ex);
+                }
+                preparedCheckZones.set(o.index(),result);preparedCount.incrementAndGet();
+            }
+        }
+        return result;
+    }
 
     /** True if the point lies inside a forbidden clearance zone (so a line cannot pass/end there). */
     public boolean insideForbidden(Coordinate c) {
-        return forbiddenUnion.intersects(GeometryUtils.point(c));
+        if(forbiddenUnion!=null)return forbiddenUnion.intersects(GeometryUtils.point(c));
+        Point p=GeometryUtils.point(c);
+        for(Obstacle o:query(new Envelope(c))) if(o.isForbidden() && prepared(o).intersects(p))return true;
+        return false;
     }
 
     public boolean insideForbidden(Coordinate c, Exemptions ex) {
@@ -111,7 +224,7 @@ public final class ObstacleSpace {
         List<Obstacle> cands = index.query(new Envelope(c));
         for (Obstacle o : cands) {
             if (!o.isForbidden() || ex.ignores(o)) continue;
-            if (preparedCheckZones[o.index()].intersects(p) && !ex.exemptAt(o, c)) return true;
+            if (prepared(o).intersects(p) && !ex.exemptAt(o, c)) return true;
         }
         return false;
     }
@@ -124,7 +237,7 @@ public final class ObstacleSpace {
         Point p = GeometryUtils.point(c);
         @SuppressWarnings("unchecked")
         List<Obstacle> cands = index.query(new Envelope(c));
-        for (Obstacle o : cands) if (!ignore.contains(o.index()) && preparedCheckZones[o.index()].intersects(p)) return true;
+        for (Obstacle o : cands) if (!ignore.contains(o.index()) && prepared(o).intersects(p)) return true;
         return false;
     }
 
@@ -141,6 +254,36 @@ public final class ObstacleSpace {
 
     public SegmentCheck check(Coordinate a, Coordinate b) { return check(a, b, Exemptions.NONE); }
 
+    /** Positive-only certificate: a straight chord has > tolerance uncovered length inside a forbidden core.
+     * Liang–Barsky clipping uses a strict interior box certified against the original polygon. Road/tram/utilities,
+     * holes, ambiguous near-tangencies and exempt pieces always fall back to the complete JTS implementation. */
+    public boolean definitelyBlocked(Coordinate a, Coordinate b, Exemptions ex) {
+        double len = a.distance(b);
+        if (len <= COVER_TOL) return false;
+        @SuppressWarnings("unchecked") List<Object[]> candidates = forbiddenInteriors.query(new Envelope(a, b));
+        for (Object[] entry : candidates) {
+            Obstacle o = (Obstacle) entry[0]; if (ex.ignores(o)) continue;
+            Envelope e = (Envelope) entry[1];
+            double from = 0, to = 1;
+            double dx = b.x - a.x, dy = b.y - a.y;
+            if (dx == 0) { if (a.x <= e.getMinX() || a.x >= e.getMaxX()) continue; }
+            else {
+                double u = (e.getMinX() - a.x) / dx, v = (e.getMaxX() - a.x) / dx;
+                from = Math.max(from, Math.min(u, v)); to = Math.min(to, Math.max(u, v));
+            }
+            if (dy == 0) { if (a.y <= e.getMinY() || a.y >= e.getMaxY()) continue; }
+            else {
+                double u = (e.getMinY() - a.y) / dy, v = (e.getMaxY() - a.y) / dy;
+                from = Math.max(from, Math.min(u, v)); to = Math.min(to, Math.max(u, v));
+            }
+            if ((to - from) * len <= COVER_TOL + 1e-5) continue;
+            // Widen the numerical safety margin before comparing with the existing coverage semantics.
+            List<double[]> inside = Collections.singletonList(new double[]{from * len + 1e-6, to * len - 1e-6});
+            if (!covered(inside, ex.exemptIntervals(o, a, b, len))) return true;
+        }
+        return false;
+    }
+
     public SegmentCheck check(Coordinate a, Coordinate b, Exemptions ex) {
         double len = a.distance(b);
         if (len < 1e-9) return SegmentCheck.valid(0, Collections.emptyList());
@@ -153,11 +296,11 @@ public final class ObstacleSpace {
         String[] dirReason = {null, null};
         for (Obstacle o : cands) {
             if (ex.ignores(o)) continue;
-            PreparedGeometry zone = preparedCheckZones[o.index()];
+            PreparedGeometry zone = prepared(o);
             if (!zone.intersects(seg)) continue;
             List<double[]> exempt = ex.exemptIntervals(o, a, b, len);
             if (o.isForbidden()) {
-                List<double[]> inside = intervals(checkZones[o.index()].intersection(seg), a, len);
+                List<double[]> inside = intervals(intersection(zone.getGeometry(), seg, o), a, len);
                 if (!covered(inside, exempt)) return SegmentCheck.invalid("clearance violated: " + o.describe());
                 continue;
             }
@@ -176,9 +319,9 @@ public final class ObstacleSpace {
                                    List<double[]> exempt, Exemptions ex, List<SpecialPassage> out, boolean[] dirOk, String[] dirReason) {
         RestrictionRule rule = o.rule();
         double ext = rule.sectionExtentM();
-        double coverRadius = rule.crossingCoverRadiusM(cls.representativeDu(), o.ownHalfWidthM());
         List<double[]> covers = new ArrayList<>(exempt);
-        Geometry core = o.geometry().intersection(seg);
+        Geometry core = intersection(o.geometry(), seg, o);
+        List<double[]> zoneHits = intervals(intersection(prepared(o).getGeometry(), seg, o), a, len);
         if (o.isPolygonal()) {
             List<double[]> inside = intervals(core, a, len);
             for (double[] iv : inside) {
@@ -210,7 +353,7 @@ public final class ObstacleSpace {
                     }
                 }
                 out.add(new SpecialPassage(o, Math.max(0, from), Math.min(len, to), rule.kSpec(), at(a, b, len, (entry + exit) / 2), angEntry));
-                covers.add(new double[]{entry - coverRadius, exit + coverRadius});
+                addCrossingTransition(covers, zoneHits, entry, exit, from, to);
             }
         } else {
             // linear object: crossing points; collinear overlaps are not allowed
@@ -241,13 +384,23 @@ public final class ObstacleSpace {
                 if (rule.minCrossingAngleDeg() > 0 && ang + 1e-6 < rule.minCrossingAngleDeg())
                     return String.format(java.util.Locale.ROOT, "crossing angle %.1f° < %.0f° for %s", ang, rule.minCrossingAngleDeg(), o.describe());
                 out.add(new SpecialPassage(o, from, to, rule.kSpec(), at(a, b, len, t), ang));
-                covers.add(new double[]{t - coverRadius, t + coverRadius});
+                addCrossingTransition(covers, zoneHits, t, t, from, to);
             }
         }
         // alongside clearance outside crossings/exemptions
-        List<double[]> zoneHits = intervals(checkZones[o.index()].intersection(seg), a, len);
         if (!covered(zoneHits, covers)) return "clearance violated alongside " + o.describe();
         return null;
+    }
+
+    /** Only the connected clearance-zone interval of THIS actual crossing on THIS straight segment is exempt.
+     * This affects clearance, never the statutory passage length or its coefficient. Other obstacles are checked
+     * separately; a neighbouring segment without an actual crossing receives no transition exemption.
+     */
+    private static void addCrossingTransition(List<double[]> covers, List<double[]> hits,
+                                              double entry, double exit, double from, double to) {
+        covers.add(new double[]{from, to});
+        for (double[] hit : hits) if (hit[0] <= exit + SECTION_TOL && hit[1] >= entry - SECTION_TOL)
+            covers.add(new double[]{hit[0], hit[1]});
     }
 
     /** Only attachment terminals may end inside road/tram; arbitrary graph vertices cannot truncate a passage. */
@@ -339,46 +492,18 @@ public final class ObstacleSpace {
         return true;
     }
 
-    /** Acute angle between the segment and the polygon boundary edge nearest to the crossing point. */
-    private static double boundaryAngle(Obstacle o, Coordinate a, Coordinate b, Coordinate p) {
-        double best = Double.MAX_VALUE;
-        double[] dir = null;
-        for (Polygon poly : GeometryUtils.polygons(o.geometry())) {
-            List<LinearRing> rings = new ArrayList<>();
-            rings.add(poly.getExteriorRing());
-            for (int i = 0; i < poly.getNumInteriorRing(); i++) rings.add(poly.getInteriorRingN(i));
-            for (LinearRing ring : rings) {
-                Coordinate[] cs = ring.getCoordinates();
-                for (int i = 0; i + 1 < cs.length; i++) {
-                    double d = org.locationtech.jts.algorithm.Distance.pointToSegment(p, cs[i], cs[i + 1]);
-                    if (d < best) {
-                        best = d;
-                        dir = new double[]{cs[i + 1].x - cs[i].x, cs[i + 1].y - cs[i].y};
-                    }
-                }
-            }
-        }
-        if (dir == null) return 90;
-        return GeometryUtils.acuteAngleDeg(b.x - a.x, b.y - a.y, dir[0], dir[1]);
+    private Geometry intersection(Geometry a, Geometry b, Obstacle o) {
+        return ru.lct.heatnet.geo.RobustGeometry.intersection(a, b, o, geometryStats);
     }
 
-    /** Acute angle between the segment and the linear object at the crossing point. */
+    /** Acute angle between the segment and the polygon boundary edge nearest to the crossing point. */
+    private static double boundaryAngle(Obstacle o, Coordinate a, Coordinate b, Coordinate p) {
+        return o.boundarySegments().angle(a, b, p);
+    }
+
+    /** Acute angle to the linear object's nearest segment (same exact search/tie rule). */
     private static double lineAngle(Obstacle o, Coordinate a, Coordinate b, Coordinate p) {
-        double best = Double.MAX_VALUE;
-        double[] dir = null;
-        Geometry g = o.geometry();
-        for (int k = 0; k < g.getNumGeometries(); k++) {
-            Coordinate[] cs = g.getGeometryN(k).getCoordinates();
-            for (int i = 0; i + 1 < cs.length; i++) {
-                double d = org.locationtech.jts.algorithm.Distance.pointToSegment(p, cs[i], cs[i + 1]);
-                if (d < best) {
-                    best = d;
-                    dir = new double[]{cs[i + 1].x - cs[i].x, cs[i + 1].y - cs[i].y};
-                }
-            }
-        }
-        if (dir == null) return 90;
-        return GeometryUtils.acuteAngleDeg(b.x - a.x, b.y - a.y, dir[0], dir[1]);
+        return o.boundarySegments().angle(a, b, p);
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -394,8 +519,23 @@ public final class ObstacleSpace {
     }
 
     public List<Coordinate> navigationVertices(int maxNodes) {
+        return navigationVertices(vertexZoneUnion(), maxNodes);
+    }
+
+    /**
+     * Fallback only: finer arc chords require a smaller outward safety offset. The ordinary navigation union
+     * intentionally overestimates buffers, and can close a corridor that remains open in the check geometry.
+     * These are extra candidates only: every connecting edge still uses the unchanged segment checker.
+     */
+    public List<Coordinate> refinedNavigationVertices(int maxNodes) {
+        int quadrants = 12;
+        double factor = 1.0 / Math.cos(Math.PI / (4.0 * quadrants));
+        return navigationVertices(buildNavigationUnion(navigationRegion,quadrants,factor),maxNodes);
+    }
+
+    private List<Coordinate> navigationVertices(Geometry union, int maxNodes) {
         List<Coordinate> out = new ArrayList<>();
-        for (Polygon poly : GeometryUtils.polygons(vertexZoneUnion)) {
+        for (Polygon poly : GeometryUtils.polygons(union)) {
             collectConvex(poly.getExteriorRing().getCoordinates(), true, out, maxNodes);
             for (int i = 0; i < poly.getNumInteriorRing(); i++) collectConvex(poly.getInteriorRingN(i).getCoordinates(), false, out, maxNodes);
         }
@@ -415,7 +555,7 @@ public final class ObstacleSpace {
             if (reverse) { Coordinate t = prev; prev = next; next = t; }
             double cross = (cur.x - prev.x) * (next.y - cur.y) - (cur.y - prev.y) * (next.x - cur.x);
             if (cross < -1e-9) {
-                if (out.size() >= maxNodes) throw new IllegalArgumentException("Navigation graph exceeds "
+                if (out.size() >= maxNodes) throw new ru.lct.heatnet.routing.ComplexityLimitException("Navigation graph exceeds "
                         + maxNodes + " obstacle vertices; the input geometry is too complex for automatic routing");
                 out.add(cur); // right turn = convex obstacle corner
             }

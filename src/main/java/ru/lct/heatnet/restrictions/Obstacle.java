@@ -22,7 +22,8 @@ public final class Obstacle {
     private final JsonId id;
     private final RestrictionRule rule;
     private final Geometry geometry;
-    private final PreparedGeometry prepared;
+    private volatile PreparedGeometry prepared;
+    private volatile ru.lct.heatnet.geo.BoundarySegments boundarySegments;
     private final double ownHalfWidthM;
     private final boolean polygonal;
     /** Envelope height of an existing heat network line (Table 1 by its DU), NaN for restrictions. */
@@ -38,7 +39,6 @@ public final class Obstacle {
         this.id = id;
         this.rule = rule;
         this.geometry = geometry;
-        this.prepared = PreparedGeometryFactory.prepare(geometry);
         this.ownHalfWidthM = ownHalfWidthM;
         this.polygonal = geometry instanceof Polygonal;
         this.existingHeightM = existingHeightM;
@@ -57,7 +57,23 @@ public final class Obstacle {
     public JsonId id() { return id; }
     public RestrictionRule rule() { return rule; }
     public Geometry geometry() { return geometry; }
-    public PreparedGeometry prepared() { return prepared; }
+    public PreparedGeometry prepared() {
+        PreparedGeometry p=prepared;
+        if(p==null) synchronized(this) {
+            if(prepared==null) prepared=PreparedGeometryFactory.prepare(geometry);
+            p=prepared;
+        }
+        return p;
+    }
+    public ru.lct.heatnet.geo.BoundarySegments boundarySegments() {
+        if(!rule.isSpecial())return null;
+        ru.lct.heatnet.geo.BoundarySegments b=boundarySegments;
+        if(b==null) synchronized(this) {
+            if(boundarySegments==null) boundarySegments=new ru.lct.heatnet.geo.BoundarySegments(geometry);
+            b=boundarySegments;
+        }
+        return b;
+    }
     public boolean isPolygonal() { return polygonal; }
     public boolean isForbidden() { return rule.isForbidden(); }
     public boolean isSpecial() { return rule.isSpecial(); }

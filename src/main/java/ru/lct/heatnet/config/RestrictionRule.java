@@ -94,14 +94,6 @@ public final class RestrictionRule {
         return 1400;
     }
 
-    /**
-     * Radius around a crossing point inside which the alongside clearance of this object is not checked
-     * (special section extent + twice the class clearance): the crossing must leave the clearance zone within it.
-     */
-    public double crossingCoverRadiusM(int du, double objectHalfWidthM) {
-        return sectionExtentM + 2.0 * requiredAxisDistanceM(clearanceClassDu(du), objectHalfWidthM);
-    }
-
     /** Radius around a tie-in point inside which the existing network is not checked for clearance (twice the class clearance). */
     public double tieInExemptRadiusM(int du, double objectHalfWidthM) {
         return 2.0 * requiredAxisDistanceM(clearanceClassDu(du), objectHalfWidthM);

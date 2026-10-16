@@ -60,9 +60,18 @@ public final class CrsTransformer {
         GeometryTransformer t = new GeometryTransformer() {
             @Override
             protected CoordinateSequence transformCoordinates(CoordinateSequence coords, Geometry parent) {
-                Coordinate[] out = new Coordinate[coords.size()];
-                for (int i = 0; i < coords.size(); i++) out[i] = toMetric(coords.getX(i), coords.getY(i));
-                return METRIC_FACTORY.getCoordinateSequenceFactory().create(out);
+                // Input geometry is two-dimensional after projection, as before. Keep the exact double values
+                // in a packed sequence instead of retaining a Coordinate object for every city vertex.
+                double[] xy = new double[Math.multiplyExact(coords.size(), 2)];
+                ProjCoordinate source = new ProjCoordinate(), target = new ProjCoordinate();
+                synchronized (forward) {
+                    for (int i = 0; i < coords.size(); i++) {
+                        source.x = coords.getX(i); source.y = coords.getY(i);
+                        forward.transform(source, target);
+                        xy[2 * i] = target.x; xy[2 * i + 1] = target.y;
+                    }
+                }
+                return new InputCoordinateSequence(xy);
             }
         };
         Geometry g = t.transform(wgs84Geometry);

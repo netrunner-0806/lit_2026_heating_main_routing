@@ -1,14 +1,49 @@
-# build and runtime artifacts
+# Java / Maven
 target/
-build/
-data/
-logs/
-*.log
-*.jar
+/build/
 *.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+*.heapdump
 .jqwik-database
-# local environment and IDE
+
+# Frontend / Node test artifacts
+node_modules/
+dist/
+coverage/
+.playwright/
+playwright-report/
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets; keep the documented environment template
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local application storage (includes upload sessions and chunks)
+/data/jobs/
+/data/tmp/
+/logs/
+
+# Local environment and IDE
 .idea/
 .vscode/
 *.iml

@@ -70,7 +70,13 @@ public final class HeatnetSolver {
                 if (vr != null) { vr.setDepthMode(config.depthMode); candidates.add(vr); }
             } catch (RuntimeException ex) {
                 log.warn("strategy {} failed: {}", s, ex.toString(), ex);
-                diag.warn("STRATEGY_FAILED", "Strategy " + s.name() + " failed: " + ex.getMessage());
+                // A failed computation is not evidence that consumers have no geometric path.
+                String code = ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT"
+                        : ex instanceof ru.lct.heatnet.geo.GeometryProcessingException || ex instanceof org.locationtech.jts.geom.TopologyException
+                        ? "INTERNAL_GEOMETRY_PROCESSING_FAILURE" : "INTERNAL_ERROR";
+                diag.error(code, "Strategy " + s.name() + " failed: " + ex.getMessage());
+                candidates.clear();
+                break;
             }
         }
         // validate, dedupe, rank
@@ -124,8 +130,10 @@ public final class HeatnetSolver {
         Map<JsonId, ClearanceClass> floors = new HashMap<>();
         VariantResult vr = null;
         for (int iter = 0; iter <= config.classIterations; iter++) {
-            vr = new ForestBuilder(ctx, s, floors).build();
+            ForestBuilder builder = new ForestBuilder(ctx, s, floors);
+            vr = builder.build();
             Map<JsonId, ClearanceClass> upgrades = clearanceUpgrades(ctx, vr, floors);
+            builder.clearanceUpgradeRequests().forEach((id, cls) -> upgrades.merge(id, cls, ClearanceClass::max));
             if (upgrades.isEmpty()) return vr;
             log.info("strategy {}: clearance upgrades needed for {} points, re-routing", s, upgrades.size());
             floors.putAll(upgrades);

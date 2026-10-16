@@ -28,6 +28,15 @@
       <label class="row"><span>Макс. вариантов</span>
         <select id="maxVariants"><option>3</option><option>2</option><option>1</option></select></label>
       <button id="run" class="primary">Загрузить и рассчитать</button>
+      <div id="uploadPanel" hidden>
+        <label for="uploadProgress">Загрузка файла</label>
+        <progress id="uploadProgress" max="100" value="0" style="width:100%"></progress>
+        <div id="uploadStatus" class="notes" role="status" aria-live="polite"></div>
+        <div class="actions">
+          <button id="pauseUpload" class="button secondary" type="button">Пауза</button>
+          <button id="cancelUpload" class="button secondary" type="button">Отменить загрузку</button>
+        </div>
+      </div>
       <div id="status" class="status"></div>
       <div id="stages" class="stages" hidden></div>
     </section>
@@ -105,6 +114,7 @@
   <div id="map"></div>
 </main>
 <script src="/webjars/leaflet/1.9.4/dist/leaflet.js"></script>
-<script src="/app.js?v=9"></script>
+<script src="/upload.js?v=1"></script>
+<script src="/app.js?v=10"></script>
 </body>
 </html>

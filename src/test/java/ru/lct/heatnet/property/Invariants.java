@@ -52,7 +52,8 @@ public final class Invariants {
     public static void checkAll(InputModel input, SolveResult r, List<OutputFeature> fs, boolean depth) {
         // the solver must not swallow crashes: a failed strategy is a bug, not a "no route"
         for (Diagnostics.Message m : r.diagnostics().messages()) {
-            if ("STRATEGY_FAILED".equals(m.getCode())) throw new AssertionError("strategy crashed: " + m.getText());
+            if ("STRATEGY_FAILED".equals(m.getCode()) || "INTERNAL_ERROR".equals(m.getCode())
+                    || "INTERNAL_GEOMETRY_PROCESSING_FAILURE".equals(m.getCode())) throw new AssertionError("strategy crashed: " + m.getText());
         }
         if (r.variants().isEmpty()) {
             // acceptable only when nothing could be connected at all: then there must be no output either

@@ -44,7 +44,7 @@ public final class SolverContext {
         ClassResources(ClearanceClass cls) {
             long t0 = System.currentTimeMillis();
             this.cls = cls;
-            this.space = new ObstacleSpace(input, cls);
+            this.space = new ObstacleSpace(input, cls, input.restrictions().size()>2048, initialNavigationRegion());
             this.graph = new NavGraph(space, config.staticRadius, config.helperGridSpacing);
             double maxExistingHalf = 0;
             for (ExistingNetworkLine l : input.networkLines()) maxExistingHalf = Math.max(maxExistingHalf, l.halfWidthM());
@@ -136,7 +136,7 @@ public final class SolverContext {
             for (ru.lct.heatnet.restrictions.Obstacle o : space.query(ls.getEnvelopeInternal())) {
                 if (!o.isForbidden()) continue;
                 org.locationtech.jts.geom.Geometry zone = o.geometry().buffer(space.requiredDistance(o));
-                org.locationtech.jts.geom.Geometry inter = zone.intersection(ls);
+                org.locationtech.jts.geom.Geometry inter = ru.lct.heatnet.geo.RobustGeometry.intersection(zone, ls, "tie-in corridor " + o.describe(), space.geometryStats());
                 for (int i = 0; i < inter.getNumGeometries(); i++) {
                     org.locationtech.jts.geom.Geometry g = inter.getGeometryN(i);
                     if (g.isEmpty() || g.getLength() < 1e-6) continue;
@@ -158,6 +158,25 @@ public final class SolverContext {
     private Map<JsonId, Double> separateDistance;
     private final java.util.concurrent.atomic.AtomicInteger candidatesEvaluated = new java.util.concurrent.atomic.AtomicInteger();
     private long graphBuildMs;
+    private int fallbackActivations;
+    private int regionExpansions;
+    private long hydraulicRecomputations, topologyCopies;
+    public void countHydraulics() { hydraulicRecomputations++; }
+    public void countTopologyCopy() { topologyCopies++; }
+
+    public void countFallback() { fallbackActivations++; }
+    public void countRegionExpansion() { regionExpansions++; }
+
+    private org.locationtech.jts.geom.Envelope initialNavigationRegion() {
+        if(input.restrictions().size()<config.localGraphMinimumObstacles)return null;
+        org.locationtech.jts.geom.Envelope region=new org.locationtech.jts.geom.Envelope();
+        for(ConnectionPoint cp:input.connectionPoints())region.expandToInclude(cp.coordinate());
+        for(ExistingNetworkLine line:input.networkLines())region.expandToInclude(line.geometry().getEnvelopeInternal());
+        for(ExistingChamber chamber:input.chambers())region.expandToInclude(chamber.coordinate());
+        if(region.isNull())return null;
+        region.expandBy(config.localGraphMargin);
+        return region;
+    }
 
     public void countCandidate() { candidatesEvaluated.incrementAndGet(); }
     public int candidatesEvaluated() { return candidatesEvaluated.get(); }
@@ -168,9 +187,23 @@ public final class SolverContext {
         for (ClassResources r : resources.values()) { nodes += r.graph.size(); edges += r.graph.edgeCount(); tieIns += r.tieIns.size(); }
         m.put("graph_nodes", nodes);
         m.put("graph_edges", edges);
+        m.put("graph_directed_edges", resources.values().stream().mapToLong(r -> r.graph.directedEdgeCount()).sum());
+        m.put("dijkstra_traversals", resources.values().stream().mapToLong(r -> r.graph.traversalCount()).sum());
+        m.put("geometry_visibility_checks", resources.values().stream().mapToLong(r -> r.graph.geometryCheckCount()).sum());
+        m.put("dynamic_vertex_insertions", resources.values().stream().mapToLong(r -> r.graph.dynamicInsertionCount()).sum());
+        m.put("candidate_pairs_examined", resources.values().stream().mapToLong(r -> r.graph.pairCandidateCount()).sum());
+        m.put("certified_interior_rejections", resources.values().stream().mapToLong(r -> r.graph.interiorRejectionCount()).sum());
+        m.put("visibility_checks", resources.values().stream().mapToLong(r -> r.graph.visibilityCheckCount()).sum());
+        m.put("restriction_check_buffers", resources.values().stream().mapToLong(r -> r.space.preparedObjectCount()).sum());
         m.put("tie_in_candidates", tieIns);
+        m.put("candidate_hydraulic_recomputations", hydraulicRecomputations);
+        m.put("candidate_topology_copies", topologyCopies);
         m.put("candidate_count", candidatesEvaluated.get());
         m.put("routing_graph_time_ms", graphBuildMs);
+        m.put("fallback_activations", fallbackActivations);
+        m.put("navigation_region_expansions", regionExpansions);
+        m.put("routing_intersection_calls", resources.values().stream().mapToLong(r -> r.space.geometryStats().intersections.sum()).sum());
+        m.put("robust_overlay_retries", resources.values().stream().mapToLong(r -> r.space.geometryStats().retries.sum()).sum());
         return m;
     }
 

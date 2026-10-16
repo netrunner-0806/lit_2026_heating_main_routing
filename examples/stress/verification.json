@@ -1,0 +1,287 @@
+{
+  "date_utc": "2026-10-16T13:57:46.133809+00:00",
+  "organizer_failure_reproduced": false,
+  "source_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+  "build_classes_sha256": "701e03c119cfb60811c56b15ce285dca2451269ddf9e4056fce1c4e6593362bb",
+  "requirements": {
+    "Дополнительные_разъяснения_по_вопросам_участников_29_09_2026.docx": "c0125cadb537ea58a750dc9587ccdf075717c1d028357381bc2b79c0abbdf84c",
+    "Разъяснения по вопросам ЛЦТ.docx": "4ae183a3e086cd7c8853bec2f1706ab2ef91f62d46cdbdccbc98e8eb4ef1e079",
+    "Техническое  приложение ЛЦТ.docx": "c757f68dcf58f23abd18cb9217cd65107102bd53653a7485041d4363e54b71d6"
+  },
+  "commands": {
+    "all": "python3 scripts/verify-universal.py --docker-image maven:3.9.6-eclipse-temurin-11",
+    "generate": "python3 scripts/generate-universal-datasets.py",
+    "historical_refusals": "python3 scripts/analyze-road-conflicts.py",
+    "java": "mvn -Dheatnet.corrected.input=/absolute/path/to/corrected.geojson -Dheatnet.replay.seed=12345 test",
+    "ui": "node --test src/test/js/large-input-ui.test.cjs",
+    "new_scenes": "python3 scripts/run-stress-suite.py --manifest examples/stress/universal-manifest.json --repeat 2"
+  },
+  "osm": {
+    "provenance": "osm/provenance.json",
+    "road_features_added": 481,
+    "water_features_added": 3,
+    "synthetic_water_added": 1,
+    "original_features_preserved": 144,
+    "overlap_pairs_road_oks": 57,
+    "connection_points_inside_osm_roads": 0,
+    "overlap_report": "osm-conflicts.json",
+    "synthetic_refusals_report": "synthetic-road-conflicts.json"
+  },
+  "confirmed_fixes": [
+    {
+      "case": "universal-narrow-corridor",
+      "before_connected": 0,
+      "after_connected": 1,
+      "cause": "Inflated navigation-zone union erased a valid 3.45 m corridor; independently validated witness.",
+      "fix": "Extra finer clearance-boundary vertices only after primary search fails; same segment/engineering checks."
+    },
+    {
+      "case": "LocalCrossingClearanceTest, shallow actual crossing",
+      "before": "10 degree straight gas crossing wrongly rejected",
+      "after": "gas/cable/existing heat pass at 90/45/10 degrees; special length remains 4 m",
+      "fix": "Use connected local clearance transition on the straight crossing, not an arbitrary radius."
+    },
+    {
+      "case": "LocalCrossingClearanceTest, short parallel run",
+      "before": "Independent validator accepted 4 m parallel run at 2.2 m from gas after a crossing",
+      "after": "CLEARANCE; neighbouring cable remains checked",
+      "fix": "A real turn ends the transition exemption; each object checked independently."
+    }
+  ],
+  "regeneration": {
+    "generated_files_compared": 30,
+    "byte_identical": true,
+    "source_unchanged": true,
+    "source_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130"
+  },
+  "java_tests": {
+    "tests": 386,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "ui_tests": {
+    "tests": 6,
+    "failures": 0,
+    "command": "node --test src/test/js/large-input-ui.test.cjs"
+  },
+  "integration": {
+    "runs": 86,
+    "new_plus_original_runs": 64,
+    "legacy_runs": 22,
+    "all_done_valid": true,
+    "errors": 0,
+    "warnings": 0,
+    "all_input_counts_match": true,
+    "new_deterministic_repeats": 2,
+    "legacy_repeats": 1
+  },
+  "baseline": {
+    "PLANAR": {
+      "connected_before_after": [
+        17,
+        17
+      ],
+      "score_before_after": [
+        13.433636792000001,
+        13.433636792000001
+      ],
+      "sha256": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+      "byte_identical": true,
+      "before_wall_ms": 27831,
+      "after_median_wall_ms": 28219.5,
+      "before_heap_bytes": 374271984,
+      "after_heap_max_bytes": 380833096,
+      "after_standalone_repeats": 2,
+      "also_checked_by": "CompetitionBaselineTest"
+    },
+    "DEPTH": {
+      "connected_before_after": [
+        17,
+        17
+      ],
+      "score_before_after": [
+        13.433636792000001,
+        13.433636792000001
+      ],
+      "sha256": "6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385",
+      "byte_identical": true,
+      "before_wall_ms": 29753,
+      "after_median_wall_ms": 30761.0,
+      "before_heap_bytes": 402160576,
+      "after_heap_max_bytes": 509171624,
+      "after_standalone_repeats": 2,
+      "also_checked_by": "CompetitionBaselineTest"
+    }
+  },
+  "docker": {
+    "compose_config": true,
+    "build": true,
+    "used_project_Dockerfile_unchanged": true,
+    "run": true,
+    "health": "UP",
+    "class_hash": {
+      "classes_sha256": "701e03c119cfb60811c56b15ce285dca2451269ddf9e4056fce1c4e6593362bb",
+      "identical_to_tested_build": true
+    },
+    "http_jobs": [
+      {
+        "scene": "competition-osm-roads",
+        "mode": "PLANAR",
+        "status": "DONE",
+        "validation": true
+      },
+      {
+        "scene": "universal-narrow-corridor",
+        "mode": "DEPTH",
+        "status": "DONE",
+        "validation": true
+      },
+      {
+        "scene": "invalid-restriction",
+        "mode": "PLANAR",
+        "status": "FAILED",
+        "validation": "controlled INVALID_INPUT with object ID"
+      },
+      {
+        "scene": "routing-fallback",
+        "mode": "PLANAR",
+        "status": "DONE",
+        "validation": true
+      }
+    ],
+    "restart": {
+      "health": "UP",
+      "persisted_jobs": 4,
+      "persisted_successful_inputs": 3
+    },
+    "new_jobs_after_restart": 4,
+    "isolated_project": "lct-universal-smoke",
+    "stopped_after_check": true,
+    "production_volumes_touched": false
+  },
+  "resource_notes": "Existing node/edge/visibility/grid limits retained; refined navigation candidates bounded at 20000. Heap is sampled every 5 ms, not RSS. Runs use separate Java11 JVMs, -Xmx2g, 4 GiB container, 8 CPU quota. Some OSM runs overlapped Docker smoke/build; no performance/speedup claim.",
+  "remaining_limits": [
+    "Finite heuristic search, conservative DU classes, sampled exits/tie-ins and bounded alternative search; no mathematical completeness guarantee.",
+    "OSM widths are approximate when width tags are absent; no survey-level road/building alignment claim. Added layers clipped to input bbox plus 100 m; this is data extent, not solver search boundary.",
+    "No organizer input was available; their exact crash was not reproduced.",
+    "Large multi-GiB scaling and performance changes intentionally deferred."
+  ],
+  "files": {
+    "modified": [
+      "README.md",
+      "examples/stress/README.md",
+      "examples/stress/verification.json",
+      "scripts/run-stress-suite.py",
+      "src/main/java/ru/lct/heatnet/config/RestrictionRule.java",
+      "src/main/java/ru/lct/heatnet/restrictions/ObstacleSpace.java",
+      "src/main/java/ru/lct/heatnet/solver/AdaptiveRouting.java",
+      "src/main/java/ru/lct/heatnet/solver/ApproachPlanner.java",
+      "src/main/java/ru/lct/heatnet/solver/ForestBuilder.java",
+      "src/main/java/ru/lct/heatnet/validation/SpatialValidator.java",
+      "src/test/java/ru/lct/heatnet/restrictions/ObstacleSpaceTest.java",
+      "src/test/java/ru/lct/heatnet/stress/WitnessRoutesTest.java"
+    ],
+    "added": [
+      "examples/stress/competition-osm-roads-water.geojson",
+      "examples/stress/competition-osm-roads.geojson",
+      "examples/stress/osm-conflicts.json",
+      "examples/stress/osm/provenance.json",
+      "examples/stress/osm/relation-1451187.osm.gz",
+      "examples/stress/osm/relation-4206185.osm.gz",
+      "examples/stress/osm/relation-64477.osm.gz",
+      "examples/stress/osm/roads.overpass.json",
+      "examples/stress/synthetic-road-conflicts.json",
+      "examples/stress/universal-adjacent-roads.geojson",
+      "examples/stress/universal-adjacent-roads.witness.json",
+      "examples/stress/universal-boundary.geojson",
+      "examples/stress/universal-boundary.witness.json",
+      "examples/stress/universal-complex-oks.geojson",
+      "examples/stress/universal-complex-oks.witness.json",
+      "examples/stress/universal-intersecting-roads.geojson",
+      "examples/stress/universal-intersecting-roads.witness.json",
+      "examples/stress/universal-long-detour.geojson",
+      "examples/stress/universal-long-detour.witness.json",
+      "examples/stress/universal-manifest.json",
+      "examples/stress/universal-mixed.geojson",
+      "examples/stress/universal-mixed.witness.json",
+      "examples/stress/universal-narrow-corridor.geojson",
+      "examples/stress/universal-narrow-corridor.witness.json",
+      "examples/stress/universal-road-inside-existing.geojson",
+      "examples/stress/universal-road-inside-existing.witness.json",
+      "examples/stress/universal-road-inside-new.geojson",
+      "examples/stress/universal-road-inside-new.witness.json",
+      "examples/stress/universal-tram_tracks-inside-existing.geojson",
+      "examples/stress/universal-tram_tracks-inside-existing.witness.json",
+      "examples/stress/universal-tram_tracks-inside-new.geojson",
+      "examples/stress/universal-tram_tracks-inside-new.witness.json",
+      "examples/stress/universal-water-detours.geojson",
+      "examples/stress/universal-water-detours.witness.json",
+      "examples/stress/universal-water-impossible.geojson",
+      "scripts/analyze-road-conflicts.py",
+      "scripts/generate-universal-datasets.py",
+      "scripts/verify-universal.py",
+      "src/test/java/ru/lct/heatnet/stress/SyntheticRoadConflictsTest.java",
+      "src/test/java/ru/lct/heatnet/stress/UniversalRoutingTest.java",
+      "src/test/java/ru/lct/heatnet/validation/LocalCrossingClearanceTest.java"
+    ],
+    "removed": []
+  },
+  "git_operations": 0,
+  "scenarios": [
+    {"file":"source.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.433636792000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b","median_wall_ms":28219.5,"max_sampled_heap_bytes":380833096,"features_read":144,"restrictions_read":88,"navigation_nodes":5996,"navigation_edges_legacy_half_directed":275118,"routing_intersection_calls":5488581,"fallback_activations":0},
+    {"file":"source.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.433636792000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385","median_wall_ms":30761.0,"max_sampled_heap_bytes":509171624,"features_read":144,"restrictions_read":88,"navigation_nodes":5996,"navigation_edges_legacy_half_directed":275118,"routing_intersection_calls":5519694,"fallback_activations":0},
+    {"file":"competition-osm-roads.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":14.142099592,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4","median_wall_ms":51651.5,"max_sampled_heap_bytes":427887384,"features_read":625,"restrictions_read":569,"navigation_nodes":8722,"navigation_edges_legacy_half_directed":258032,"routing_intersection_calls":14299674,"fallback_activations":0},
+    {"file":"competition-osm-roads.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":14.138740444,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13","median_wall_ms":68289.0,"max_sampled_heap_bytes":661241312,"features_read":625,"restrictions_read":569,"navigation_nodes":8723,"navigation_edges_legacy_half_directed":258172,"routing_intersection_calls":14585821,"fallback_activations":0},
+    {"file":"competition-osm-roads-water.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":14.142099592,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4","median_wall_ms":47865.0,"max_sampled_heap_bytes":439721912,"features_read":629,"restrictions_read":573,"navigation_nodes":8773,"navigation_edges_legacy_half_directed":257376,"routing_intersection_calls":14815756,"fallback_activations":0},
+    {"file":"competition-osm-roads-water.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":14.138740444,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13","median_wall_ms":61673.5,"max_sampled_heap_bytes":418565368,"features_read":629,"restrictions_read":573,"navigation_nodes":8774,"navigation_edges_legacy_half_directed":257515,"routing_intersection_calls":15102261,"fallback_activations":0},
+    {"file":"universal-water-detours.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.7694850520000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"f6ff3bbbd43076d60c05c4f2bd7379a71d3742688519c25ee3839f9c6ec7c75e","median_wall_ms":471.0,"max_sampled_heap_bytes":42908144,"features_read":4,"restrictions_read":1,"navigation_nodes":66,"navigation_edges_legacy_half_directed":578,"routing_intersection_calls":4345,"fallback_activations":0},
+    {"file":"universal-water-detours.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.7694850520000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"68c643d9f6b82dcdcae076e889218db9cc9f0bc43ee31f9ffdc00cd159d6dc55","median_wall_ms":543.0,"max_sampled_heap_bytes":42843088,"features_read":4,"restrictions_read":1,"navigation_nodes":66,"navigation_edges_legacy_half_directed":578,"routing_intersection_calls":4345,"fallback_activations":0},
+    {"file":"universal-water-impossible.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"f1da7f2a487f7f3019b01632cf35e14c51cec94462857cb0934000c9a31cf110","median_wall_ms":2390.0,"max_sampled_heap_bytes":311958336,"features_read":4,"restrictions_read":1,"navigation_nodes":717,"navigation_edges_legacy_half_directed":107440,"routing_intersection_calls":468076,"fallback_activations":5},
+    {"file":"universal-water-impossible.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"7843db4dcbf0470e4b4429f241b46fe9f225ec22f6541075fe8c77c20df50b85","median_wall_ms":2255.5,"max_sampled_heap_bytes":289754304,"features_read":4,"restrictions_read":1,"navigation_nodes":717,"navigation_edges_legacy_half_directed":107440,"routing_intersection_calls":468076,"fallback_activations":5},
+    {"file":"universal-adjacent-roads.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6826238359999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"6f037470e3b9f767b08f7eb146b5d2fca080db28d31584b0411863b4e3d9477f","median_wall_ms":454.0,"max_sampled_heap_bytes":41866560,"features_read":5,"restrictions_read":2,"navigation_nodes":49,"navigation_edges_legacy_half_directed":481,"routing_intersection_calls":3124,"fallback_activations":0},
+    {"file":"universal-adjacent-roads.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6826238359999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"9c8bba504a014587b33499b3d4a69404788af7a38a7ef01e5e914750818441d6","median_wall_ms":526.0,"max_sampled_heap_bytes":44302064,"features_read":5,"restrictions_read":2,"navigation_nodes":49,"navigation_edges_legacy_half_directed":481,"routing_intersection_calls":4636,"fallback_activations":0},
+    {"file":"universal-intersecting-roads.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.683695112,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"0475345e7afb2a272ec30a8ff96b4b78943ec17abcf64ba856a6f9bf864eb023","median_wall_ms":578.0,"max_sampled_heap_bytes":47944744,"features_read":5,"restrictions_read":2,"navigation_nodes":69,"navigation_edges_legacy_half_directed":898,"routing_intersection_calls":5778,"fallback_activations":0},
+    {"file":"universal-intersecting-roads.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.683695112,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"b4763eb450390926f6b62b613317eeefed8006360aed19e47ccadf66df7eb1c8","median_wall_ms":585.5,"max_sampled_heap_bytes":49530896,"features_read":5,"restrictions_read":2,"navigation_nodes":69,"navigation_edges_legacy_half_directed":898,"routing_intersection_calls":7002,"fallback_activations":0},
+    {"file":"universal-road-inside-new.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6707348120000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"501e74ebd5d20da0949201f4b0c36ba8329674a5d3f5e0af919cc839a1cd74fa","median_wall_ms":394.0,"max_sampled_heap_bytes":37006336,"features_read":4,"restrictions_read":1,"navigation_nodes":33,"navigation_edges_legacy_half_directed":211,"routing_intersection_calls":1444,"fallback_activations":0},
+    {"file":"universal-road-inside-new.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6707348120000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"5d74554c787790fbe35985e720d0ed2c1d153f6609be6f45ba4033f50dc3b5a4","median_wall_ms":490.5,"max_sampled_heap_bytes":39797120,"features_read":4,"restrictions_read":1,"navigation_nodes":33,"navigation_edges_legacy_half_directed":211,"routing_intersection_calls":2452,"fallback_activations":0},
+    {"file":"universal-road-inside-existing.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6707348120000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"c61b5b61dec9ac12d35b247cfe1cbdca90d7844599b9edd4543f4fdeba4b88b7","median_wall_ms":358.5,"max_sampled_heap_bytes":36920320,"features_read":5,"restrictions_read":1,"navigation_nodes":27,"navigation_edges_legacy_half_directed":156,"routing_intersection_calls":568,"fallback_activations":0},
+    {"file":"universal-road-inside-existing.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6707348120000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"b805c3f7c43135ffcb2d7ba878e2998a5063d04aab2585b0a1f0d722920a51a2","median_wall_ms":386.0,"max_sampled_heap_bytes":37092352,"features_read":5,"restrictions_read":1,"navigation_nodes":27,"navigation_edges_legacy_half_directed":156,"routing_intersection_calls":712,"fallback_activations":0},
+    {"file":"universal-tram_tracks-inside-new.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.673376808,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"e5eebc086545a72f056a16736cf8a2ee57b03e17f531a68c5b4c7a7923600ecc","median_wall_ms":397.0,"max_sampled_heap_bytes":37098496,"features_read":4,"restrictions_read":1,"navigation_nodes":33,"navigation_edges_legacy_half_directed":211,"routing_intersection_calls":1444,"fallback_activations":0},
+    {"file":"universal-tram_tracks-inside-new.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.673376808,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"de3537ec3f7f912e2edce6973e2e548097fb572a9e53540f1741d34e66409578","median_wall_ms":450.5,"max_sampled_heap_bytes":39927824,"features_read":4,"restrictions_read":1,"navigation_nodes":33,"navigation_edges_legacy_half_directed":211,"routing_intersection_calls":2452,"fallback_activations":0},
+    {"file":"universal-tram_tracks-inside-existing.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.673376808,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"2e2ad705e79b5834e30a343438d4e3f8d53054b63030879a02ea9aeba51a97eb","median_wall_ms":358.5,"max_sampled_heap_bytes":36917248,"features_read":5,"restrictions_read":1,"navigation_nodes":27,"navigation_edges_legacy_half_directed":156,"routing_intersection_calls":568,"fallback_activations":0},
+    {"file":"universal-tram_tracks-inside-existing.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.673376808,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"d1c6d643cd9bae123c9110fdfd1208c66330626e0b04c0f7877040469fd534c7","median_wall_ms":377.0,"max_sampled_heap_bytes":37356032,"features_read":5,"restrictions_read":1,"navigation_nodes":27,"navigation_edges_legacy_half_directed":156,"routing_intersection_calls":712,"fallback_activations":0},
+    {"file":"universal-complex-oks.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6133830039999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"1e0ecdcc68e40b2528126c13316d76477699e00e6e1473aa0156309fe3e64fec","median_wall_ms":525.5,"max_sampled_heap_bytes":46024520,"features_read":5,"restrictions_read":2,"navigation_nodes":92,"navigation_edges_legacy_half_directed":1290,"routing_intersection_calls":4165,"fallback_activations":0},
+    {"file":"universal-complex-oks.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6133830039999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"55d862d99d1f6bc50380cd31536acd1f01430f640e87c2ca28e86505b35bde6f","median_wall_ms":498.0,"max_sampled_heap_bytes":45960016,"features_read":5,"restrictions_read":2,"navigation_nodes":92,"navigation_edges_legacy_half_directed":1290,"routing_intersection_calls":4165,"fallback_activations":0},
+    {"file":"universal-mixed.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.677163696,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"44834c04c32ed989e32c9597836aa2441721358243e041e2e951d4590c92fab9","median_wall_ms":811.0,"max_sampled_heap_bytes":58916656,"features_read":11,"restrictions_read":8,"navigation_nodes":147,"navigation_edges_legacy_half_directed":2114,"routing_intersection_calls":16313,"fallback_activations":0},
+    {"file":"universal-mixed.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.677163696,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"f4f0999748dd5e2e920cea71af3623d7f264c20538c4d8dfb53c0367600e25b6","median_wall_ms":874.5,"max_sampled_heap_bytes":59949200,"features_read":11,"restrictions_read":8,"navigation_nodes":147,"navigation_edges_legacy_half_directed":2114,"routing_intersection_calls":18617,"fallback_activations":0},
+    {"file":"universal-long-detour.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":9.485404203999998,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"e619a86b7f58d24ba9649c963ba439230c6e682c5c4666424248fe9ae0353279","median_wall_ms":459.5,"max_sampled_heap_bytes":40857320,"features_read":4,"restrictions_read":1,"navigation_nodes":133,"navigation_edges_legacy_half_directed":1598,"routing_intersection_calls":5473,"fallback_activations":0},
+    {"file":"universal-long-detour.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":9.485404203999998,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"d3376da3046980b9f35bfa084673ef9a331540a7f78e85854d1add334b24a998","median_wall_ms":505.5,"max_sampled_heap_bytes":47668464,"features_read":4,"restrictions_read":1,"navigation_nodes":133,"navigation_edges_legacy_half_directed":1598,"routing_intersection_calls":6985,"fallback_activations":0},
+    {"file":"universal-narrow-corridor.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.878730476,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"3f47690b43cf2043e0d939def94636b357c9bd29e783cede33c1e508259333d6","median_wall_ms":2026.0,"max_sampled_heap_bytes":213784664,"features_read":4,"restrictions_read":1,"navigation_nodes":237,"navigation_edges_legacy_half_directed":3351,"routing_intersection_calls":185817,"fallback_activations":5},
+    {"file":"universal-narrow-corridor.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.878730476,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"1328d315b34306646fb64313b039a214b88fc4156cc27d49ffdba47121d2e445","median_wall_ms":1991.0,"max_sampled_heap_bytes":219847000,"features_read":4,"restrictions_read":1,"navigation_nodes":237,"navigation_edges_legacy_half_directed":3351,"routing_intersection_calls":185817,"fallback_activations":5},
+    {"file":"universal-boundary.geojson","mode":"PLANAR","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6862565839999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"56e8f7524fcdd0a33a80465ce970f19a3265216a55b317ac7b0c36342b5dc25d","median_wall_ms":562.5,"max_sampled_heap_bytes":47153232,"features_read":7,"restrictions_read":4,"navigation_nodes":73,"navigation_edges_legacy_half_directed":891,"routing_intersection_calls":6603,"fallback_activations":0},
+    {"file":"universal-boundary.geojson","mode":"DEPTH","runs":2,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.6862565839999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":true,"output_sha256":"e880ad59ed6b63a427dcfedbfc4b619b3da83a8c3d1a77a266bdbca5a93a5915","median_wall_ms":622.0,"max_sampled_heap_bytes":48202288,"features_read":7,"restrictions_read":4,"navigation_nodes":73,"navigation_edges_legacy_half_directed":891,"routing_intersection_calls":8115,"fallback_activations":0},
+    {"file":"competition-with-roads.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[12,12,12],"total_consumers":17,"best_score":26.323171503999998,"unconnected":{"12":"GENUINELY_UNREACHABLE: consumer 12 is strictly inside road#\"stress-road-7\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","15":"GENUINELY_UNREACHABLE: consumer 15 is strictly inside road#\"stress-road-5\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","17":"GENUINELY_UNREACHABLE: consumer 17 is strictly inside road#\"stress-road-14\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","2":"GENUINELY_UNREACHABLE: consumer 2 is strictly inside road#\"stress-road-9\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","11":"GENUINELY_UNREACHABLE: consumer 11 is strictly inside road#\"stress-road-7\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"3704f23405321a472637ed758207ad060ea0a9d444f11117a2474d411f31eceb","median_wall_ms":380562,"max_sampled_heap_bytes":590477760,"features_read":184,"restrictions_read":128,"navigation_nodes":14465,"navigation_edges_legacy_half_directed":852510,"routing_intersection_calls":64403169,"fallback_activations":25},
+    {"file":"competition-with-roads.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[12,12,12],"total_consumers":17,"best_score":26.323167299999998,"unconnected":{"12":"GENUINELY_UNREACHABLE: consumer 12 is strictly inside road#\"stress-road-7\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","15":"GENUINELY_UNREACHABLE: consumer 15 is strictly inside road#\"stress-road-5\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","17":"GENUINELY_UNREACHABLE: consumer 17 is strictly inside road#\"stress-road-14\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","2":"GENUINELY_UNREACHABLE: consumer 2 is strictly inside road#\"stress-road-9\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply","11":"GENUINELY_UNREACHABLE: consumer 11 is strictly inside road#\"stress-road-7\"; the required 3 m exterior continuation cannot fit at this terminal; the chamber-on-existing-network exception does not apply"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"c680a72eaec6edb8e3d229f6925f87c66f407b115e32b437d59f609f7601b756","median_wall_ms":415134,"max_sampled_heap_bytes":505441904,"features_read":184,"restrictions_read":128,"navigation_nodes":14465,"navigation_edges_legacy_half_directed":852510,"routing_intersection_calls":65350044,"fallback_activations":25},
+    {"file":"competition-with-water.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.43525208,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"fe2c7ccbd6c366ea13fa7a0ccf9ffd76874ff496d64c4af2b43ce4997c0645d5","median_wall_ms":29311,"max_sampled_heap_bytes":479188480,"features_read":147,"restrictions_read":91,"navigation_nodes":6139,"navigation_edges_legacy_half_directed":281223,"routing_intersection_calls":5776503,"fallback_activations":0},
+    {"file":"competition-with-water.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.43525208,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"fa2013f990a71a52eae1c56f6faf76ebf38118e0eb39e313cef837aeaa487019","median_wall_ms":32364,"max_sampled_heap_bytes":405398520,"features_read":147,"restrictions_read":91,"navigation_nodes":6139,"navigation_edges_legacy_half_directed":281223,"routing_intersection_calls":5808415,"fallback_activations":0},
+    {"file":"competition-mixed-restrictions.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.525595095999998,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"f7255d6f789d6bcdf3360de8e4f3767d4c8ba9dacb09f9a36236cac89b62c4a5","median_wall_ms":28480,"max_sampled_heap_bytes":464061800,"features_read":154,"restrictions_read":98,"navigation_nodes":6087,"navigation_edges_legacy_half_directed":278294,"routing_intersection_calls":5799406,"fallback_activations":0},
+    {"file":"competition-mixed-restrictions.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.525595095999998,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"ae9ffec6c4c96b650f2308cc1a622c02d611a50279e22176046a3cab55e6e1c2","median_wall_ms":31634,"max_sampled_heap_bytes":417643032,"features_read":154,"restrictions_read":98,"navigation_nodes":6087,"navigation_edges_legacy_half_directed":278294,"routing_intersection_calls":5834240,"fallback_activations":0},
+    {"file":"competition-dense.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.553298935999997,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"3bdb24d19d1d861c6f6dc3e9ec289c7b116bcc2e283d9b87de9c9f7f8aa1a6d8","median_wall_ms":40151,"max_sampled_heap_bytes":552207032,"features_read":266,"restrictions_read":210,"navigation_nodes":11077,"navigation_edges_legacy_half_directed":802186,"routing_intersection_calls":10344732,"fallback_activations":0},
+    {"file":"competition-dense.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[17,17,17],"total_consumers":17,"best_score":13.553298935999997,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"d7f9e697f36a13dda27ab9e192eb69ce643f9422d962362ef8a43276532a9980","median_wall_ms":44915,"max_sampled_heap_bytes":586440216,"features_read":266,"restrictions_read":210,"navigation_nodes":11077,"navigation_edges_legacy_half_directed":802186,"routing_intersection_calls":10376532,"fallback_activations":0},
+    {"file":"routing-fallback.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":7.6079484,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"73d00fa13445f99031d96f3c91a28f2e8c8fb5ad165da1f0fbcf7c6e91eef8ae","median_wall_ms":384,"max_sampled_heap_bytes":37090816,"features_read":3,"restrictions_read":0,"navigation_nodes":33,"navigation_edges_legacy_half_directed":249,"routing_intersection_calls":846,"fallback_activations":5},
+    {"file":"routing-fallback.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":7.6079484,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"5bc00c748cb274c39bcee5ddb89caee00fafe964b9d670740e3a60de03dad107","median_wall_ms":396,"max_sampled_heap_bytes":36918784,"features_read":3,"restrictions_read":0,"navigation_nodes":33,"navigation_edges_legacy_half_directed":249,"routing_intersection_calls":846,"fallback_activations":5},
+    {"file":"routing-fallback-detour.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":15.25348002,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"68986f524d220ad7e9e903262b328a2a648e9ca8ce8787f217e5d27594ef8cf5","median_wall_ms":464,"max_sampled_heap_bytes":37681312,"features_read":4,"restrictions_read":1,"navigation_nodes":86,"navigation_edges_legacy_half_directed":1078,"routing_intersection_calls":2229,"fallback_activations":5},
+    {"file":"routing-fallback-detour.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":15.25348002,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"6edf8304d3905cdb81b2dc63558fb596fb002c5a42dfb9dd156c2598d1569a02","median_wall_ms":456,"max_sampled_heap_bytes":39923488,"features_read":4,"restrictions_read":1,"navigation_nodes":86,"navigation_edges_legacy_half_directed":1078,"routing_intersection_calls":2229,"fallback_activations":5},
+    {"file":"routing-fallback-oks.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":4.076848904,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"cdf5c6f261a8cf57a60e53e6bbbcefcd0753133c8da62d8bdab7f209decb0edb","median_wall_ms":573,"max_sampled_heap_bytes":48555808,"features_read":5,"restrictions_read":2,"navigation_nodes":85,"navigation_edges_legacy_half_directed":769,"routing_intersection_calls":6056,"fallback_activations":5},
+    {"file":"routing-fallback-oks.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":4.076848904,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"04cd6891d5ab27676e396b4bf7ca5c3eaf8d69fa2c25920c8b2d0b4a3399861d","median_wall_ms":589,"max_sampled_heap_bytes":56083008,"features_read":5,"restrictions_read":2,"navigation_nodes":85,"navigation_edges_legacy_half_directed":769,"routing_intersection_calls":6791,"fallback_activations":5},
+    {"file":"routing-fallback-road-exit.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.8923847119999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"213076ef6951b1fa9467bca097cbf7fa04315f08709e9f80e225bf9c89ca8c40","median_wall_ms":523,"max_sampled_heap_bytes":40959560,"features_read":5,"restrictions_read":2,"navigation_nodes":50,"navigation_edges_legacy_half_directed":536,"routing_intersection_calls":3599,"fallback_activations":5},
+    {"file":"routing-fallback-road-exit.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.8923847119999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"c39b3cec99cbd0574432dfa9ffe86cba5df3c561f6a8944e95e2e5f8d08b89b6","median_wall_ms":533,"max_sampled_heap_bytes":41932248,"features_read":5,"restrictions_read":2,"navigation_nodes":50,"navigation_edges_legacy_half_directed":536,"routing_intersection_calls":3599,"fallback_activations":5},
+    {"file":"routing-impossible.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"f1da7f2a487f7f3019b01632cf35e14c51cec94462857cb0934000c9a31cf110","median_wall_ms":2355,"max_sampled_heap_bytes":272197488,"features_read":4,"restrictions_read":1,"navigation_nodes":918,"navigation_edges_legacy_half_directed":162865,"routing_intersection_calls":445662,"fallback_activations":5},
+    {"file":"routing-impossible.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"7843db4dcbf0470e4b4429f241b46fe9f225ec22f6541075fe8c77c20df50b85","median_wall_ms":2595,"max_sampled_heap_bytes":268804224,"features_read":4,"restrictions_read":1,"navigation_nodes":918,"navigation_edges_legacy_half_directed":162865,"routing_intersection_calls":445662,"fallback_activations":5},
+    {"file":"routing-impossible-exit.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_VALID_OKS_EXIT: sampled exterior exits rejected: {no clearance outside own OKS=40}"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"f1da7f2a487f7f3019b01632cf35e14c51cec94462857cb0934000c9a31cf110","median_wall_ms":445,"max_sampled_heap_bytes":36102992,"features_read":5,"restrictions_read":2,"navigation_nodes":49,"navigation_edges_legacy_half_directed":476,"routing_intersection_calls":1553,"fallback_activations":5},
+    {"file":"routing-impossible-exit.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[0],"total_consumers":1,"best_score":2.856,"unconnected":{"consumer":"NO_VALID_OKS_EXIT: sampled exterior exits rejected: {no clearance outside own OKS=40}"},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"7843db4dcbf0470e4b4429f241b46fe9f225ec22f6541075fe8c77c20df50b85","median_wall_ms":415,"max_sampled_heap_bytes":36139504,"features_read":5,"restrictions_read":2,"navigation_nodes":49,"navigation_edges_legacy_half_directed":476,"routing_intersection_calls":1553,"fallback_activations":5},
+    {"file":"geometry-edge-cases.geojson","mode":"PLANAR","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.8041387520000001,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"02427c36b8971987bd08bf162f6335e0ab35fdbfe61be27c753b2c2ce36e2918","median_wall_ms":6620,"max_sampled_heap_bytes":197007536,"features_read":16,"restrictions_read":12,"navigation_nodes":1631,"navigation_edges_legacy_half_directed":105822,"routing_intersection_calls":1319808,"fallback_activations":0},
+    {"file":"geometry-edge-cases.geojson","mode":"DEPTH","runs":1,"status":"DONE","connected":[1],"total_consumers":1,"best_score":0.8041386959999999,"unconnected":{},"valid":true,"errors":0,"warnings":0,"engineering_oracle_errors":0,"deterministic":false,"output_sha256":"2b59ef0adb42d53a1d161a6c15ea21f8b3b85bc295c54003e0b6aa1fbab4d8b1","median_wall_ms":6883,"max_sampled_heap_bytes":233038824,"features_read":16,"restrictions_read":12,"navigation_nodes":1631,"navigation_edges_legacy_half_directed":105822,"routing_intersection_calls":1320168,"fallback_activations":0}
+  ]
+}

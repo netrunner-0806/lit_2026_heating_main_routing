@@ -8,7 +8,7 @@ import java.nio.file.Paths;
 public final class TestData {
     private TestData() {}
 
-    public static final Path CORRECTED = Paths.get("ТЗ", "Датасет скорректированный.geojson");
+    public static final Path CORRECTED = Paths.get(System.getProperty("heatnet.corrected.input", "ТЗ/Датасет скорректированный.geojson"));
 
     public static boolean correctedAvailable() { return Files.exists(CORRECTED); }
 }

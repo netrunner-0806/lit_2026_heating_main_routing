@@ -40,4 +40,23 @@ class CrsTransformerTest {
         LineString utm = (LineString) T.toMetric(wgs);
         assertEquals(100.0, utm.getLength(), 0.01);
     }
+
+    @Test
+    void packedProjectionPreservesEveryDoubleAndTheOriginalGeometry() {
+        java.util.Random random = new java.util.Random(20261016);
+        Coordinate[] input = new Coordinate[2000];
+        for (int i=0;i<input.length;i++) input[i]=new Coordinate(37+random.nextDouble(),55+random.nextDouble());
+        LineString original=CrsTransformer.WGS84_FACTORY.createLineString(input);
+        LineString projected=(LineString)T.toMetric(original);
+        for(int i=0;i<input.length;i++) {
+            Coordinate reference=T.toMetric(input[i].x,input[i].y);
+            assertEquals(Double.doubleToLongBits(reference.x),Double.doubleToLongBits(projected.getCoordinateSequence().getX(i)));
+            assertEquals(Double.doubleToLongBits(reference.y),Double.doubleToLongBits(projected.getCoordinateSequence().getY(i)));
+            assertEquals(input[i].x,original.getCoordinateSequence().getX(i),0);
+            assertEquals(input[i].y,original.getCoordinateSequence().getY(i),0);
+        }
+        LineString copy=(LineString)projected.copy();
+        copy.getCoordinateSequence().setOrdinate(0,0,123);
+        assertEquals(T.toMetric(input[0].x,input[0].y).x,projected.getCoordinateSequence().getX(0),0);
+    }
 }

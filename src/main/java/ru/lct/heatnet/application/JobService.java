@@ -47,6 +47,41 @@ public class JobService {
 
     public Path storageDir() { return Paths.get(props.getStorageDir()).toAbsolutePath(); }
 
+    /** A completed resumable upload has a stable job id. Hard-link publication costs no second file copy.
+     * The caller serializes a session. Duplicate dispatch is safe because JobRunner claims QUEUED atomically.
+     * Neither DB failure nor queue rejection deletes the verified upload. */
+    public JobEntity submitCompleted(String id, String filename, long size, Path verifiedInput,
+                                     ParseOptions.UnknownRestrictionPolicy policy, int maxVariants, String mode) throws IOException {
+        JobEntity e = repo.findById(id).orElse(null);
+        if (e != null && e.getStatus() != JobEntity.Status.QUEUED
+                && !"upload-queue-retry".equals(e.getProgress())) return e;
+        if (e == null) {
+            Path dir = storageDir().resolve(id);
+            Files.createDirectories(dir);
+            Path input = dir.resolve("input.geojson");
+            if (!Files.exists(input)) Files.createLink(input, verifiedInput);
+            if (!Files.isSameFile(input, verifiedInput) || Files.size(input) != size)
+                throw new IOException("Verified upload publication conflict");
+            try (java.nio.channels.FileChannel directory = java.nio.channels.FileChannel.open(dir, java.nio.file.StandardOpenOption.READ)) { directory.force(true); }
+            try (java.nio.channels.FileChannel directory = java.nio.channels.FileChannel.open(storageDir(), java.nio.file.StandardOpenOption.READ)) { directory.force(true); }
+            e = new JobEntity(); e.setId(id); e.setCreatedAt(Instant.now());
+            e.setOriginalFilename(filename); e.setInputSize(size); e.setInputPath(input.toString());
+            e.setMode(normalizeMode(mode)); e.setMaxVariants(maxVariants);
+            e.setUnknownRestrictionPolicy(policy.name());
+        }
+        if (e.getStatus() != JobEntity.Status.QUEUED) {
+            e.setStatus(JobEntity.Status.QUEUED); e.setProgress("queued");
+            e.setError(null); e.setFinishedAt(null);
+            repo.saveAndFlush(e);
+        }
+        try { executor.execute(() -> runner.run(id)); }
+        catch (org.springframework.core.task.TaskRejectedException ex) {
+            repo.rejectUploadQueue(id, Instant.now());
+            throw new ru.lct.heatnet.api.UploadException(503, "Calculation queue is full; upload retained, retry complete");
+        }
+        return repo.findById(id).orElse(e);
+    }
+
     /** Register the received upload before persistence; the servlet provider can move its disk spool. */
     public JobEntity submit(MultipartFile file, ParseOptions.UnknownRestrictionPolicy policy, Integer maxVariants, String mode) throws IOException {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("Empty upload: field 'file' must contain a GeoJSON FeatureCollection");
@@ -59,7 +94,7 @@ public class JobService {
     public JobEntity rerun(String sourceId, String mode) throws IOException {
         String normalized = normalizeMode(mode);
         JobEntity src = repo.findById(sourceId).orElseThrow(() -> new ru.lct.heatnet.api.NotFoundException("job " + sourceId + " not found"));
-        if (src.getInputPath() == null) throw new IllegalArgumentException("Job " + sourceId + " has no retained input (failed jobs are not rerunnable)");
+        if (src.getInputPath() == null) throw new IllegalArgumentException("Job " + sourceId + " has no retained input");
         Path srcInput = Paths.get(src.getInputPath());
         if (!Files.exists(srcInput)) throw new ru.lct.heatnet.api.ConflictException("input of job " + sourceId + " is no longer available");
         return persistAndQueue(src.getOriginalFilename(), Files.size(srcInput),

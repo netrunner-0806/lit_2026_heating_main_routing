@@ -27,6 +27,7 @@ function app({ inputSize, failStatus = false, failResult = false, previewStatus 
     geometry: { type: 'LineString', coordinates: [[37.6, 55.75], [37.61, 55.76]] } };
   const status = { id: 'job', status: 'DONE', mode: 'PLANAR', variantCount: 0, inputSize, connectionPointCount: 1 };
   const context = {
+    HeatnetUpload: class { constructor() { this.saved = null; } },
     console, URLSearchParams, location: { search: '?job=job' },
     document: { getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
       createElement: element, querySelector: () => null },

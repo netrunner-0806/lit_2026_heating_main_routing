@@ -60,6 +60,23 @@ public final class ForestBuilder {
     private final java.util.Set<String> notes = new java.util.LinkedHashSet<>();
     private final CalculationTrace trace = new CalculationTrace();
     private double currentScore = 0;
+    private final Map<String, Integer> rejectionCounts = new LinkedHashMap<>();
+    private boolean checkingAdaptiveCandidate;
+    private ru.lct.heatnet.validation.SolverVariantValidator adaptiveValidator;
+    private final java.util.Set<JsonId> adaptivelyConnected = new java.util.HashSet<>();
+    private final Map<JsonId, ClearanceClass> attemptedClassUpgrades = new LinkedHashMap<>();
+    private final Map<JsonId, Map<JsonId, ClearanceClass>> failedAttachmentUpgrades = new LinkedHashMap<>();
+
+    /** A rejected adaptive route can reveal the need for a larger clearance class before it can be committed.
+     * Forward that information to the existing class-upgrade loop; never accept an invalid candidate. */
+    Map<JsonId, ClearanceClass> clearanceUpgradeRequests() {
+        Map<JsonId, ClearanceClass> result = new LinkedHashMap<>();
+        for (ConnectionPoint cp : unconnected.keySet()) {
+            Map<JsonId, ClearanceClass> requests = failedAttachmentUpgrades.get(cp.id());
+            if (requests != null) requests.forEach((id, cls) -> result.merge(id, cls, ClearanceClass::max));
+        }
+        return result;
+    }
 
     public ForestBuilder(SolverContext ctx, Strategy strategy, Map<JsonId, ClearanceClass> classFloor) {
         this.ctx = ctx;
@@ -97,6 +114,7 @@ public final class ForestBuilder {
         if (strategy.improve() && cfg.improve) improve(order);
         List<Double> penalties = new ArrayList<>();
         for (ConnectionPoint cp : unconnected.keySet()) penalties.add(cp.flowTph());
+        ctx.countHydraulics();
         HydraulicCalculator.Result h = HydraulicCalculator.compute(net);
         if (!h.feasible()) notes.add("hydraulic infeasibility: " + h.problem());
         if (cfg.depthMode) {
@@ -152,12 +170,18 @@ public final class ForestBuilder {
         }
     }
 
-    private boolean attach(ConnectionPoint cp) {
+    private boolean attach(ConnectionPoint cp) { return attach(cp, true); }
+
+    private boolean attach(ConnectionPoint cp, boolean allowAdaptive) {
+        rejectionCounts.clear();
+        attemptedClassUpgrades.clear();
+        checkingAdaptiveCandidate = adaptivelyConnected.contains(cp.id());
         ClearanceClass cls = classOf(cp);
         SolverContext.ClassResources r = ctx.resources(cls);
         refreshJunctionTargets(cls);
         List<Approach> approaches = r.approaches(cp);
-        String reason = approaches.isEmpty() ? "no feasible approach to the point from outside its ОКС polygon" : "no route to any attachment point";
+        String reason = approaches.isEmpty() ? "NO_VALID_OKS_EXIT: no feasible approach to the point from outside its ОКС polygon" : "NO_PATH_IN_NAV_GRAPH: no route to any attachment point";
+        if (targets.get(cls).isEmpty()) reason = "NO_TIE_IN_CANDIDATES: no usable attachment point";
         StringBuilder evaluation = new StringBuilder();
         Attempt best = null;
         // stage 1: top-K exact evaluation per approach; stage 2 (only if the point would stay unconnected): staged widening
@@ -178,13 +202,84 @@ public final class ForestBuilder {
             }
             if (best != null) break;
         }
+        if (best == null && allowAdaptive && !targets.get(cls).isEmpty()) {
+            ctx.countFallback();
+            checkingAdaptiveCandidate = true;
+            try {
+                ApproachPlanner planner = new ApproachPlanner(r.space);
+                List<Approach> expanded = planner.planExpanded(cp);
+                if (expanded.isEmpty()) reason = "NO_VALID_OKS_EXIT: sampled exterior exits rejected: " + planner.rejectionSummary();
+                for (Approach ap : expanded) {
+                    ap.setVertex(r.graph.addVertex(ap.freePoint(), Exemptions.NONE, cfg.terminalRadius, ap.heading()));
+                    best = evaluateApproach(cp, ap, r, true, true, evaluation);
+                    if (best != null) break;
+                }
+                if (best == null) for (Approach ap : expanded) {
+                    Approach wide = AdaptiveRouting.wideTerminal(ap, r.graph);
+                    best = evaluateApproach(cp, wide, r, true, true, evaluation);
+                    if (best != null) break;
+                }
+                if (best == null && !expanded.isEmpty()) {
+                    AdaptiveRouting.refineClearanceVertices(r.graph, cfg.staticRadius);
+                    for (Approach ap : expanded) {
+                        best = evaluateApproach(cp, ap, r, true, true, evaluation);
+                        if (best != null) break;
+                    }
+                }
+                if (best == null && !expanded.isEmpty()) {
+                    org.locationtech.jts.geom.Envelope region=r.space.initialNavigationRegion();
+                    if(region!=null) {
+                        org.locationtech.jts.geom.Envelope full=r.space.fullNavigationEnvelope();
+                        full.expandToInclude(region);
+                        while(best==null&&!region.contains(full)) {
+                            // Doubling is a search schedule, not a physical barrier or a bound on feasible routes.
+                            double growth=Math.max(cfg.helperGridSpacing,Math.max(region.getWidth(),region.getHeight())/2);
+                            region.expandBy(growth);region=region.intersection(full);
+                            ctx.countRegionExpansion();
+                            AdaptiveRouting.expandRegion(r.graph,region,Math.max(20,cfg.helperGridSpacing),cfg.staticRadius);
+                            for(Approach ap:expanded) {
+                                best=evaluateApproach(cp,ap,r,true,true,evaluation);
+                                if(best!=null)break;
+                            }
+                        }
+                    }
+                }
+                if (best == null && !expanded.isEmpty()) {
+                    // Two resolutions cover open gaps and refine corridors. Budgets are checked before allocation.
+                    for (double spacing : new double[]{80, 20}) {
+                        AdaptiveRouting.expandGrid(r.graph, spacing, cfg.staticRadius);
+                        for (Approach ap : expanded) {
+                            best = evaluateApproach(cp, ap, r, true, true, evaluation);
+                            if (best != null) break;
+                        }
+                        if (best != null) break;
+                    }
+                }
+                if (!expanded.isEmpty()) reason = "NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven";
+                if (best != null) {
+                    notes.add("connection point " + cp.id() + ": connected by adaptive routing");
+                    adaptivelyConnected.add(cp.id());
+                }
+            } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {
+                reason = ex.getMessage();
+            }
+        }
         if (best == null) {
+            failedAttachmentUpgrades.put(cp.id(), new LinkedHashMap<>(attemptedClassUpgrades));
+            String proven = new ApproachPlanner(r.space).provenTerminalConflict(cp);
+            if(proven != null) reason = proven;
+            if (!reason.startsWith("COMPLEXITY_LIMIT") && reason.startsWith("NO_PATH")) {
+                for (String code : new String[]{"COMPLEXITY_LIMIT", "HYDRAULIC_REJECTED", "TOPOLOGY_REJECTED", "GEOMETRY_REJECTED"}) {
+                    if (rejectionCounts.containsKey(code)) { reason = code + ": no accepted route after adaptive search; rejections=" + rejectionCounts; break; }
+                }
+            }
             unconnected.put(cp, reason);
             trace.add("ROUTE_REJECTED", cp.id().text(), "unconnected", reason + (lastDepthRejection != null ? "; last vertical rejection: " + lastDepthRejection : ""),
                     CalculationTrace.inputs("approaches", approaches.size(), "details", evaluation.toString().trim()), null);
             log.info("  {}: UNCONNECTED ({}){}", cp.id(), reason, evaluation);
             return false;
         }
+        failedAttachmentUpgrades.remove(cp.id());
         commit(best);
         return true;
     }
@@ -323,6 +418,8 @@ public final class ForestBuilder {
                 ap.nearestBoundary() ? "nearest" : "fallback", relaxed ? "/relaxed" : "", widen ? "/widened" : "", ranked.size(), noRoute, evaluated, rejected, rerouted,
                 budgetExceeded ? ", budget exhausted" : "",
                 best != null && best.route.coords().size() == 2 && best.target.type == Target.Type.LINK_POINT ? ", direct" : ""));
+        if (budgetExceeded) rejectionCounts.merge("COMPLEXITY_LIMIT", 1, Integer::sum);
+        if (noRoute > 0) rejectionCounts.merge("GEOMETRY_REJECTED", noRoute, Integer::sum);
         if (best != null) {
             considered.sort(Comparator.comparingDouble(x -> x.summary.score()));
             List<String> alts = new ArrayList<>();
@@ -447,6 +544,7 @@ public final class ForestBuilder {
     }
 
     private Attempt tryAttach(Approach ap, Route route, Target t, Object[] targetDisc) {
+        ctx.countTopologyCopy();
         NewNetwork n = net.copy();
         NetNode parent;
         switch (t.type) {
@@ -494,6 +592,7 @@ public final class ForestBuilder {
         NetLink l = n.addLink(cpNode, parent, coords, passages);
         l.setApproachInfo(ap.hasFinalSegment() ? ap.finalLength() + 0.5 : 0,
                 ap.ownPolygon() == null ? -1 : ap.ownPolygon().index());
+        ctx.countHydraulics();
         HydraulicCalculator.Result h = HydraulicCalculator.compute(n);
         if (!h.feasible()) return reject("hydraulics: " + h.problem());
         if (cfg.depthMode) {
@@ -502,6 +601,34 @@ public final class ForestBuilder {
             if (!d.feasible) { lastDepthRejection = d.problem; return reject("vertical: " + d.problem); }
         }
         CostSummary s = CostCalculator.summarize(n, Collections.emptyList());
+        if (checkingAdaptiveCandidate) {
+            // A newly explored corridor must not invalidate the whole variant. Validate the tentative forest,
+            // including all still-pending consumers and their unchanged statutory penalties.
+            if (adaptiveValidator == null) adaptiveValidator = new ru.lct.heatnet.validation.SolverVariantValidator(ctx.input());
+            java.util.Set<JsonId> connected = new java.util.HashSet<>();
+            for (NetNode node : n.connectionNodes()) connected.add(node.connectionPoint().id());
+            Map<ConnectionPoint, String> pending = new LinkedHashMap<>();
+            List<Double> penalties = new ArrayList<>();
+            for (ConnectionPoint point : ctx.input().connectionPoints()) if (!connected.contains(point.id())) {
+                pending.put(point, "pending attachment"); penalties.add(point.flowTph());
+            }
+            VariantResult check = new VariantResult("adaptive-candidate", n, pending, CostCalculator.summarize(n, penalties), Collections.emptyList());
+            check.setDepthMode(cfg.depthMode);
+            List<String> errors = adaptiveValidator.validate(check);
+            if (!errors.isEmpty()) {
+                // A long detour may increase DU by length, even with a small flow. The primary search already
+                // re-routes such forests with raised class floors. Adaptive validation must not hide that signal.
+                for (NetLink candidate : n.links()) {
+                    ClearanceClass needed = ClearanceClass.forDu(candidate.du());
+                    List<NetNode> affected = HeatnetSolver.subtreeLeaves(candidate);
+                    boolean canRaise = affected.stream().anyMatch(leaf -> classOf(leaf.connectionPoint()).ordinal() < needed.ordinal());
+                    if (canRaise && !HeatnetSolver.linkValid(ctx, candidate, needed))
+                        for (NetNode leaf : affected) if (classOf(leaf.connectionPoint()).ordinal() < needed.ordinal())
+                            attemptedClassUpgrades.merge(leaf.connectionPoint().id(), needed, ClearanceClass::max);
+                }
+                return reject("geometry validator: " + errors.get(0));
+            }
+        }
         lastRejection = null;
         return new Attempt(n, s, ap, route, t, coords);
     }
@@ -512,7 +639,13 @@ public final class ForestBuilder {
 
     static final String TURN_REJECTION = "turn > 90° through the chamber";
 
-    private Attempt reject(String why) { lastRejection = why; return null; }
+    private Attempt reject(String why) {
+        lastRejection = why;
+        String code = why.startsWith("hydraulics:") ? "HYDRAULIC_REJECTED"
+                : why.startsWith("vertical:") || why.startsWith("final segment") || why.startsWith("geometry validator:") ? "GEOMETRY_REJECTED" : "TOPOLOGY_REJECTED";
+        rejectionCounts.merge(code, 1, Integer::sum);
+        return null;
+    }
 
     /** Metric geometries of the objects with a vertical rule crossed by the route (in route order, no duplicates). */
     private static List<org.locationtech.jts.geom.Geometry> verticalCrossingGeometries(Route route) {
@@ -651,11 +784,13 @@ public final class ForestBuilder {
             NetNode leaf = null;
             for (NetNode n : net.connectionNodes()) if (n.connectionPoint() == cp) leaf = n;
             if (leaf == null) continue;
+            ctx.countTopologyCopy();
             NewNetwork backup = net.copy();
             double before = CostCalculator.summarize(net, Collections.emptyList()).score();
             net.removeLeaf(leaf);
             rebuildDynamic();
-            boolean ok = attach(cp);
+            // A valid previous route already exists here; retain it if ordinary improvement cannot reattach.
+            boolean ok = attach(cp, false);
             double after = ok ? CostCalculator.summarize(net, Collections.emptyList()).score() : Double.POSITIVE_INFINITY;
             if (!ok || after >= before - 1e-9) {
                 net = backup;

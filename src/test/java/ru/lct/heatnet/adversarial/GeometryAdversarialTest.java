@@ -321,7 +321,7 @@ class GeometryAdversarialTest {
         Run r = run("23b-adjacent-oks");
         assertEquals(0, r.best.connectedCount());
         assertTrue(r.report.isValid(), r.issues());
-        assertTrue(r.best.unconnected().values().iterator().next().contains("approach"), r.best.unconnected().toString());
+        assertTrue(r.best.unconnected().values().iterator().next().startsWith("NO_VALID_OKS_EXIT"), r.best.unconnected().toString());
     }
 
     @Test

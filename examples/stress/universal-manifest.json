@@ -1,0 +1,217 @@
+{
+  "seed": 20261016,
+  "competition_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+  "bbox_wgs84": [
+    37.6262685,
+    55.690915329577294,
+    37.658165733407884,
+    55.70554663888263
+  ],
+  "generator": "scripts/generate-universal-datasets.py",
+  "generator_versions": {
+    "shapely": "2.1.2",
+    "pyproj": "3.8.0",
+    "PROJ": "9.8.1"
+  },
+  "crs": "WGS84 input/output; EPSG:32637 operations",
+  "osm": {
+    "source": "OpenStreetMap contributors",
+    "license": "ODbL 1.0",
+    "copyright_url": "https://www.openstreetmap.org/copyright",
+    "retrieved_utc": "2026-10-16",
+    "road_endpoint": "https://overpass.private.coffee/api/interpreter",
+    "road_snapshot_osm_base": "2026-07-28T02:16:18Z",
+    "bbox": [
+      37.6262685,
+      55.690915329577294,
+      37.658165733407884,
+      55.70554663888263
+    ],
+    "relation_endpoint": "https://api.openstreetmap.org/api/0.6/relation/{id}/full",
+    "relations": [
+      64477,
+      1451187,
+      4206185
+    ],
+    "note": "Overpass tags geom omits relation members; full relations fetched via OSM API. Road and relation snapshots have distinct source timestamps. No organizer dataset claim.",
+    "files_sha256": {
+      "relation-1451187.osm.gz": "231eeaa9e43d6a9cc7377850b5cb50e5ff7052cef350e8338c65b3e4bf08b6ab",
+      "relation-4206185.osm.gz": "ec4793c682cb83567754b2f1a19f0c2160774b6c90b3a2ac62af5c5d529b8f46",
+      "relation-64477.osm.gz": "cd6a0ed0e55d1c452bdb4a0bf44cf760b4ffe6c0251644e90c37397dd5726e6d",
+      "roads.overpass.json": "c0748c4f56784b0f993ac2ceceb1abd9ad69952351a3e9b9dea9dd0d2f663b6a"
+    },
+    "query": "[out:json][timeout:30];(way[highway~\"^(residential|service|living_street|unclassified|tertiary|secondary|primary|trunk|motorway)(_link)?$\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);way[\"area:highway\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);relation[\"area:highway\"](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);way[natural=water](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884);relation[natural=water](55.690915329577294,37.6262685,55.70554663888263,37.658165733407884););out tags geom;",
+    "retrieval_time_precision": "day; individual source timestamps retained in raw files"
+  },
+  "assumed_full_width_m": {
+    "residential": 6.0,
+    "service": 4.0,
+    "living_street": 4.0,
+    "unclassified": 6.0,
+    "tertiary": 7.0,
+    "secondary": 9.0,
+    "primary": 12.0,
+    "trunk": 12.0,
+    "motorway": 12.0
+  },
+  "excluded_osm": [
+    {
+      "id": 1178476120,
+      "class": "footway",
+      "reason": "not a motor road"
+    },
+    {
+      "id": 1297654501,
+      "class": "traffic_island",
+      "reason": "not a motor road"
+    }
+  ],
+  "scenarios": [
+    {
+      "file": "competition-osm-roads.geojson",
+      "features": 625,
+      "restrictions": 569,
+      "bytes": 639754,
+      "sha256": "d40a0b23d79c2defed3b7f90e168993b2ad659d381eb38f2f85476c47409101d",
+      "description": "Real OSM centerlines with attributed width approximation; mapped road areas retained."
+    },
+    {
+      "file": "competition-osm-roads-water.geojson",
+      "features": 629,
+      "restrictions": 573,
+      "bytes": 646729,
+      "sha256": "9e230ef172ad9d2378777aa7ffad09677a8ce17b9de41e83455079f77388d577",
+      "description": "Same real roads, all queried real water polygons + one labelled synthetic pond."
+    },
+    {
+      "file": "universal-water-detours.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 1059,
+      "sha256": "226f5add84c947d64c3ca98c01de24a73cadf1cfeaa3610e534d9e6544ad47c8",
+      "description": "Two staggered forbidden water bodies; left detour.",
+      "expected_connected": 1,
+      "witness": "universal-water-detours.witness.json"
+    },
+    {
+      "file": "universal-water-impossible.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 1051,
+      "sha256": "d2c3ac085700e8639ae43f54b8f25df2a1975ad75ba95fd52dd3aece62be0fa8",
+      "description": "Water separates the consumer hole from every network point.",
+      "expected_connected": 0,
+      "impossibility_proof": "Jordan separation: consumer in bounded hole; entire existing network outside outer ring. Any continuous path intersects closed water annulus; forbidden in both modes."
+    },
+    {
+      "file": "universal-adjacent-roads.geojson",
+      "features": 5,
+      "restrictions": 2,
+      "bytes": 1200,
+      "sha256": "4a32e814288e3adb0d323ee766bd25e5284f3c86d0b78251dc4b634f15608623",
+      "description": "Touching road polygons, overlapping 3 m extents, one straight crossing.",
+      "expected_connected": 1,
+      "witness": "universal-adjacent-roads.witness.json"
+    },
+    {
+      "file": "universal-intersecting-roads.geojson",
+      "features": 5,
+      "restrictions": 2,
+      "bytes": 1224,
+      "sha256": "3a92bfd6d3f1fc2319e64af613b4fed402a3b242903b92cc9bced85ede393e84",
+      "description": "Road/tram overlap: geometry of both, K=max on overlap.",
+      "expected_connected": 1,
+      "witness": "universal-intersecting-roads.witness.json"
+    },
+    {
+      "file": "universal-road-inside-new.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 885,
+      "sha256": "f939b133fe831ccad98c897bf509240231f31416708655ab32055426f03dfbde",
+      "description": "Camera inside polygon: straight passage ends at camera, +3 m only outside.",
+      "expected_connected": 1,
+      "witness": "universal-road-inside-new.witness.json"
+    },
+    {
+      "file": "universal-road-inside-existing.geojson",
+      "features": 5,
+      "restrictions": 1,
+      "bytes": 1037,
+      "sha256": "df14fef5fec7eec696d8d648751d0a27be1906bde685173fa5dd8b4a2bb1e709",
+      "description": "Camera inside polygon: straight passage ends at camera, +3 m only outside.",
+      "expected_connected": 1,
+      "witness": "universal-road-inside-existing.witness.json"
+    },
+    {
+      "file": "universal-tram_tracks-inside-new.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 892,
+      "sha256": "28d9f24eec267e0697d75cf244f19338d071af35a9c321843b8efe8b7ed29a28",
+      "description": "Camera inside polygon: straight passage ends at camera, +3 m only outside.",
+      "expected_connected": 1,
+      "witness": "universal-tram_tracks-inside-new.witness.json"
+    },
+    {
+      "file": "universal-tram_tracks-inside-existing.geojson",
+      "features": 5,
+      "restrictions": 1,
+      "bytes": 1044,
+      "sha256": "cbd5ce7e4180f87d834dd9298fa0d12777a5fc35ac8ff86cc9e4a47106582bbe",
+      "description": "Camera inside polygon: straight passage ends at camera, +3 m only outside.",
+      "expected_connected": 1,
+      "witness": "universal-tram_tracks-inside-existing.witness.json"
+    },
+    {
+      "file": "universal-complex-oks.geojson",
+      "features": 5,
+      "restrictions": 2,
+      "bytes": 1530,
+      "sha256": "b88e1ebaa9bdd50832400e722b779cd945000c2da4b72831416020da58b07f11",
+      "description": "MultiPolygon own building; no transit through other component; polygon hole.",
+      "expected_connected": 1,
+      "witness": "universal-complex-oks.witness.json"
+    },
+    {
+      "file": "universal-mixed.geojson",
+      "features": 11,
+      "restrictions": 8,
+      "bytes": 2958,
+      "sha256": "b2ad5152449cd01d17e26570cf7d4e70910863d306c46249a69742c148540353",
+      "description": "All crossing semantics retained with neighbouring forbidden objects.",
+      "expected_connected": 1,
+      "witness": "universal-mixed.witness.json"
+    },
+    {
+      "file": "universal-long-detour.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 889,
+      "sha256": "238282a60d581b6ad10875a6d592d97287efd0aa1c66b234a09723ac7f2b8679",
+      "description": "Direct path blocked; witness goes beyond the complete object envelope with a justified margin.",
+      "expected_connected": 1,
+      "witness": "universal-long-detour.witness.json"
+    },
+    {
+      "file": "universal-narrow-corridor.geojson",
+      "features": 4,
+      "restrictions": 1,
+      "bytes": 1424,
+      "sha256": "d16cd2dfe275156953f2c35d9c7d804dfa75ffd13fdad74c5dd03820d115f813",
+      "description": "L-shaped 3.45 m legal corridor within a closed water polygon; inflated navigation zones must not erase it.",
+      "expected_connected": 1,
+      "witness": "universal-narrow-corridor.witness.json"
+    },
+    {
+      "file": "universal-boundary.geojson",
+      "features": 7,
+      "restrictions": 4,
+      "bytes": 1901,
+      "sha256": "7d2f058fb236ceab59ff4ed9c84451d8fdf284d99eb3ecb4a576fb7924f899aa",
+      "description": "Tiny boundary edge, near-coincident special boundaries, touching water polygons.",
+      "expected_connected": 1,
+      "witness": "universal-boundary.witness.json"
+    }
+  ]
+}

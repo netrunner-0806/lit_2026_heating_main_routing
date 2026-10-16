@@ -87,20 +87,42 @@
     box.hidden = false;
   }
 
+  const uploader = new HeatnetUpload((p) => {
+    $('uploadPanel').hidden = false;
+    const percent = p.totalBytes ? 100 * p.sentBytes / p.totalBytes : 0;
+    $('uploadProgress').value = percent;
+    $('uploadStatus').textContent = `${fmtNum(percent, 1)}% · ${fmtNum(p.sentBytes / 1024 ** 2, 1)} / ${fmtNum(p.totalBytes / 1024 ** 2, 1)} МиБ. ${p.message}`;
+    $('pauseUpload').disabled = p.state === 'PAUSED' || p.state === 'COMPLETE' || p.state === 'CANCELLED';
+    if (p.state === 'PAUSED') { $('run').disabled = false; $('run').textContent = 'Продолжить загрузку'; }
+    if (p.state === 'COMPLETE' || p.state === 'CANCELLED') $('cancelUpload').disabled = true;
+  });
+  if (uploader.saved) {
+    $('uploadPanel').hidden = false;
+    $('uploadStatus').textContent = 'Незавершённая загрузка: ' + uploader.saved.file.name + '. Выберите тот же файл для продолжения.';
+    $('run').textContent = 'Продолжить загрузку';
+    mode = uploader.saved.request.mode;
+    $('modeSwitch').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+    $('policy').value = uploader.saved.request.unknownRestrictionPolicy;
+    $('maxVariants').value = uploader.saved.request.maxVariants;
+  }
+  $('pauseUpload').addEventListener('click', () => uploader.pause());
+  $('cancelUpload').addEventListener('click', async () => {
+    $('run').disabled = true; $('cancelUpload').disabled = true;
+    try {
+      await uploader.cancel(); $('run').disabled = false; $('run').textContent = 'Загрузить и рассчитать';
+    } catch (e) { $('uploadStatus').textContent = e.message; $('cancelUpload').disabled = false; }
+    finally { $('run').disabled = false; }
+  });
   $('run').addEventListener('click', async () => {
     const f = $('file').files[0];
     if (!f) { setStatus('Выберите файл GeoJSON', true); return; }
-    const fd = new FormData();
-    fd.append('file', f);
-    fd.append('unknownRestrictionPolicy', $('policy').value);
-    fd.append('maxVariants', $('maxVariants').value);
     $('run').disabled = true;
-    setStatus('Загрузка ' + f.name + ' (' + Math.round(f.size / 1024) + ' КБ), режим ' + (mode === 'DEPTH' ? 'с учётом глубины' : '2D') + '…');
+    $('cancelUpload').disabled = false;
+    $('stages').hidden = true;
+    setStatus('Расчёт начнётся после полной загрузки и проверки файла');
     try {
-      const r = await fetch('/api/v1/jobs?mode=' + mode, { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.message || r.statusText);
-      openJob(j.id);
+      const id = await uploader.start(f, { mode, unknownRestrictionPolicy: $('policy').value, maxVariants: Number($('maxVariants').value) });
+      $('run').textContent = 'Загрузить и рассчитать'; openJob(id);
     } catch (e) { setStatus('Ошибка: ' + e.message, true); $('run').disabled = false; }
   });
 

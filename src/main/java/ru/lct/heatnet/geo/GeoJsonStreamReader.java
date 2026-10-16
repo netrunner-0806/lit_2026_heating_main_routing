@@ -71,8 +71,10 @@ public final class GeoJsonStreamReader {
         int featureCount = 0;
         boolean isFeatureCollection = false;
         boolean featuresSeen = false;
+        InputResourceBudget budget = new InputResourceBudget(options.modelBudgetBytes());
+        InputResourceBudget.FeatureStream bounded = new InputResourceBudget.FeatureStream(in, options.featureBudgetBytes());
 
-        try (JsonParser p = FACTORY.createParser(in)) {
+        try (JsonParser p = FACTORY.createParser(bounded)) {
             JsonToken t = p.nextToken();
             if (t != JsonToken.START_OBJECT) throw new InputParseException("Input is not a JSON object (expected FeatureCollection)", diag);
             while (p.nextToken() == JsonToken.FIELD_NAME) {
@@ -87,29 +89,40 @@ public final class GeoJsonStreamReader {
                     while ((ft = p.nextToken()) != JsonToken.END_ARRAY) {
                         if (ft == null) throw new InputParseException("Unexpected end of input inside the 'features' array", diag);
                         int idx = featureCount++;
+                        int diagnosticsBefore = diag.messages().size();
                         if (ft != JsonToken.START_OBJECT) {
                             // a null / scalar / nested array is not a Feature: report it and keep reading the rest of the file
                             diag.warn("BAD_FEATURE", "features[" + idx + "] is not a Feature object (" + ft + "); skipped", idx, null);
                             p.skipChildren();
+                            chargeDiagnostics(budget, diag, diagnosticsBefore, idx);
                             continue;
                         }
+                        bounded.begin(p.getTokenLocation().getByteOffset(), idx);
                         JsonNode feature = MAPPER.readTree(p);
+                        bounded.end(p.getCurrentLocation().getByteOffset());
                         try {
-                            handleFeature(feature, idx, diag, sources, lines, chambers, points, restrictions, seenIds, unknownTypes, unknownRestrictionTypes);
+                            handleFeature(feature, idx, diag, sources, lines, chambers, points, restrictions, seenIds, unknownTypes, unknownRestrictionTypes, budget);
                         } catch (RuntimeException ex) {
-                            // a malformed connection point changes the answer (a silently dropped consumer avoids its
-                            // penalty): it rejects the input; any other malformed feature is skipped with a warning
+                            if (ex instanceof ru.lct.heatnet.routing.ComplexityLimitException) throw ex;
+                            // A dropped restriction can create an unsafe route. Reject the input, retaining its ID.
                             String ot = feature.path("properties").path("object_type").asText("");
                             JsonId fid = JsonId.fromJson(feature.path("properties").get("id"));
-                            if (isConsumer(ot)) diag.error("FEATURE_INVALID", "Invalid " + ot + " feature: " + ex.getMessage(), idx, fid);
+                            if (ex instanceof org.locationtech.jts.geom.TopologyException || ex instanceof GeometryProcessingException)
+                                diag.error("INTERNAL_GEOMETRY_PROCESSING_FAILURE", "Geometry processing failed: " + ex.getMessage(), idx, fid);
+                            else if ("restriction".equals(ot)) diag.error("INVALID_INPUT", "Invalid restriction geometry: " + ex.getMessage(), idx, fid);
+                            else if (isConsumer(ot)) diag.error("FEATURE_INVALID", "Invalid " + ot + " feature: " + ex.getMessage(), idx, fid);
                             else diag.warn("FEATURE_SKIPPED", "Feature skipped: " + ex.getMessage(), idx, fid);
                         }
+                        chargeDiagnostics(budget, diag, diagnosticsBefore, idx);
                     }
                 } else {
                     p.skipChildren();
                 }
             }
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            for (Throwable cause = ex; cause != null; cause = cause.getCause())
+                if (cause instanceof ru.lct.heatnet.routing.ComplexityLimitException)
+                    throw (ru.lct.heatnet.routing.ComplexityLimitException) cause;
             throw new InputParseException("Invalid JSON: " + ex.getOriginalMessage(), diag, ex);
         }
         if (!isFeatureCollection) diag.warn("NOT_FEATURE_COLLECTION", "Top-level 'type' is not 'FeatureCollection'");
@@ -129,28 +142,36 @@ public final class GeoJsonStreamReader {
 
     private void handleFeature(JsonNode feature, int idx, Diagnostics diag, List<SourcePoint> sources, List<ExistingNetworkLine> lines,
                                List<ExistingChamber> chambers, List<ConnectionPoint> points, List<Restriction> restrictions,
-                               Set<JsonId> seenIds, Map<String, Integer> unknownTypes, Map<String, Integer> unknownRestrictionTypes) {
+                               Set<JsonId> seenIds, Map<String, Integer> unknownTypes, Map<String, Integer> unknownRestrictionTypes,
+                               InputResourceBudget budget) {
         JsonNode props = feature.path("properties");
         String objectTypeCode = props.path("object_type").asText(null);
         ObjectType type = ObjectType.fromCode(objectTypeCode);
         JsonId id = JsonId.fromJson(props.get("id"));
         if (type == null) {
-            unknownTypes.merge(objectTypeCode == null ? "<missing>" : objectTypeCode, 1, Integer::sum);
+            String key = objectTypeCode == null ? "<missing>" : objectTypeCode;
+            if (!unknownTypes.containsKey(key)) budget.charge(512 + 4L * key.length(), "unknown object type at feature #" + idx);
+            unknownTypes.merge(key, 1, Integer::sum);
             return;
         }
         if (id == null) {
+            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", "Restriction has no id", idx, null);
             diag.warn("MISSING_ID", "Feature of type " + type.code() + " has no 'id'; skipped", idx, null);
             return;
         }
-        if (!seenIds.add(id)) diag.warn("DUPLICATE_ID", "Duplicate id " + id + " (type " + type.code() + ")", idx, id);
+        if (seenIds.add(id)) budget.charge(96 + 2L * id.text().length(), "id at feature #" + idx);
+        else diag.warn("DUPLICATE_ID", "Duplicate id " + id + " (type " + type.code() + ")", idx, id);
 
         JsonNode geomNode = feature.get("geometry");
         if (geomNode == null || geomNode.isNull()) {
+            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", "Restriction has no geometry", idx, id);
             diag.warn("MISSING_GEOMETRY", "Feature has no geometry; skipped", idx, id);
             return;
         }
         Geometry wgs = GeoJsonGeometryCodec.read(geomNode, CrsTransformer.WGS84_FACTORY);
+        budget.charge(geometryEstimate(wgs), "feature #" + idx + " id=" + id);
         if (wgs.isEmpty()) {
+            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", "Restriction has empty geometry", idx, id);
             if (type == ObjectType.OKS_CONNECTION_POINT) diag.error("EMPTY_GEOMETRY", "Connection point has empty geometry", idx, id);
             else diag.warn("EMPTY_GEOMETRY", "Feature has empty geometry; skipped", idx, id);
             return;
@@ -159,6 +180,7 @@ public final class GeoJsonStreamReader {
         if (outside != null) {
             // the projection would silently produce garbage metres for such positions
             String msg = "Feature has a position outside WGS84 (lon " + outside.x + ", lat " + outside.y + ")";
+            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", msg, idx, id);
             if (type == ObjectType.OKS_CONNECTION_POINT) diag.error("COORDINATE_OUT_OF_RANGE", msg, idx, id);
             else diag.warn("COORDINATE_OUT_OF_RANGE", msg + "; skipped", idx, id);
             return;
@@ -212,7 +234,9 @@ public final class GeoJsonStreamReader {
                 if (rtype != null) rtype = rtype.trim().toLowerCase();
                 RestrictionRule rule = RestrictionRules.forType(rtype).orElse(null);
                 if (rule == null) {
-                    unknownRestrictionTypes.merge(rtype == null ? "<missing>" : rtype, 1, Integer::sum);
+                    String key = rtype == null ? "<missing>" : rtype;
+                    if (!unknownRestrictionTypes.containsKey(key)) budget.charge(512 + 4L * key.length(), "unknown restriction at feature #" + idx);
+                    unknownRestrictionTypes.merge(key, 1, Integer::sum);
                     if (options.unknownRestrictionPolicy() == ParseOptions.UnknownRestrictionPolicy.FORBIDDEN)
                         rule = RestrictionRules.unknownAsForbidden(rtype == null ? "unknown" : rtype);
                 }
@@ -221,15 +245,22 @@ public final class GeoJsonStreamReader {
                     // GeometryFixer keeps every lobe of a self-intersecting ring (buffer(0) silently drops lobes of
                     // opposite orientation, i.e. part of a forbidden area)
                     Geometry fixed = org.locationtech.jts.geom.util.GeometryFixer.fix(metric);
+                    budget.charge(geometryEstimate(fixed), "repaired feature #" + idx + " id=" + id);
                     if (fixed.isEmpty() || !fixed.isValid()) {
-                        diag.warn("INVALID_GEOMETRY", "restriction polygon is invalid and could not be repaired; skipped", idx, id);
+                        diag.error("INVALID_INPUT", "Restriction polygon is invalid and could not be repaired", idx, id);
                         return;
                     }
-                    diag.warn("INVALID_GEOMETRY_REPAIRED", "restriction polygon was invalid and has been repaired (GeometryFixer)", idx, id);
-                    metric = fixed;
+                    diag.warn("INVALID_GEOMETRY_REPAIRED", "restriction polygon was invalid and has been repaired (GeometryFixer); original retained; area "
+                            + metric.getArea() + " -> " + fixed.getArea() + " m², vertices " + metric.getNumPoints() + " -> " + fixed.getNumPoints(), idx, id);
+                    restrictions.add(new Restriction(id, fixed, rtype, rule, idx, metric));
+                    return;
                 }
                 if (metric instanceof Point) {
-                    diag.warn("POINT_RESTRICTION", "Point restrictions are not supported; skipped", idx, id);
+                    diag.error("POINT_RESTRICTION", "INVALID_INPUT: Point restrictions are not supported", idx, id);
+                    return;
+                }
+                if (!(metric instanceof Polygonal || metric instanceof LineString || metric instanceof MultiLineString)) {
+                    diag.error("INVALID_INPUT", "Unsupported restriction geometry: " + metric.getGeometryType(), idx, id);
                     return;
                 }
                 restrictions.add(new Restriction(id, metric, rtype, rule, idx));
@@ -241,6 +272,19 @@ public final class GeoJsonStreamReader {
     }
 
     private static boolean isConsumer(String objectType) { return ObjectType.OKS_CONNECTION_POINT.code().equals(objectType); }
+
+    private static long geometryEstimate(Geometry g) {
+        long rings = 0;
+        for (int i = 0; i < g.getNumGeometries(); i++)
+            if (g.getGeometryN(i) instanceof org.locationtech.jts.geom.Polygon)
+                rings += ((org.locationtech.jts.geom.Polygon)g.getGeometryN(i)).getNumInteriorRing();
+        return 256 + 24L * g.getNumPoints() + 128L * g.getNumGeometries() + 128L * rings;
+    }
+
+    private static void chargeDiagnostics(InputResourceBudget budget, Diagnostics diag, int from, int index) {
+        for (int i = from; i < diag.messages().size(); i++)
+            budget.charge(256 + 2L * diag.messages().get(i).getText().length(), "diagnostics at feature #" + index);
+    }
 
     /** First position outside the legal WGS84 range (lon -180..180, lat -90..90), or null. */
     private static Coordinate outsideWgs84(Geometry g) {

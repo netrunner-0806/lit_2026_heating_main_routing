@@ -20,6 +20,16 @@ public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
+    @ExceptionHandler(UploadException.class)
+    public ResponseEntity<ObjectNode> upload(UploadException ex) {
+        return body(HttpStatus.valueOf(ex.status()), ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ObjectNode> unreadableRequest(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        return body(HttpStatus.BAD_REQUEST, "Invalid JSON request body", null);
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ObjectNode> notFound(NotFoundException ex) { return body(HttpStatus.NOT_FOUND, ex.getMessage(), null); }
 

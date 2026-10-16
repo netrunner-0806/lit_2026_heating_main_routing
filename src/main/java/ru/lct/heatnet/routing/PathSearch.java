@@ -73,6 +73,7 @@ public final class PathSearch {
 
     /** Runs from the source; if targets is non-null, stops once all targets are settled. */
     public Result run(int source, Set<Integer> targets) {
+        graph.countTraversal();
         int n = graph.size();
         double[] dist = new double[n];
         int[] prev = new int[n];

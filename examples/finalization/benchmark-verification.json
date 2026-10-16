@@ -1,0 +1,5007 @@
+{
+  "generated_at_utc": "2026-10-16T21:55:25.116273+00:00",
+  "status": "INCOMPLETE_BROWSER_VERIFICATION",
+  "environment": {
+    "scope": "local Docker VM; same host and sequential runs",
+    "cpu_quota": 8,
+    "jvm_heap": "2 GiB",
+    "container_memory": "4 GiB",
+    "server_77s_comparison": "not measured; no server access"
+  },
+  "build_classes_sha256": "31cef677bb2fcf5c72cebef3424f24804c9840be3007d7231fcc7e1b9e07bde1",
+  "benchmark_classes_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+  "runtime_diff_from_benchmarks": [
+    "ru/lct/heatnet/api/UploadController.class",
+    "ru/lct/heatnet/api/UploadRequestFilter$1$1.class",
+    "ru/lct/heatnet/api/UploadRequestFilter$1.class",
+    "ru/lct/heatnet/api/UploadRequestFilter.class"
+  ],
+  "solver_bytecode_identical_between_benchmark_and_runtime": true,
+  "source_file": "ТЗ/Датасет скорректированный.geojson",
+  "source_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+  "tests": {
+    "java": {
+      "tests": 430,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "ui": 16,
+    "java_log": "target/final-engineering/finalization-accepted/java-tests.log",
+    "ui_log": "target/final-engineering/finalization-accepted/ui-tests.log"
+  },
+  "benchmarks": [
+    {
+      "dataset": "original",
+      "mode": "PLANAR",
+      "before": {
+        "status": "OK",
+        "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-profile/original-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 27002.5,
+        "max_wall_ms": 27043,
+        "median_cpu_ms": 134630.0,
+        "max_cpu_ms": 134760,
+        "median_peak_heap_bytes": 459333460.0,
+        "max_peak_heap_bytes": 503940800,
+        "median_peak_rss_bytes": 878960640.0,
+        "max_peak_rss_bytes": 966860800,
+        "objects": 144,
+        "consumers": 17,
+        "metrics": {
+          "graph_nodes": 5996,
+          "graph_edges": 275118,
+          "graph_directed_edges": 550236,
+          "dijkstra_traversals": 220,
+          "geometry_visibility_checks": 4809884,
+          "dynamic_vertex_insertions": 1722,
+          "visibility_checks": 5616184,
+          "restriction_check_buffers": 117,
+          "tie_in_candidates": 406,
+          "candidate_count": 1850,
+          "routing_graph_time_ms": 15410,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 5488581,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 11498,
+          "validation_time_ms": 24,
+          "solve_time_ms": 26932,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 17,
+            "score": 13.433636792000001,
+            "cost": 271429064.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.519311639999998,
+            "cost": 276792130.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.821000256,
+            "cost": 284551402.0,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "after": {
+        "status": "OK",
+        "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-final/original-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 26001.0,
+        "max_wall_ms": 26161,
+        "median_cpu_ms": 136370.0,
+        "max_cpu_ms": 139090,
+        "median_peak_heap_bytes": 475396424.0,
+        "max_peak_heap_bytes": 482895232,
+        "median_peak_rss_bytes": 904171520.0,
+        "max_peak_rss_bytes": 925532160,
+        "objects": 144,
+        "consumers": 17,
+        "metrics": {
+          "graph_nodes": 5996,
+          "graph_edges": 275118,
+          "graph_directed_edges": 550236,
+          "dijkstra_traversals": 220,
+          "geometry_visibility_checks": 4809884,
+          "dynamic_vertex_insertions": 1722,
+          "candidate_pairs_examined": 5616184,
+          "certified_interior_rejections": 0,
+          "visibility_checks": 4809884,
+          "restriction_check_buffers": 117,
+          "tie_in_candidates": 406,
+          "candidate_hydraulic_recomputations": 1234,
+          "candidate_topology_copies": 1946,
+          "candidate_count": 1850,
+          "routing_graph_time_ms": 14387,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 5488581,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 11640,
+          "validation_time_ms": 24,
+          "solve_time_ms": 26051,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 17,
+            "score": 13.433636792000001,
+            "cost": 271429064.0,
+            "new_length_m": 1944.5410000000002,
+            "new_chambers": 13,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.519311639999998,
+            "cost": 276792130.0,
+            "new_length_m": 1923.0440000000003,
+            "new_chambers": 15,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.821000256,
+            "cost": 284551402.0,
+            "new_length_m": 1951.1870000000004,
+            "new_chambers": 13,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "wall_speedup_percent": 3.708915841125826
+    },
+    {
+      "dataset": "original",
+      "mode": "DEPTH",
+      "before": {
+        "status": "OK",
+        "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-profile/original-depth.json",
+        "sampling": "warm median",
+        "median_wall_ms": 28518.5,
+        "max_wall_ms": 29279,
+        "median_cpu_ms": 137515.0,
+        "max_cpu_ms": 138220,
+        "median_peak_heap_bytes": 449610948.0,
+        "max_peak_heap_bytes": 530125696,
+        "median_peak_rss_bytes": 874637312.0,
+        "max_peak_rss_bytes": 1022730240,
+        "objects": 144,
+        "consumers": 17,
+        "metrics": {
+          "graph_nodes": 5996,
+          "graph_edges": 275118,
+          "graph_directed_edges": 550236,
+          "dijkstra_traversals": 484,
+          "geometry_visibility_checks": 4809884,
+          "dynamic_vertex_insertions": 1722,
+          "visibility_checks": 5616184,
+          "restriction_check_buffers": 117,
+          "tie_in_candidates": 406,
+          "candidate_count": 1850,
+          "routing_graph_time_ms": 14723,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 5519694,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 13770,
+          "validation_time_ms": 25,
+          "solve_time_ms": 28518,
+          "mode": "depth"
+        },
+        "variants": [
+          {
+            "connected": 17,
+            "score": 13.433636792000001,
+            "cost": 271429064.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.519311639999998,
+            "cost": 276792130.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.821000256,
+            "cost": 284551402.0,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "after": {
+        "status": "OK",
+        "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-final/original-depth.json",
+        "sampling": "warm median",
+        "median_wall_ms": 28681.5,
+        "max_wall_ms": 29185,
+        "median_cpu_ms": 141740.0,
+        "max_cpu_ms": 143340,
+        "median_peak_heap_bytes": 469808660.0,
+        "max_peak_heap_bytes": 480690256,
+        "median_peak_rss_bytes": 931448832.0,
+        "max_peak_rss_bytes": 957706240,
+        "objects": 144,
+        "consumers": 17,
+        "metrics": {
+          "graph_nodes": 5996,
+          "graph_edges": 275118,
+          "graph_directed_edges": 550236,
+          "dijkstra_traversals": 484,
+          "geometry_visibility_checks": 4809884,
+          "dynamic_vertex_insertions": 1722,
+          "candidate_pairs_examined": 5616184,
+          "certified_interior_rejections": 0,
+          "visibility_checks": 4809884,
+          "restriction_check_buffers": 117,
+          "tie_in_candidates": 406,
+          "candidate_hydraulic_recomputations": 1348,
+          "candidate_topology_copies": 2118,
+          "candidate_count": 1850,
+          "routing_graph_time_ms": 12921,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 5519694,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 13926,
+          "validation_time_ms": 24,
+          "solve_time_ms": 26871,
+          "mode": "depth"
+        },
+        "variants": [
+          {
+            "connected": 17,
+            "score": 13.433636792000001,
+            "cost": 271429064.0,
+            "new_length_m": 1944.5410000000002,
+            "new_chambers": 13,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.519311639999998,
+            "cost": 276792130.0,
+            "new_length_m": 1923.0440000000003,
+            "new_chambers": 15,
+            "unconnected": {}
+          },
+          {
+            "connected": 17,
+            "score": 13.821000256,
+            "cost": 284551402.0,
+            "new_length_m": 1951.1870000000004,
+            "new_chambers": 13,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "wall_speedup_percent": -0.5715588127005233
+    },
+    {
+      "dataset": "consumers-50",
+      "mode": "PLANAR",
+      "before": {
+        "status": "OK",
+        "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-profile/consumers-50-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 9587.5,
+        "max_wall_ms": 9757,
+        "median_cpu_ms": 23040.0,
+        "max_cpu_ms": 25510,
+        "median_peak_heap_bytes": 406964016.0,
+        "max_peak_heap_bytes": 426696736,
+        "median_peak_rss_bytes": 839178240.0,
+        "max_peak_rss_bytes": 882356224,
+        "objects": 107,
+        "consumers": 50,
+        "metrics": {
+          "graph_nodes": 2045,
+          "graph_edges": 184258,
+          "graph_directed_edges": 368516,
+          "dijkstra_traversals": 766,
+          "geometry_visibility_checks": 1728621,
+          "dynamic_vertex_insertions": 1917,
+          "visibility_checks": 2296359,
+          "restriction_check_buffers": 53,
+          "tie_in_candidates": 120,
+          "candidate_count": 4794,
+          "routing_graph_time_ms": 910,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 1843844,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 8549,
+          "validation_time_ms": 17,
+          "solve_time_ms": 9476,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 50,
+            "score": 13.000569916000003,
+            "cost": 259052497.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 50,
+            "score": 13.002518124,
+            "cost": 259211433.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 50,
+            "score": 13.632464943999999,
+            "cost": 271720498.0,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "8ba13635cb302bd76b4e28bbc54f77fad97520a4cd3bea994eb3022041826514"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "after": {
+        "status": "OK",
+        "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-final/consumers-50-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 8463.5,
+        "max_wall_ms": 8574,
+        "median_cpu_ms": 15525.0,
+        "max_cpu_ms": 17460,
+        "median_peak_heap_bytes": 397407156.0,
+        "max_peak_heap_bytes": 466428992,
+        "median_peak_rss_bytes": 837312512.0,
+        "max_peak_rss_bytes": 955265024,
+        "objects": 107,
+        "consumers": 50,
+        "metrics": {
+          "graph_nodes": 2045,
+          "graph_edges": 184258,
+          "graph_directed_edges": 368516,
+          "dijkstra_traversals": 766,
+          "geometry_visibility_checks": 868973,
+          "dynamic_vertex_insertions": 1917,
+          "candidate_pairs_examined": 2296359,
+          "certified_interior_rejections": 859648,
+          "visibility_checks": 868973,
+          "restriction_check_buffers": 53,
+          "tie_in_candidates": 120,
+          "candidate_hydraulic_recomputations": 3607,
+          "candidate_topology_copies": 5125,
+          "candidate_count": 4794,
+          "routing_graph_time_ms": 472,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 984156,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 7788,
+          "validation_time_ms": 17,
+          "solve_time_ms": 8277,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 50,
+            "score": 13.000569916000003,
+            "cost": 259052497.0,
+            "new_length_m": 1915.7000000000007,
+            "new_chambers": 33,
+            "unconnected": {}
+          },
+          {
+            "connected": 50,
+            "score": 13.002518124,
+            "cost": 259211433.0,
+            "new_length_m": 1914.8660000000004,
+            "new_chambers": 32,
+            "unconnected": {}
+          },
+          {
+            "connected": 50,
+            "score": 13.632464943999999,
+            "cost": 271720498.0,
+            "new_length_m": 2008.0969999999995,
+            "new_chambers": 32,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "8ba13635cb302bd76b4e28bbc54f77fad97520a4cd3bea994eb3022041826514"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "wall_speedup_percent": 11.723598435462845
+    },
+    {
+      "dataset": "consumers-100",
+      "mode": "PLANAR",
+      "before": {
+        "status": "OK",
+        "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-profile/consumers-100-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 40008.0,
+        "max_wall_ms": 40308,
+        "median_cpu_ms": 85220.0,
+        "max_cpu_ms": 86770,
+        "median_peak_heap_bytes": 443651832.0,
+        "max_peak_heap_bytes": 465257784,
+        "median_peak_rss_bytes": 886228992.0,
+        "max_peak_rss_bytes": 921604096,
+        "objects": 207,
+        "consumers": 100,
+        "metrics": {
+          "graph_nodes": 3244,
+          "graph_edges": 204840,
+          "graph_directed_edges": 409680,
+          "dijkstra_traversals": 1618,
+          "geometry_visibility_checks": 5492871,
+          "dynamic_vertex_insertions": 2996,
+          "visibility_checks": 7288633,
+          "restriction_check_buffers": 103,
+          "tie_in_candidates": 121,
+          "candidate_count": 9801,
+          "routing_graph_time_ms": 3222,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 5981073,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 36501,
+          "validation_time_ms": 38,
+          "solve_time_ms": 39761,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 100,
+            "score": 23.04242874399999,
+            "cost": 461911348.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 100,
+            "score": 23.136242831999994,
+            "cost": 461262744.0,
+            "unconnected": {}
+          },
+          {
+            "connected": 100,
+            "score": 24.603927623999994,
+            "cost": 505901058.0,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "3fb1e53ce38cdf22eac57a3508064597430e53b0e7e908dc137d67bf1121245d"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "after": {
+        "status": "OK",
+        "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 4,
+        "report": "target/scale-results/finalization-final/consumers-100-planar.json",
+        "sampling": "warm median",
+        "median_wall_ms": 34521.0,
+        "max_wall_ms": 34608,
+        "median_cpu_ms": 50725.0,
+        "max_cpu_ms": 52600,
+        "median_peak_heap_bytes": 431209788.0,
+        "max_peak_heap_bytes": 437348800,
+        "median_peak_rss_bytes": 854622208.0,
+        "max_peak_rss_bytes": 865652736,
+        "objects": 207,
+        "consumers": 100,
+        "metrics": {
+          "graph_nodes": 3244,
+          "graph_edges": 204840,
+          "graph_directed_edges": 409680,
+          "dijkstra_traversals": 1618,
+          "geometry_visibility_checks": 1816922,
+          "dynamic_vertex_insertions": 2996,
+          "candidate_pairs_examined": 7288633,
+          "certified_interior_rejections": 3675949,
+          "visibility_checks": 1816922,
+          "restriction_check_buffers": 103,
+          "tie_in_candidates": 121,
+          "candidate_hydraulic_recomputations": 7157,
+          "candidate_topology_copies": 10410,
+          "candidate_count": 9801,
+          "routing_graph_time_ms": 1255,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 2304460,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 33023,
+          "validation_time_ms": 39,
+          "solve_time_ms": 34317,
+          "mode": "planar"
+        },
+        "variants": [
+          {
+            "connected": 100,
+            "score": 23.04242874399999,
+            "cost": 461911348.0,
+            "new_length_m": 3369.636999999997,
+            "new_chambers": 61,
+            "unconnected": {}
+          },
+          {
+            "connected": 100,
+            "score": 23.136242831999994,
+            "cost": 461262744.0,
+            "new_length_m": 3406.961999999998,
+            "new_chambers": 60,
+            "unconnected": {}
+          },
+          {
+            "connected": 100,
+            "score": 24.603927623999994,
+            "cost": 505901058.0,
+            "new_length_m": 3479.5659999999984,
+            "new_chambers": 70,
+            "unconnected": {}
+          }
+        ],
+        "output_sha256": [
+          "3fb1e53ce38cdf22eac57a3508064597430e53b0e7e908dc137d67bf1121245d"
+        ],
+        "graph_sha256": [],
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "engineering_oracle_issues": []
+        }
+      },
+      "wall_speedup_percent": 13.714757048590286
+    },
+    {
+      "dataset": "consumers-250",
+      "mode": "PLANAR",
+      "before": {
+        "status": "COMPLEXITY_LIMIT",
+        "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 2,
+        "report": "target/scale-results/finalization-profile/consumers-250-planar.json",
+        "sampling": "single cold probe",
+        "median_wall_ms": 232300,
+        "max_wall_ms": 232300,
+        "median_cpu_ms": 579060,
+        "max_cpu_ms": 579060,
+        "median_peak_heap_bytes": 816132280,
+        "max_peak_heap_bytes": 816132280,
+        "median_peak_rss_bytes": 1150906368,
+        "max_peak_rss_bytes": 1150906368,
+        "objects": 507,
+        "consumers": 250,
+        "metrics": {
+          "graph_nodes": 8983,
+          "graph_edges": 1999651,
+          "graph_directed_edges": 3999302,
+          "dijkstra_traversals": 3714,
+          "geometry_visibility_checks": 36146965,
+          "dynamic_vertex_insertions": 8091,
+          "visibility_checks": 48356945,
+          "restriction_check_buffers": 253,
+          "tie_in_candidates": 127,
+          "candidate_count": 23698,
+          "routing_graph_time_ms": 21772,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 37402752,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 0,
+          "strategies": 5,
+          "routing_time_ms": 210288,
+          "validation_time_ms": 0,
+          "solve_time_ms": 232060,
+          "mode": "planar"
+        },
+        "variants": [],
+        "output_sha256": [],
+        "graph_sha256": [],
+        "validation": {
+          "valid": false,
+          "errors": 1,
+          "warnings": 0,
+          "engineering_oracle_issues": [
+            "no variants in the output"
+          ]
+        },
+        "failure": "java.lang.IllegalStateException: Solver run failed: java.lang.IllegalStateException: ENGINEERING_ORACLE: [no variants in the output]",
+        "diagnostics": [
+          {
+            "severity": "INFO",
+            "code": "INPUT_SUMMARY",
+            "text": "features=507, source=1, heat_network=1, heat_chamber=3, oks_connection_point=250, restriction=252",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "ERROR",
+            "code": "COMPLEXITY_LIMIT",
+            "text": "Strategy separate-connections failed: COMPLEXITY_LIMIT: Navigation graph exceeds 4000000 directed edges",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "ERROR",
+            "code": "NO_VALID_VARIANT",
+            "text": "No variant passed validation",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "INFO",
+            "code": "SOLVE_SUMMARY",
+            "text": "variants=0 of 0 candidates in 232060 ms",
+            "featureIndex": null,
+            "featureId": null
+          }
+        ]
+      },
+      "after": {
+        "status": "COMPLEXITY_LIMIT",
+        "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+        "heap": "2g",
+        "container_memory": "4g",
+        "cpu_quota": 8,
+        "requested_warm_repeats": 2,
+        "report": "target/scale-results/finalization-final/consumers-250-planar.json",
+        "sampling": "single cold probe",
+        "median_wall_ms": 181584,
+        "max_wall_ms": 181584,
+        "median_cpu_ms": 284630,
+        "max_cpu_ms": 284630,
+        "median_peak_heap_bytes": 689345640,
+        "max_peak_heap_bytes": 689345640,
+        "median_peak_rss_bytes": 1088618496,
+        "max_peak_rss_bytes": 1088618496,
+        "objects": 507,
+        "consumers": 250,
+        "metrics": {
+          "graph_nodes": 8983,
+          "graph_edges": 1999651,
+          "graph_directed_edges": 3999302,
+          "dijkstra_traversals": 3714,
+          "geometry_visibility_checks": 8385891,
+          "dynamic_vertex_insertions": 8091,
+          "candidate_pairs_examined": 48356945,
+          "certified_interior_rejections": 27761074,
+          "visibility_checks": 8385891,
+          "restriction_check_buffers": 253,
+          "tie_in_candidates": 127,
+          "candidate_hydraulic_recomputations": 18076,
+          "candidate_topology_copies": 25270,
+          "candidate_count": 23698,
+          "routing_graph_time_ms": 6411,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 9636751,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 0,
+          "strategies": 5,
+          "routing_time_ms": 174929,
+          "validation_time_ms": 0,
+          "solve_time_ms": 181340,
+          "mode": "planar"
+        },
+        "variants": [],
+        "output_sha256": [],
+        "graph_sha256": [],
+        "validation": {
+          "valid": false,
+          "errors": 1,
+          "warnings": 0,
+          "engineering_oracle_issues": [
+            "no variants in the output"
+          ]
+        },
+        "failure": "java.lang.IllegalStateException: Solver run failed: java.lang.IllegalStateException: ENGINEERING_ORACLE: [no variants in the output]",
+        "diagnostics": [
+          {
+            "severity": "INFO",
+            "code": "INPUT_SUMMARY",
+            "text": "features=507, source=1, heat_network=1, heat_chamber=3, oks_connection_point=250, restriction=252",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "ERROR",
+            "code": "COMPLEXITY_LIMIT",
+            "text": "Strategy separate-connections failed: COMPLEXITY_LIMIT: Navigation graph exceeds 4000000 directed edges",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "ERROR",
+            "code": "NO_VALID_VARIANT",
+            "text": "No variant passed validation",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "INFO",
+            "code": "SOLVE_SUMMARY",
+            "text": "variants=0 of 0 candidates in 181340 ms",
+            "featureIndex": null,
+            "featureId": null
+          }
+        ]
+      },
+      "wall_speedup_percent": null
+    }
+  ],
+  "dense_500": {
+    "before": {
+      "status": "COMPLEXITY_LIMIT",
+      "build_sha256": "4dce9983571b12f3f94b7a977ee4668ca35d54791755cc2c52f291da3f369bd2",
+      "heap": "2g",
+      "container_memory": "4g",
+      "cpu_quota": 8,
+      "requested_warm_repeats": 0,
+      "report": "target/scale-results/finalization-profile/consumers-500-planar.json",
+      "sampling": "single cold probe",
+      "median_wall_ms": 78222,
+      "max_wall_ms": 78222,
+      "median_cpu_ms": 458770,
+      "max_cpu_ms": 458770,
+      "median_peak_heap_bytes": 552611104,
+      "max_peak_heap_bytes": 552611104,
+      "median_peak_rss_bytes": 921632768,
+      "max_peak_rss_bytes": 921632768,
+      "objects": 1007,
+      "consumers": 500,
+      "metrics": {
+        "graph_nodes": 0,
+        "graph_edges": 0,
+        "graph_directed_edges": 0,
+        "dijkstra_traversals": 0,
+        "geometry_visibility_checks": 0,
+        "dynamic_vertex_insertions": 0,
+        "visibility_checks": 0,
+        "restriction_check_buffers": 0,
+        "tie_in_candidates": 0,
+        "candidate_count": 0,
+        "routing_graph_time_ms": 0,
+        "fallback_activations": 0,
+        "navigation_region_expansions": 0,
+        "routing_intersection_calls": 0,
+        "robust_overlay_retries": 0,
+        "variants_evaluated": 0,
+        "strategies": 5,
+        "routing_time_ms": 77960,
+        "validation_time_ms": 0,
+        "solve_time_ms": 77960,
+        "mode": "planar"
+      },
+      "variants": [],
+      "output_sha256": [],
+      "graph_sha256": [],
+      "validation": {
+        "valid": false,
+        "errors": 1,
+        "warnings": 0,
+        "engineering_oracle_issues": [
+          "no variants in the output"
+        ]
+      },
+      "failure": "java.lang.IllegalStateException: Solver run failed: java.lang.IllegalStateException: ENGINEERING_ORACLE: [no variants in the output]",
+      "diagnostics": [
+        {
+          "severity": "INFO",
+          "code": "INPUT_SUMMARY",
+          "text": "features=1007, source=1, heat_network=1, heat_chamber=3, oks_connection_point=500, restriction=502",
+          "featureIndex": null,
+          "featureId": null
+        },
+        {
+          "severity": "ERROR",
+          "code": "COMPLEXITY_LIMIT",
+          "text": "Strategy joint-nearest-first failed: COMPLEXITY_LIMIT: Navigation visibility exceeds 50000000 pair checks per clearance class; nodes=10967, dynamic insertions=3103, geometry checks=34274650",
+          "featureIndex": null,
+          "featureId": null
+        },
+        {
+          "severity": "ERROR",
+          "code": "NO_VALID_VARIANT",
+          "text": "No variant passed validation",
+          "featureIndex": null,
+          "featureId": null
+        },
+        {
+          "severity": "INFO",
+          "code": "SOLVE_SUMMARY",
+          "text": "variants=0 of 0 candidates in 77960 ms",
+          "featureIndex": null,
+          "featureId": null
+        }
+      ],
+      "failure_site_metrics": [
+        {
+          "nodes": 10967,
+          "dynamic_insertions": 3103,
+          "geometry_checks": 34274650
+        }
+      ],
+      "metrics_scope": "Published contexts only; failure_site_metrics includes the context that failed during construction."
+    },
+    "after": {
+      "status": "OK",
+      "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+      "heap": "2g",
+      "container_memory": "4g",
+      "cpu_quota": 8,
+      "requested_warm_repeats": 0,
+      "report": "target/scale-results/finalization-final/consumers-500-planar.json",
+      "sampling": "single cold probe",
+      "median_wall_ms": 2082098,
+      "max_wall_ms": 2082098,
+      "median_cpu_ms": 2303380,
+      "max_cpu_ms": 2303380,
+      "median_peak_heap_bytes": 758671584,
+      "max_peak_heap_bytes": 758671584,
+      "median_peak_rss_bytes": 1088389120,
+      "max_peak_rss_bytes": 1088389120,
+      "objects": 1007,
+      "consumers": 500,
+      "metrics": {
+        "graph_nodes": 14532,
+        "graph_edges": 1213867,
+        "graph_directed_edges": 2427735,
+        "dijkstra_traversals": 8407,
+        "geometry_visibility_checks": 16018693,
+        "dynamic_vertex_insertions": 12854,
+        "candidate_pairs_examined": 145845283,
+        "certified_interior_rejections": 86180815,
+        "visibility_checks": 16018693,
+        "restriction_check_buffers": 503,
+        "tie_in_candidates": 136,
+        "candidate_hydraulic_recomputations": 37074,
+        "candidate_topology_copies": 52193,
+        "candidate_count": 49143,
+        "routing_graph_time_ms": 17609,
+        "fallback_activations": 0,
+        "navigation_region_expansions": 0,
+        "routing_intersection_calls": 26766590,
+        "robust_overlay_retries": 0,
+        "variants_evaluated": 5,
+        "strategies": 5,
+        "routing_time_ms": 2062583,
+        "validation_time_ms": 277,
+        "solve_time_ms": 2080469,
+        "mode": "planar"
+      },
+      "variants": [
+        {
+          "connected": 500,
+          "score": 107.8621699600001,
+          "cost": 2205402820.0,
+          "new_length_m": 15370.297000000035,
+          "new_chambers": 302,
+          "unconnected": {}
+        },
+        {
+          "connected": 500,
+          "score": 109.0655541040001,
+          "cost": 2211746968.0,
+          "new_length_m": 15712.213000000038,
+          "new_chambers": 298,
+          "unconnected": {}
+        },
+        {
+          "connected": 500,
+          "score": 109.1021769240001,
+          "cost": 2208955533.0,
+          "new_length_m": 15750.47400000004,
+          "new_chambers": 299,
+          "unconnected": {}
+        }
+      ],
+      "output_sha256": [
+        "d90a59bd731c52b22236115700f0f9190c93595ef7fafa90ce830d6e23f7318c"
+      ],
+      "graph_sha256": [],
+      "validation": {
+        "valid": true,
+        "errors": 0,
+        "warnings": 0,
+        "engineering_oracle_issues": []
+      }
+    },
+    "control_without_certificates": {
+      "status": "OK",
+      "build_sha256": "75e5fe1f4200d0dd4f8f9b516bea70f87f3ef1c5037f68bbc6c17fafaeadfb3f",
+      "heap": "2g",
+      "container_memory": "4g",
+      "cpu_quota": 8,
+      "requested_warm_repeats": 4,
+      "report": "target/scale-results/finalization-accounting/consumers-500-context.json",
+      "sampling": "warm median",
+      "median_wall_ms": 91810.5,
+      "max_wall_ms": 93414,
+      "median_cpu_ms": 554020.0,
+      "max_cpu_ms": 558140,
+      "median_peak_heap_bytes": 648821936.0,
+      "max_peak_heap_bytes": 697502920,
+      "median_peak_rss_bytes": 1009293312.0,
+      "max_peak_rss_bytes": 1092468736,
+      "median_context_build_ms": 91638.5,
+      "max_context_build_ms": 93225,
+      "objects": 1007,
+      "consumers": null,
+      "metrics": {
+        "parse_ms": 7,
+        "objects": 1007,
+        "restrictions": 502,
+        "coordinates": 3016,
+        "retained_heap_after_parse": 11455992,
+        "objects_after_gc": 1007,
+        "context_build_ms": 90920,
+        "graph_nodes": 11931,
+        "graph_edges": 586897,
+        "graph_directed_edges": 1173795,
+        "dijkstra_traversals": 0,
+        "geometry_visibility_checks": 38795043,
+        "dynamic_vertex_insertions": 4066,
+        "candidate_pairs_examined": 61028843,
+        "certified_interior_rejections": 0,
+        "visibility_checks": 38795043,
+        "restriction_check_buffers": 503,
+        "tie_in_candidates": 136,
+        "candidate_hydraulic_recomputations": 0,
+        "candidate_topology_copies": 0,
+        "candidate_count": 0,
+        "routing_graph_time_ms": 90921,
+        "fallback_activations": 0,
+        "navigation_region_expansions": 0,
+        "routing_intersection_calls": 44043408,
+        "robust_overlay_retries": 0,
+        "directed_edges": 1173795,
+        "graph_sha256": "9d42bd13e7f2fa7a6e7339fb66f645799cdf8b30acebaca40b251b0d9e972e8f"
+      },
+      "variants": [],
+      "output_sha256": [],
+      "graph_sha256": [
+        "9d42bd13e7f2fa7a6e7339fb66f645799cdf8b30acebaca40b251b0d9e972e8f"
+      ],
+      "validation": {
+        "valid": null,
+        "errors": null,
+        "warnings": null,
+        "engineering_oracle_issues": null
+      }
+    },
+    "with_certificates": {
+      "status": "OK",
+      "build_sha256": "f17469577639496a08c3844ef36c698dfef65bc8ce25fabef579150eda6a3235",
+      "heap": "2g",
+      "container_memory": "4g",
+      "cpu_quota": 8,
+      "requested_warm_repeats": 4,
+      "report": "target/scale-results/finalization-harness/consumers-500-context.json",
+      "sampling": "warm median",
+      "median_wall_ms": 16191.5,
+      "max_wall_ms": 16384,
+      "median_cpu_ms": 90455.0,
+      "max_cpu_ms": 91250,
+      "median_peak_heap_bytes": 544746824.0,
+      "max_peak_heap_bytes": 597608784,
+      "median_peak_rss_bytes": 1004210176.0,
+      "max_peak_rss_bytes": 1091895296,
+      "median_context_build_ms": 16016.5,
+      "max_context_build_ms": 16213,
+      "objects": 1007,
+      "consumers": null,
+      "metrics": {
+        "parse_ms": 7,
+        "objects": 1007,
+        "restrictions": 502,
+        "coordinates": 3016,
+        "retained_heap_after_parse": 11454592,
+        "objects_after_gc": 1007,
+        "context_build_ms": 16213,
+        "graph_nodes": 11931,
+        "graph_edges": 586897,
+        "graph_directed_edges": 1173795,
+        "dijkstra_traversals": 0,
+        "geometry_visibility_checks": 5626935,
+        "dynamic_vertex_insertions": 4066,
+        "candidate_pairs_examined": 61028843,
+        "certified_interior_rejections": 33168108,
+        "visibility_checks": 5626935,
+        "restriction_check_buffers": 503,
+        "tie_in_candidates": 136,
+        "candidate_hydraulic_recomputations": 0,
+        "candidate_topology_copies": 0,
+        "candidate_count": 0,
+        "routing_graph_time_ms": 16214,
+        "fallback_activations": 0,
+        "navigation_region_expansions": 0,
+        "routing_intersection_calls": 5977273,
+        "robust_overlay_retries": 0,
+        "directed_edges": 1173795,
+        "graph_sha256": "9d42bd13e7f2fa7a6e7339fb66f645799cdf8b30acebaca40b251b0d9e972e8f"
+      },
+      "variants": [],
+      "output_sha256": [],
+      "graph_sha256": [
+        "9d42bd13e7f2fa7a6e7339fb66f645799cdf8b30acebaca40b251b0d9e972e8f"
+      ],
+      "validation": {
+        "valid": null,
+        "errors": null,
+        "warnings": null,
+        "engineering_oracle_issues": null
+      }
+    },
+    "graph_comparison": {
+      "byte_identical": true,
+      "wall_reduction_percent": 82.3642176003834,
+      "cpu_reduction_percent": 83.67297209487022,
+      "full_geometry_check_reduction_percent": 85.49573717446324,
+      "intersection_reduction_percent": 86.42867736302331
+    },
+    "prior_900s_probe": "target/scale-results/finalization-interior/consumers-500-planar.meta.json (TIMEOUT, not acceptance)"
+  },
+  "stress": [
+    {
+      "input": "competition-osm-roads.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 625,
+      "restrictions": 569,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+      "wall_ms": 46296,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.142099592,
+          "cost": 291971914.0,
+          "new_length_m": 1988.9619999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.762910723999997,
+          "cost": 299345383.0,
+          "new_length_m": 2127.08,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 625,
+      "restrictions": 569,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+      "wall_ms": 45542,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.142099592,
+          "cost": 291971914.0,
+          "new_length_m": 1988.9619999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.762910723999997,
+          "cost": 299345383.0,
+          "new_length_m": 2127.08,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 625,
+      "restrictions": 569,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13",
+      "wall_ms": 58084,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.138740444,
+          "cost": 291913123.0,
+          "new_length_m": 1988.3909999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.787341439999999,
+          "cost": 300218230.0,
+          "new_length_m": 2127.0769999999998,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 625,
+      "restrictions": 569,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13",
+      "wall_ms": 58986,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.138740444,
+          "cost": 291913123.0,
+          "new_length_m": 1988.3909999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.787341439999999,
+          "cost": 300218230.0,
+          "new_length_m": 2127.0769999999998,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads-water.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 629,
+      "restrictions": 573,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+      "wall_ms": 46812,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.142099592,
+          "cost": 291971914.0,
+          "new_length_m": 1988.9619999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.762910723999997,
+          "cost": 299345383.0,
+          "new_length_m": 2127.08,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads-water.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 629,
+      "restrictions": 573,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+      "wall_ms": 47453,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.142099592,
+          "cost": 291971914.0,
+          "new_length_m": 1988.9619999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.762910723999997,
+          "cost": 299345383.0,
+          "new_length_m": 2127.08,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads-water.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 629,
+      "restrictions": 573,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13",
+      "wall_ms": 60444,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.138740444,
+          "cost": 291913123.0,
+          "new_length_m": 1988.3909999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.787341439999999,
+          "cost": 300218230.0,
+          "new_length_m": 2127.0769999999998,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-osm-roads-water.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 629,
+      "restrictions": 573,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13",
+      "wall_ms": 60845,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 14.138740444,
+          "cost": 291913123.0,
+          "new_length_m": 1988.3909999999998,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.3813417,
+          "cost": 299398025.0,
+          "new_length_m": 1999.3990000000003,
+          "new_chambers": 14,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.787341439999999,
+          "cost": 300218230.0,
+          "new_length_m": 2127.0769999999998,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 2: final segment uses a non-nearest boundary point",
+            "connection point 12: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 17: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "universal-water-detours.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f6ff3bbbd43076d60c05c4f2bd7379a71d3742688519c25ee3839f9c6ec7c75e",
+      "wall_ms": 493,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.7694850520000001,
+          "cost": 14515609.0,
+          "new_length_m": 121.016,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-detours.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f6ff3bbbd43076d60c05c4f2bd7379a71d3742688519c25ee3839f9c6ec7c75e",
+      "wall_ms": 481,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.7694850520000001,
+          "cost": 14515609.0,
+          "new_length_m": 121.016,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-detours.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "68c643d9f6b82dcdcae076e889218db9cc9f0bc43ee31f9ffdc00cd159d6dc55",
+      "wall_ms": 499,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.7694850520000001,
+          "cost": 14515609.0,
+          "new_length_m": 121.016,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-detours.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "68c643d9f6b82dcdcae076e889218db9cc9f0bc43ee31f9ffdc00cd159d6dc55",
+      "wall_ms": 486,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.7694850520000001,
+          "cost": 14515609.0,
+          "new_length_m": 121.016,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-impossible.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f1da7f2a487f7f3019b01632cf35e14c51cec94462857cb0934000c9a31cf110",
+      "wall_ms": 2300,
+      "variants": [
+        {
+          "connected": 0,
+          "score": 2.856,
+          "cost": 102000000.0,
+          "new_length_m": 0.0,
+          "new_chambers": 0,
+          "unconnected": {
+            "consumer": "NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"
+          },
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-impossible.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f1da7f2a487f7f3019b01632cf35e14c51cec94462857cb0934000c9a31cf110",
+      "wall_ms": 2265,
+      "variants": [
+        {
+          "connected": 0,
+          "score": 2.856,
+          "cost": 102000000.0,
+          "new_length_m": 0.0,
+          "new_chambers": 0,
+          "unconnected": {
+            "consumer": "NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"
+          },
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-impossible.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "7843db4dcbf0470e4b4429f241b46fe9f225ec22f6541075fe8c77c20df50b85",
+      "wall_ms": 2366,
+      "variants": [
+        {
+          "connected": 0,
+          "score": 2.856,
+          "cost": 102000000.0,
+          "new_length_m": 0.0,
+          "new_chambers": 0,
+          "unconnected": {
+            "consumer": "NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"
+          },
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-water-impossible.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "7843db4dcbf0470e4b4429f241b46fe9f225ec22f6541075fe8c77c20df50b85",
+      "wall_ms": 2273,
+      "variants": [
+        {
+          "connected": 0,
+          "score": 2.856,
+          "cost": 102000000.0,
+          "new_length_m": 0.0,
+          "new_chambers": 0,
+          "unconnected": {
+            "consumer": "NO_PATH_IN_NAV_GRAPH: adaptive visibility and grid search exhausted; geometric impossibility is not proven"
+          },
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-adjacent-roads.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "6f037470e3b9f767b08f7eb146b5d2fca080db28d31584b0411863b4e3d9477f",
+      "wall_ms": 461,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6826238359999999,
+          "cost": 13665137.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-adjacent-roads.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "6f037470e3b9f767b08f7eb146b5d2fca080db28d31584b0411863b4e3d9477f",
+      "wall_ms": 467,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6826238359999999,
+          "cost": 13665137.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-adjacent-roads.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "9c8bba504a014587b33499b3d4a69404788af7a38a7ef01e5e914750818441d6",
+      "wall_ms": 526,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6826238359999999,
+          "cost": 13665137.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-adjacent-roads.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "9c8bba504a014587b33499b3d4a69404788af7a38a7ef01e5e914750818441d6",
+      "wall_ms": 506,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6826238359999999,
+          "cost": 13665137.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-intersecting-roads.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "0475345e7afb2a272ec30a8ff96b4b78943ec17abcf64ba856a6f9bf864eb023",
+      "wall_ms": 509,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.683695112,
+          "cost": 13684004.0,
+          "new_length_m": 100.18100000000001,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-intersecting-roads.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "0475345e7afb2a272ec30a8ff96b4b78943ec17abcf64ba856a6f9bf864eb023",
+      "wall_ms": 544,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.683695112,
+          "cost": 13684004.0,
+          "new_length_m": 100.18100000000001,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-intersecting-roads.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "b4763eb450390926f6b62b613317eeefed8006360aed19e47ccadf66df7eb1c8",
+      "wall_ms": 576,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.683695112,
+          "cost": 13684004.0,
+          "new_length_m": 100.18100000000001,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-intersecting-roads.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "b4763eb450390926f6b62b613317eeefed8006360aed19e47ccadf66df7eb1c8",
+      "wall_ms": 560,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.683695112,
+          "cost": 13684004.0,
+          "new_length_m": 100.18100000000001,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-new.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "501e74ebd5d20da0949201f4b0c36ba8329674a5d3f5e0af919cc839a1cd74fa",
+      "wall_ms": 415,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-new.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "501e74ebd5d20da0949201f4b0c36ba8329674a5d3f5e0af919cc839a1cd74fa",
+      "wall_ms": 409,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-new.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "5d74554c787790fbe35985e720d0ed2c1d153f6609be6f45ba4033f50dc3b5a4",
+      "wall_ms": 450,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-new.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "5d74554c787790fbe35985e720d0ed2c1d153f6609be6f45ba4033f50dc3b5a4",
+      "wall_ms": 454,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-existing.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "c61b5b61dec9ac12d35b247cfe1cbdca90d7844599b9edd4543f4fdeba4b88b7",
+      "wall_ms": 382,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-existing.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "c61b5b61dec9ac12d35b247cfe1cbdca90d7844599b9edd4543f4fdeba4b88b7",
+      "wall_ms": 401,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-existing.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "b805c3f7c43135ffcb2d7ba878e2998a5063d04aab2585b0a1f0d722920a51a2",
+      "wall_ms": 385,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-road-inside-existing.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "b805c3f7c43135ffcb2d7ba878e2998a5063d04aab2585b0a1f0d722920a51a2",
+      "wall_ms": 369,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6707348120000001,
+          "cost": 13240529.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-new.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e5eebc086545a72f056a16736cf8a2ee57b03e17f531a68c5b4c7a7923600ecc",
+      "wall_ms": 404,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-new.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e5eebc086545a72f056a16736cf8a2ee57b03e17f531a68c5b4c7a7923600ecc",
+      "wall_ms": 446,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-new.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "de3537ec3f7f912e2edce6973e2e548097fb572a9e53540f1741d34e66409578",
+      "wall_ms": 441,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-new.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "de3537ec3f7f912e2edce6973e2e548097fb572a9e53540f1741d34e66409578",
+      "wall_ms": 438,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-existing.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "2e2ad705e79b5834e30a343438d4e3f8d53054b63030879a02ea9aeba51a97eb",
+      "wall_ms": 382,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-existing.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "2e2ad705e79b5834e30a343438d4e3f8d53054b63030879a02ea9aeba51a97eb",
+      "wall_ms": 366,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-existing.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d1c6d643cd9bae123c9110fdfd1208c66330626e0b04c0f7877040469fd534c7",
+      "wall_ms": 381,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-tram_tracks-inside-existing.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 5,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d1c6d643cd9bae123c9110fdfd1208c66330626e0b04c0f7877040469fd534c7",
+      "wall_ms": 411,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.673376808,
+          "cost": 13334886.0,
+          "new_length_m": 100.0,
+          "new_chambers": 0,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-complex-oks.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "1e0ecdcc68e40b2528126c13316d76477699e00e6e1473aa0156309fe3e64fec",
+      "wall_ms": 495,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6133830039999999,
+          "cost": 12155893.0,
+          "new_length_m": 91.006,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-complex-oks.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "1e0ecdcc68e40b2528126c13316d76477699e00e6e1473aa0156309fe3e64fec",
+      "wall_ms": 522,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6133830039999999,
+          "cost": 12155893.0,
+          "new_length_m": 91.006,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-complex-oks.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "55d862d99d1f6bc50380cd31536acd1f01430f640e87c2ca28e86505b35bde6f",
+      "wall_ms": 506,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6133830039999999,
+          "cost": 12155893.0,
+          "new_length_m": 91.006,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-complex-oks.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 5,
+      "restrictions": 2,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "55d862d99d1f6bc50380cd31536acd1f01430f640e87c2ca28e86505b35bde6f",
+      "wall_ms": 521,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6133830039999999,
+          "cost": 12155893.0,
+          "new_length_m": 91.006,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-mixed.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 11,
+      "restrictions": 8,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "44834c04c32ed989e32c9597836aa2441721358243e041e2e951d4590c92fab9",
+      "wall_ms": 658,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.677163696,
+          "cost": 13470132.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-mixed.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 11,
+      "restrictions": 8,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "44834c04c32ed989e32c9597836aa2441721358243e041e2e951d4590c92fab9",
+      "wall_ms": 616,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.677163696,
+          "cost": 13470132.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-mixed.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 11,
+      "restrictions": 8,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f4f0999748dd5e2e920cea71af3623d7f264c20538c4d8dfb53c0367600e25b6",
+      "wall_ms": 712,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.677163696,
+          "cost": 13470132.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-mixed.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 11,
+      "restrictions": 8,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f4f0999748dd5e2e920cea71af3623d7f264c20538c4d8dfb53c0367600e25b6",
+      "wall_ms": 759,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.677163696,
+          "cost": 13470132.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-long-detour.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e619a86b7f58d24ba9649c963ba439230c6e682c5c4666424248fe9ae0353279",
+      "wall_ms": 469,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 9.485404203999998,
+          "cost": 191277793.0,
+          "new_length_m": 1376.542,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-long-detour.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e619a86b7f58d24ba9649c963ba439230c6e682c5c4666424248fe9ae0353279",
+      "wall_ms": 461,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 9.485404203999998,
+          "cost": 191277793.0,
+          "new_length_m": 1376.542,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-long-detour.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d3376da3046980b9f35bfa084673ef9a331540a7f78e85854d1add334b24a998",
+      "wall_ms": 497,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 9.485404203999998,
+          "cost": 191277793.0,
+          "new_length_m": 1376.542,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-long-detour.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d3376da3046980b9f35bfa084673ef9a331540a7f78e85854d1add334b24a998",
+      "wall_ms": 524,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 9.485404203999998,
+          "cost": 191277793.0,
+          "new_length_m": 1376.542,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-narrow-corridor.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "3f47690b43cf2043e0d939def94636b357c9bd29e783cede33c1e508259333d6",
+      "wall_ms": 1962,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.878730476,
+          "cost": 16167017.0,
+          "new_length_m": 142.018,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": [
+            "connection point \"consumer\": connected by adaptive routing"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "universal-narrow-corridor.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "3f47690b43cf2043e0d939def94636b357c9bd29e783cede33c1e508259333d6",
+      "wall_ms": 1885,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.878730476,
+          "cost": 16167017.0,
+          "new_length_m": 142.018,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": [
+            "connection point \"consumer\": connected by adaptive routing"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "universal-narrow-corridor.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "1328d315b34306646fb64313b039a214b88fc4156cc27d49ffdba47121d2e445",
+      "wall_ms": 2069,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.878730476,
+          "cost": 16167017.0,
+          "new_length_m": 142.018,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": [
+            "connection point \"consumer\": connected by adaptive routing"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "universal-narrow-corridor.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 4,
+      "restrictions": 1,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "1328d315b34306646fb64313b039a214b88fc4156cc27d49ffdba47121d2e445",
+      "wall_ms": 2207,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.878730476,
+          "cost": 16167017.0,
+          "new_length_m": 142.018,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": [
+            "connection point \"consumer\": connected by adaptive routing"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "universal-boundary.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 7,
+      "restrictions": 4,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "56e8f7524fcdd0a33a80465ce970f19a3265216a55b317ac7b0c36342b5dc25d",
+      "wall_ms": 516,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6862565839999999,
+          "cost": 13794878.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-boundary.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 7,
+      "restrictions": 4,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "56e8f7524fcdd0a33a80465ce970f19a3265216a55b317ac7b0c36342b5dc25d",
+      "wall_ms": 630,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6862565839999999,
+          "cost": 13794878.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-boundary.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 7,
+      "restrictions": 4,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e880ad59ed6b63a427dcfedbfc4b619b3da83a8c3d1a77a266bdbca5a93a5915",
+      "wall_ms": 655,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6862565839999999,
+          "cost": 13794878.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "universal-boundary.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 7,
+      "restrictions": 4,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "e880ad59ed6b63a427dcfedbfc4b619b3da83a8c3d1a77a266bdbca5a93a5915",
+      "wall_ms": 602,
+      "variants": [
+        {
+          "connected": 1,
+          "score": 0.6862565839999999,
+          "cost": 13794878.0,
+          "new_length_m": 100.0,
+          "new_chambers": 1,
+          "unconnected": {},
+          "notes": []
+        }
+      ]
+    },
+    {
+      "input": "competition-mixed-restrictions.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 154,
+      "restrictions": 98,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f7255d6f789d6bcdf3360de8e4f3767d4c8ba9dacb09f9a36236cac89b62c4a5",
+      "wall_ms": 27741,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.525595095999998,
+          "cost": 276899432.0,
+          "new_length_m": 1924.1369999999997,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.827283712,
+          "cost": 284658704.0,
+          "new_length_m": 1952.2800000000002,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.034792615999997,
+          "cost": 289125022.0,
+          "new_length_m": 1979.764,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-mixed-restrictions.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 154,
+      "restrictions": 98,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "f7255d6f789d6bcdf3360de8e4f3767d4c8ba9dacb09f9a36236cac89b62c4a5",
+      "wall_ms": 28869,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.525595095999998,
+          "cost": 276899432.0,
+          "new_length_m": 1924.1369999999997,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.827283712,
+          "cost": 284658704.0,
+          "new_length_m": 1952.2800000000002,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.034792615999997,
+          "cost": 289125022.0,
+          "new_length_m": 1979.764,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-mixed-restrictions.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 154,
+      "restrictions": 98,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ae9ffec6c4c96b650f2308cc1a622c02d611a50279e22176046a3cab55e6e1c2",
+      "wall_ms": 29587,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.525595095999998,
+          "cost": 276899432.0,
+          "new_length_m": 1924.1369999999997,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.827283712,
+          "cost": 284658704.0,
+          "new_length_m": 1952.2800000000002,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.034792615999997,
+          "cost": 289125022.0,
+          "new_length_m": 1979.764,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-mixed-restrictions.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 154,
+      "restrictions": 98,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "ae9ffec6c4c96b650f2308cc1a622c02d611a50279e22176046a3cab55e6e1c2",
+      "wall_ms": 30598,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.525595095999998,
+          "cost": 276899432.0,
+          "new_length_m": 1924.1369999999997,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.827283712,
+          "cost": 284658704.0,
+          "new_length_m": 1952.2800000000002,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.034792615999997,
+          "cost": 289125022.0,
+          "new_length_m": 1979.764,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-dense.geojson",
+      "mode": "PLANAR",
+      "run": 1,
+      "features": 266,
+      "restrictions": 210,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "3bdb24d19d1d861c6f6dc3e9ec289c7b116bcc2e283d9b87de9c9f7f8aa1a6d8",
+      "wall_ms": 43459,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.553298935999997,
+          "cost": 277415712.0,
+          "new_length_m": 1928.5529999999999,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.847942008,
+          "cost": 285060286.0,
+          "new_length_m": 1955.4180000000001,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.041838159999998,
+          "cost": 289239720.0,
+          "new_length_m": 1981.0419999999997,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-dense.geojson",
+      "mode": "PLANAR",
+      "run": 2,
+      "features": 266,
+      "restrictions": 210,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "3bdb24d19d1d861c6f6dc3e9ec289c7b116bcc2e283d9b87de9c9f7f8aa1a6d8",
+      "wall_ms": 39688,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.553298935999997,
+          "cost": 277415712.0,
+          "new_length_m": 1928.5529999999999,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.847942008,
+          "cost": 285060286.0,
+          "new_length_m": 1955.4180000000001,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.041838159999998,
+          "cost": 289239720.0,
+          "new_length_m": 1981.0419999999997,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-dense.geojson",
+      "mode": "DEPTH",
+      "run": 1,
+      "features": 266,
+      "restrictions": 210,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d7f9e697f36a13dda27ab9e192eb69ce643f9422d962362ef8a43276532a9980",
+      "wall_ms": 43720,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.553298935999997,
+          "cost": 277415712.0,
+          "new_length_m": 1928.5529999999999,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.847942008,
+          "cost": 285060286.0,
+          "new_length_m": 1955.4180000000001,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.041838159999998,
+          "cost": 289239720.0,
+          "new_length_m": 1981.0419999999997,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    },
+    {
+      "input": "competition-dense.geojson",
+      "mode": "DEPTH",
+      "run": 2,
+      "features": 266,
+      "restrictions": 210,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0,
+      "output_sha256": "d7f9e697f36a13dda27ab9e192eb69ce643f9422d962362ef8a43276532a9980",
+      "wall_ms": 43131,
+      "variants": [
+        {
+          "connected": 17,
+          "score": 13.553298935999997,
+          "cost": 277415712.0,
+          "new_length_m": 1928.5529999999999,
+          "new_chambers": 15,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 13.847942008,
+          "cost": 285060286.0,
+          "new_length_m": 1955.4180000000001,
+          "new_chambers": 13,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        },
+        {
+          "connected": 17,
+          "score": 14.041838159999998,
+          "cost": 289239720.0,
+          "new_length_m": 1981.0419999999997,
+          "new_chambers": 16,
+          "unconnected": {},
+          "notes": [
+            "connection point 10: final segment uses a non-nearest boundary point",
+            "connection point 5: final segment uses a non-nearest boundary point",
+            "connection point 2: final segment uses a non-nearest boundary point"
+          ]
+        }
+      ]
+    }
+  ],
+  "http": {
+    "status": "OK",
+    "environment": {
+      "project": "lct-final-upload-20261016214324",
+      "compose": "<repo>/target/final-engineering/http/compose.json",
+      "port": 18089,
+      "production_volumes_touched": false,
+      "caddy_config_sha256": "83d953f0f95d768f4c4906738a5135f7560122845db8e20c1b768f346e50a497",
+      "dockerfile_sha256": "2b2e69f811e384d65d0f03b65f78c184e537769749431dbf53357129f7e6528b",
+      "native_disk_full_probe": {
+        "exception": "java.io.IOException: No space left on device",
+        "tmpfs_limit_bytes": 1048576,
+        "persistent_data_touched": false
+      },
+      "docker_resources": {
+        "memory_bytes": 8320815104,
+        "logical_cpus": 15,
+        "architecture": "aarch64",
+        "app_cpu_quota": 8,
+        "app_memory_limit_bytes": 4294967296,
+        "app_max_heap_bytes": 2147483648
+      },
+      "static_sha256": {
+        "app.js": "81d235e68bfe4171a69e7fad2f99eb37f1e5a255069859d9ac5aa422d4ea8ef3",
+        "upload.js": "7ce2b7ab1962459b5da0d910e2720585f27cd6155b3069f77479df676fb80e6a",
+        "index.html": "c44860f04ac8ad51645606daad9d49fdb82db001de25ddc36bfa1dabf0804fe3",
+        "style.css": "5b245c5aac87a14f7f7fec55b1038c10f76fdf5cf3edb16711eb878bbe6a57ce"
+      },
+      "tested_classes_sha256": "31cef677bb2fcf5c72cebef3424f24804c9840be3007d7231fcc7e1b9e07bde1",
+      "java_process": "root         1     0  0 21:43 ?        00:00:00 sh -c java $JAVA_OPTS -jar /app/app.jar\nroot         7     1 99 21:43 ?        00:00:07 java -Xms128m -Xmx2g -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions -XX:+PrintNMTStatistics -jar /app/app.jar",
+      "health": "UP",
+      "image_id": "sha256:9843b0abe130304ec4354acc44886bc91b7cfd54a42ae808ffce1265f007d150",
+      "startup_memory": {
+        "rss": {
+          "VmRSS": 486580224,
+          "VmHWM": 486580224
+        },
+        "VM.native_memory": "7:\n\nNative Memory Tracking:\n\nTotal: reserved=3706224KB, committed=405744KB\n-                 Java Heap (reserved=2097152KB, committed=201728KB)\n                            (mmap: reserved=2097152KB, committed=201728KB) \n \n-                     Class (reserved=1110340KB, committed=70548KB)\n                            (classes #14923)\n                            (  instance classes #13843, array classes #1080)\n                            (malloc=2372KB #35919) \n                            (mmap: reserved=1107968KB, committed=68176KB) \n                            (  Metadata:   )\n                            (    reserved=59392KB, committed=58448KB)\n                            (    used=57085KB)\n                            (    free=1363KB)\n                            (    waste=0KB =0.00%)\n                            (  Class space:)\n                            (    reserved=1048576KB, committed=9728KB)\n                            (    used=8854KB)\n                            (    free=875KB)\n                            (    waste=0KB =0.00%)\n \n-                    Thread (reserved=73606KB, committed=2686KB)\n                            (thread #36)\n                            (stack: reserved=73440KB, committed=2520KB)\n                            (malloc=126KB #218) \n                            (arena=40KB #70)\n \n-                      Code (reserved=249321KB, committed=25309KB)\n                            (malloc=1633KB #6637) \n                            (mmap: reserved=247688KB, committed=23676KB) \n \n-                        GC (reserved=129200KB, committed=58868KB)\n                            (malloc=18204KB #9501) \n                            (mmap: reserved=110996KB, committed=40664KB) \n \n-                  Compiler (reserved=176KB, committed=176KB)\n                            (malloc=43KB #784) \n                            (arena=133KB #5)\n \n-                  Internal (reserved=621KB, committed=621KB)\n                            (malloc=589KB #1357) \n                            (mmap: reserved=32KB, committed=32KB) \n \n-                     Other (reserved=40KB, committed=40KB)\n                            (malloc=40KB #4) \n \n-                    Symbol (reserved=16071KB, committed=16071KB)\n                            (malloc=15200KB #192429) \n                            (arena=871KB #1)\n \n-    Native Memory Tracking (reserved=3957KB, committed=3957KB)\n                            (malloc=12KB #149) \n                            (tracking overhead=3945KB)\n \n-        Shared class space (reserved=9632KB, committed=9632KB)\n                            (mmap: reserved=9632KB, committed=9632KB) \n \n-               Arena Chunk (reserved=15609KB, committed=15609KB)\n                            (malloc=15609KB) \n \n-                   Logging (reserved=4KB, committed=4KB)\n                            (malloc=4KB #189) \n \n-                 Arguments (reserved=18KB, committed=18KB)\n                            (malloc=18KB #480) \n \n-                    Module (reserved=233KB, committed=233KB)\n                            (malloc=233KB #2226) \n \n-              Synchronizer (reserved=236KB, committed=236KB)\n                            (malloc=236KB #2010) \n \n-                 Safepoint (reserved=8KB, committed=8KB)\n                            (mmap: reserved=8KB, committed=8KB)",
+        "GC.heap_info": "7:\n garbage-first heap   total 201728K, used 120352K [0x0000000080000000, 0x0000000100000000)\n  region size 1024K, 105 young (107520K), 9 survivors (9216K)\n Metaspace       used 65938K, capacity 68066K, committed 68176K, reserved 1107968K\n  class space    used 8853K, capacity 9702K, committed 9728K, reserved 1048576K"
+      }
+    },
+    "runs": [
+      {
+        "file": "examples/stress/routing-fallback.geojson",
+        "mode": "PLANAR",
+        "bytes": 565,
+        "input_sha256": "258d4d27dfc4ae20d8b82df83f38f766d15551d6a039e93d02f157f1a794ffe3",
+        "stored_sha256": "258d4d27dfc4ae20d8b82df83f38f766d15551d6a039e93d02f157f1a794ffe3",
+        "job_id": "a9c52e60-ff1a-4b6d-a45d-b6c1faec88ae",
+        "upload_wall_s": 0.10830900000291876,
+        "transmitted_bytes": 1130,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 206,
+        "output_sha256": "73d00fa13445f99031d96f3c91a28f2e8c8fb5ad165da1f0fbcf7c6e91eef8ae",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 3,
+            "references": 1,
+            "degrees": 2,
+            "forest": 1,
+            "turns": 1,
+            "restriction:heat_network": 1,
+            "hydraulics": 1,
+            "cost": 1
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-nearest-first",
+            "score": 7.6079484,
+            "constructionCost": 153855300.0,
+            "networkConstructionCost": 148855300.0,
+            "chamberConstructionCost": 5000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 153855300.0,
+            "newNetworkLength": 1100.0,
+            "connectedOksCount": 1,
+            "newChamberCount": 1,
+            "technicalNodeCount": 0,
+            "lineCount": 1,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point \"consumer\": connected by adaptive routing"
+            ],
+            "sharedNetworkLength": 0.0,
+            "rootCount": 1,
+            "attachmentPoints": [
+              "new chamber on line network @400000,6170000"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 555331584,
+          "VmHWM": 560353280
+        }
+      },
+      {
+        "file": "target/scale-data/original.geojson",
+        "mode": "PLANAR",
+        "bytes": 633402,
+        "input_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+        "stored_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+        "job_id": "5c081310-c859-487a-a7b0-a236a661e30e",
+        "upload_wall_s": 0.03733700000157114,
+        "transmitted_bytes": 633402,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 26293,
+        "output_sha256": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 130,
+            "references": 86,
+            "degrees": 94,
+            "forest": 8,
+            "turns": 161,
+            "intersections": 123,
+            "restriction:oks": 114,
+            "restriction:heat_network": 14,
+            "hydraulics": 86,
+            "cost": 86
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-farthest-first",
+            "score": 13.433636792000001,
+            "constructionCost": 271429064.0,
+            "networkConstructionCost": 220429064.0,
+            "chamberConstructionCost": 51000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 271429064.0,
+            "newNetworkLength": 1944.5410000000002,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 27,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 823.4320829433823,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "new chamber on line 122 @414532,6173468",
+              "new chamber on line 129 @414397,6173205"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-nearest-first",
+            "score": 13.519311639999998,
+            "constructionCost": 276792130.0,
+            "networkConstructionCost": 217792130.0,
+            "chamberConstructionCost": 59000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 276792130.0,
+            "newNetworkLength": 1923.0440000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 917.5300053036988,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 129 @414397,6173205",
+              "new chamber on line 122 @414532,6173468"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": -21.496999999999844,
+              "deltaCost": 5363066.0,
+              "deltaScore": 0.08567484799999647,
+              "deltaNewChambers": 2,
+              "deltaTieIns": 0,
+              "deltaSharedLength": 94.09792236031649,
+              "consumersWithDifferentAttachment": 0,
+              "consumersWithDifferentBranch": 0,
+              "newAttachmentPoints": 0,
+              "text": "vs v1: -21.5 m network; +5,363,066 ₽; +2 new chambers; +94.1 m shared sections"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-existing-chambers",
+            "score": 13.821000256,
+            "constructionCost": 284551402.0,
+            "networkConstructionCost": 220551402.0,
+            "chamberConstructionCost": 49000000.0,
+            "existingChamberTieInCount": 3,
+            "existingChamberTieInCost": 15000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 284551402.0,
+            "newNetworkLength": 1951.1870000000004,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 919.9357082970574,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "existing chamber 106",
+              "existing chamber 109"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 6.6460000000001855,
+              "deltaCost": 13122338.0,
+              "deltaScore": 0.3873634639999981,
+              "deltaNewChambers": 0,
+              "deltaTieIns": 3,
+              "deltaSharedLength": 96.50362535367515,
+              "consumersWithDifferentAttachment": 17,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +6.6 m network; +13,122,338 ₽; +3 existing-chamber tie-ins; +96.5 m shared sections; 17 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 934092800,
+          "VmHWM": 934092800
+        }
+      },
+      {
+        "file": "examples/stress/competition-osm-roads.geojson",
+        "mode": "PLANAR",
+        "bytes": 639754,
+        "input_sha256": "d40a0b23d79c2defed3b7f90e168993b2ad659d381eb38f2f85476c47409101d",
+        "stored_sha256": "d40a0b23d79c2defed3b7f90e168993b2ad659d381eb38f2f85476c47409101d",
+        "job_id": "e418f2c5-b245-4bdb-9554-2b6a3275263c",
+        "upload_wall_s": 0.03423024999210611,
+        "transmitted_bytes": 639754,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 42271,
+        "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 261,
+            "references": 152,
+            "degrees": 159,
+            "forest": 7,
+            "turns": 167,
+            "intersections": 192,
+            "restriction:oks": 122,
+            "restriction:road": 43,
+            "restriction:heat_network": 11,
+            "hydraulics": 88,
+            "cost": 152
+          },
+          "issues": [
+            {
+              "severity": "INFO",
+              "code": "CROSSING_EXIT_ANGLE",
+              "message": "exit from road#\"osm-way-607500125\" at 42.0° (entry 48.0°; only the entry angle is mandatory)",
+              "variantId": "v1",
+              "featureId": "v1_net_31"
+            },
+            {
+              "severity": "INFO",
+              "code": "CROSSING_EXIT_ANGLE",
+              "message": "exit from road#\"osm-way-1292041084\" at 44.5° (entry 45.5°; only the entry angle is mandatory)",
+              "variantId": "v2",
+              "featureId": "v2_net_13"
+            }
+          ]
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-nearest-first",
+            "score": 14.142099592,
+            "constructionCost": 291971914.0,
+            "networkConstructionCost": 234971914.0,
+            "chamberConstructionCost": 57000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 291971914.0,
+            "newNetworkLength": 1988.9619999999998,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 994.9449704512904,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 127 @414421,6173259"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 12,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-largest-flow-first",
+            "score": 14.3813417,
+            "constructionCost": 299398025.0,
+            "networkConstructionCost": 238398025.0,
+            "chamberConstructionCost": 56000000.0,
+            "existingChamberTieInCount": 1,
+            "existingChamberTieInCost": 5000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 299398025.0,
+            "newNetworkLength": 1999.3990000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 14,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 978.0285705534048,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "existing chamber 110",
+              "new chamber on line 122 @414514,6173488",
+              "new chamber on line 126 @414432,6173286"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 10.43700000000058,
+              "deltaCost": 7426111.0,
+              "deltaScore": 0.2392421080000009,
+              "deltaNewChambers": -1,
+              "deltaTieIns": 1,
+              "deltaSharedLength": -16.916399897885526,
+              "consumersWithDifferentAttachment": 16,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +10.4 m network; +7,426,111 ₽; -1 new chamber; +1 existing-chamber tie-in; -16.9 m shared sections; 16 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 11,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-farthest-first",
+            "score": 14.762910723999997,
+            "constructionCost": 299345383.0,
+            "networkConstructionCost": 247345383.0,
+            "chamberConstructionCost": 47000000.0,
+            "existingChamberTieInCount": 1,
+            "existingChamberTieInCost": 5000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 299345383.0,
+            "newNetworkLength": 2127.08,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 12: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 938.1046110634213,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "existing chamber 110"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 138.11800000000017,
+              "deltaCost": 7373469.0,
+              "deltaScore": 0.6208111319999983,
+              "deltaNewChambers": -2,
+              "deltaTieIns": 1,
+              "deltaSharedLength": -56.84035938786906,
+              "consumersWithDifferentAttachment": 16,
+              "consumersWithDifferentBranch": 17,
+              "newAttachmentPoints": 1,
+              "text": "vs v1: +138.1 m network; +7,373,469 ₽; -2 new chambers; +1 existing-chamber tie-in; -56.8 m shared sections; 16 OKS attach at a different point; 17 OKS use a different shared branch; 1 attachment point not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 9,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 1131810816,
+          "VmHWM": 1134600192
+        }
+      },
+      {
+        "file": "target/upload-data/valid-104857600.geojson",
+        "mode": "PLANAR",
+        "bytes": 104857600,
+        "input_sha256": "2d2f4acab1f3f15e62b2804900da19969890a78cf0868d15b8865e10332cc805",
+        "stored_sha256": "2d2f4acab1f3f15e62b2804900da19969890a78cf0868d15b8865e10332cc805",
+        "job_id": "76e4ad70-48fa-429e-ae65-bb0300b63341",
+        "upload_wall_s": 0.6249300409981515,
+        "transmitted_bytes": 104857600,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 24660,
+        "output_sha256": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 130,
+            "references": 86,
+            "degrees": 94,
+            "forest": 8,
+            "turns": 161,
+            "intersections": 123,
+            "restriction:oks": 114,
+            "restriction:heat_network": 14,
+            "hydraulics": 86,
+            "cost": 86
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-farthest-first",
+            "score": 13.433636792000001,
+            "constructionCost": 271429064.0,
+            "networkConstructionCost": 220429064.0,
+            "chamberConstructionCost": 51000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 271429064.0,
+            "newNetworkLength": 1944.5410000000002,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 27,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 823.4320829433823,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "new chamber on line 122 @414532,6173468",
+              "new chamber on line 129 @414397,6173205"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-nearest-first",
+            "score": 13.519311639999998,
+            "constructionCost": 276792130.0,
+            "networkConstructionCost": 217792130.0,
+            "chamberConstructionCost": 59000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 276792130.0,
+            "newNetworkLength": 1923.0440000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 917.5300053036988,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 129 @414397,6173205",
+              "new chamber on line 122 @414532,6173468"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": -21.496999999999844,
+              "deltaCost": 5363066.0,
+              "deltaScore": 0.08567484799999647,
+              "deltaNewChambers": 2,
+              "deltaTieIns": 0,
+              "deltaSharedLength": 94.09792236031649,
+              "consumersWithDifferentAttachment": 0,
+              "consumersWithDifferentBranch": 0,
+              "newAttachmentPoints": 0,
+              "text": "vs v1: -21.5 m network; +5,363,066 ₽; +2 new chambers; +94.1 m shared sections"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-existing-chambers",
+            "score": 13.821000256,
+            "constructionCost": 284551402.0,
+            "networkConstructionCost": 220551402.0,
+            "chamberConstructionCost": 49000000.0,
+            "existingChamberTieInCount": 3,
+            "existingChamberTieInCost": 15000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 284551402.0,
+            "newNetworkLength": 1951.1870000000004,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 919.9357082970574,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "existing chamber 106",
+              "existing chamber 109"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 6.6460000000001855,
+              "deltaCost": 13122338.0,
+              "deltaScore": 0.3873634639999981,
+              "deltaNewChambers": 0,
+              "deltaTieIns": 3,
+              "deltaSharedLength": 96.50362535367515,
+              "consumersWithDifferentAttachment": 17,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +6.6 m network; +13,122,338 ₽; +3 existing-chamber tie-ins; +96.5 m shared sections; 17 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 1179017216,
+          "VmHWM": 1181044736
+        }
+      },
+      {
+        "file": "target/upload-data/valid-1073741824.geojson",
+        "mode": "PLANAR",
+        "bytes": 1073741824,
+        "input_sha256": "521898e9798dec27da354838baf533b6825afc3ac5a4598baabb5a9ee598d5ab",
+        "stored_sha256": "521898e9798dec27da354838baf533b6825afc3ac5a4598baabb5a9ee598d5ab",
+        "job_id": "66104cc2-0c0d-478e-9bb9-ba4b7661a4cf",
+        "upload_wall_s": 21.72512783399725,
+        "transmitted_bytes": 1082130432,
+        "restart_during_upload": true,
+        "interrupted_part": 22,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 28946,
+        "output_sha256": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 130,
+            "references": 86,
+            "degrees": 94,
+            "forest": 8,
+            "turns": 161,
+            "intersections": 123,
+            "restriction:oks": 114,
+            "restriction:heat_network": 14,
+            "hydraulics": 86,
+            "cost": 86
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-farthest-first",
+            "score": 13.433636792000001,
+            "constructionCost": 271429064.0,
+            "networkConstructionCost": 220429064.0,
+            "chamberConstructionCost": 51000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 271429064.0,
+            "newNetworkLength": 1944.5410000000002,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 27,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 823.4320829433823,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "new chamber on line 122 @414532,6173468",
+              "new chamber on line 129 @414397,6173205"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-nearest-first",
+            "score": 13.519311639999998,
+            "constructionCost": 276792130.0,
+            "networkConstructionCost": 217792130.0,
+            "chamberConstructionCost": 59000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 276792130.0,
+            "newNetworkLength": 1923.0440000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 917.5300053036988,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 129 @414397,6173205",
+              "new chamber on line 122 @414532,6173468"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": -21.496999999999844,
+              "deltaCost": 5363066.0,
+              "deltaScore": 0.08567484799999647,
+              "deltaNewChambers": 2,
+              "deltaTieIns": 0,
+              "deltaSharedLength": 94.09792236031649,
+              "consumersWithDifferentAttachment": 0,
+              "consumersWithDifferentBranch": 0,
+              "newAttachmentPoints": 0,
+              "text": "vs v1: -21.5 m network; +5,363,066 ₽; +2 new chambers; +94.1 m shared sections"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-existing-chambers",
+            "score": 13.821000256,
+            "constructionCost": 284551402.0,
+            "networkConstructionCost": 220551402.0,
+            "chamberConstructionCost": 49000000.0,
+            "existingChamberTieInCount": 3,
+            "existingChamberTieInCost": 15000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 284551402.0,
+            "newNetworkLength": 1951.1870000000004,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 919.9357082970574,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "existing chamber 106",
+              "existing chamber 109"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 6.6460000000001855,
+              "deltaCost": 13122338.0,
+              "deltaScore": 0.3873634639999981,
+              "deltaNewChambers": 0,
+              "deltaTieIns": 3,
+              "deltaSharedLength": 96.50362535367515,
+              "consumersWithDifferentAttachment": 17,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +6.6 m network; +13,122,338 ₽; +3 existing-chamber tie-ins; +96.5 m shared sections; 17 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 1041317888,
+          "VmHWM": 1041317888
+        }
+      },
+      {
+        "file": "target/upload-data/valid-3006477107.geojson",
+        "mode": "PLANAR",
+        "bytes": 3006477107,
+        "input_sha256": "10774af856a65a9f7912ecdd72b4f77faca7e274cfde6e3c26a887c9a4f3ab1e",
+        "stored_sha256": "10774af856a65a9f7912ecdd72b4f77faca7e274cfde6e3c26a887c9a4f3ab1e",
+        "job_id": "9e4c9230-5372-4a21-9236-1a87c165d966",
+        "upload_wall_s": 16.654669208000996,
+        "transmitted_bytes": 3006477107,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 28161,
+        "output_sha256": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 130,
+            "references": 86,
+            "degrees": 94,
+            "forest": 8,
+            "turns": 161,
+            "intersections": 123,
+            "restriction:oks": 114,
+            "restriction:heat_network": 14,
+            "hydraulics": 86,
+            "cost": 86
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-farthest-first",
+            "score": 13.433636792000001,
+            "constructionCost": 271429064.0,
+            "networkConstructionCost": 220429064.0,
+            "chamberConstructionCost": 51000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 271429064.0,
+            "newNetworkLength": 1944.5410000000002,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 27,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 823.4320829433823,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "new chamber on line 122 @414532,6173468",
+              "new chamber on line 129 @414397,6173205"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-nearest-first",
+            "score": 13.519311639999998,
+            "constructionCost": 276792130.0,
+            "networkConstructionCost": 217792130.0,
+            "chamberConstructionCost": 59000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 276792130.0,
+            "newNetworkLength": 1923.0440000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 917.5300053036988,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 129 @414397,6173205",
+              "new chamber on line 122 @414532,6173468"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": -21.496999999999844,
+              "deltaCost": 5363066.0,
+              "deltaScore": 0.08567484799999647,
+              "deltaNewChambers": 2,
+              "deltaTieIns": 0,
+              "deltaSharedLength": 94.09792236031649,
+              "consumersWithDifferentAttachment": 0,
+              "consumersWithDifferentBranch": 0,
+              "newAttachmentPoints": 0,
+              "text": "vs v1: -21.5 m network; +5,363,066 ₽; +2 new chambers; +94.1 m shared sections"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-existing-chambers",
+            "score": 13.821000256,
+            "constructionCost": 284551402.0,
+            "networkConstructionCost": 220551402.0,
+            "chamberConstructionCost": 49000000.0,
+            "existingChamberTieInCount": 3,
+            "existingChamberTieInCost": 15000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 284551402.0,
+            "newNetworkLength": 1951.1870000000004,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 919.9357082970574,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "existing chamber 106",
+              "existing chamber 109"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 6.6460000000001855,
+              "deltaCost": 13122338.0,
+              "deltaScore": 0.3873634639999981,
+              "deltaNewChambers": 0,
+              "deltaTieIns": 3,
+              "deltaSharedLength": 96.50362535367515,
+              "consumersWithDifferentAttachment": 17,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +6.6 m network; +13,122,338 ₽; +3 existing-chamber tie-ins; +96.5 m shared sections; 17 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 1441832960,
+          "VmHWM": 1452773376
+        }
+      },
+      {
+        "file": "target/final-engineering/http/oversized-feature.geojson",
+        "mode": "PLANAR",
+        "bytes": 35864692,
+        "input_sha256": "d6aa15f9cd101a1f569e9932e18331af99e08359991782834e0b826d4447eae2",
+        "stored_sha256": "d6aa15f9cd101a1f569e9932e18331af99e08359991782834e0b826d4447eae2",
+        "job_id": "8f8e7191-4f73-47bf-ae42-d940700fb226",
+        "upload_wall_s": 0.31851224999991246,
+        "transmitted_bytes": 35864692,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "FAILED",
+        "calculation_elapsed_ms": 26,
+        "error": "COMPLEXITY_LIMIT: feature #0 exceeds the single-feature parsing budget 33554432 bytes; this is a resource limit, not invalid geometry",
+        "diagnostics": [
+          {
+            "severity": "ERROR",
+            "code": "COMPLEXITY_LIMIT",
+            "text": "COMPLEXITY_LIMIT: feature #0 exceeds the single-feature parsing budget 33554432 bytes; this is a resource limit, not invalid geometry"
+          }
+        ],
+        "failed_input_retained": true,
+        "memory": {
+          "VmRSS": 510410752,
+          "VmHWM": 510410752
+        }
+      },
+      {
+        "file": "examples/stress/routing-fallback.geojson",
+        "mode": "PLANAR",
+        "bytes": 565,
+        "input_sha256": "258d4d27dfc4ae20d8b82df83f38f766d15551d6a039e93d02f157f1a794ffe3",
+        "stored_sha256": "258d4d27dfc4ae20d8b82df83f38f766d15551d6a039e93d02f157f1a794ffe3",
+        "job_id": "cc16c6cb-e0f3-4181-a2fe-4829a5d5c342",
+        "upload_wall_s": 0.04048841699841432,
+        "transmitted_bytes": 565,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 237,
+        "output_sha256": "73d00fa13445f99031d96f3c91a28f2e8c8fb5ad165da1f0fbcf7c6e91eef8ae",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 3,
+            "references": 1,
+            "degrees": 2,
+            "forest": 1,
+            "turns": 1,
+            "restriction:heat_network": 1,
+            "hydraulics": 1,
+            "cost": 1
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-nearest-first",
+            "score": 7.6079484,
+            "constructionCost": 153855300.0,
+            "networkConstructionCost": 148855300.0,
+            "chamberConstructionCost": 5000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 153855300.0,
+            "newNetworkLength": 1100.0,
+            "connectedOksCount": 1,
+            "newChamberCount": 1,
+            "technicalNodeCount": 0,
+            "lineCount": 1,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point \"consumer\": connected by adaptive routing"
+            ],
+            "sharedNetworkLength": 0.0,
+            "rootCount": 1,
+            "attachmentPoints": [
+              "new chamber on line network @400000,6170000"
+            ],
+            "diffVsBest": null,
+            "mode": "planar",
+            "specialCrossingCount": 0,
+            "maxDepth": null,
+            "averageDepth": null,
+            "depthExtraCost": null,
+            "verticalCrossingCount": null,
+            "aboveCrossingCount": null,
+            "belowCrossingCount": null,
+            "depthTransitionCount": null,
+            "deepNetworkLength": null,
+            "shallowNetworkLength": null
+          }
+        ],
+        "memory": {
+          "VmRSS": 569487360,
+          "VmHWM": 572194816
+        }
+      },
+      {
+        "file": "target/scale-data/original.geojson",
+        "mode": "DEPTH",
+        "bytes": 633402,
+        "input_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+        "stored_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+        "job_id": "9e190bd2-fef6-4ab1-901b-946e1c604d87",
+        "upload_wall_s": 0.04251312499400228,
+        "transmitted_bytes": 633402,
+        "restart_during_upload": false,
+        "interrupted_part": null,
+        "duplicate_complete_same_job": true,
+        "through_caddy": true,
+        "upload_status": "OK",
+        "calculation_status": "DONE",
+        "calculation_elapsed_ms": 28428,
+        "output_sha256": "6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385",
+        "validation": {
+          "valid": true,
+          "errors": 0,
+          "warnings": 0,
+          "checks": {
+            "schema": 130,
+            "references": 86,
+            "degrees": 94,
+            "forest": 8,
+            "turns": 161,
+            "intersections": 123,
+            "restriction:oks": 114,
+            "restriction:heat_network": 14,
+            "hydraulics": 86,
+            "cost": 86,
+            "depth:attributes": 86,
+            "depth:slope": 86,
+            "depth:split3m": 86,
+            "depth:continuity": 38,
+            "depth:profile": 3,
+            "depth:summary": 3
+          },
+          "issues": []
+        },
+        "variants": [
+          {
+            "variantId": "v1",
+            "rank": 1,
+            "strategy": "joint-farthest-first",
+            "score": 13.433636792000001,
+            "constructionCost": 271429064.0,
+            "networkConstructionCost": 220429064.0,
+            "chamberConstructionCost": 51000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 271429064.0,
+            "newNetworkLength": 1944.5410000000002,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 27,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 823.4320829433823,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414431,6173283",
+              "new chamber on line 122 @414532,6173468",
+              "new chamber on line 129 @414397,6173205"
+            ],
+            "diffVsBest": null,
+            "mode": "depth",
+            "specialCrossingCount": 0,
+            "maxDepth": 3.0,
+            "averageDepth": 3.0,
+            "depthExtraCost": 0.0,
+            "verticalCrossingCount": 0,
+            "aboveCrossingCount": 0,
+            "belowCrossingCount": 0,
+            "depthTransitionCount": 0,
+            "deepNetworkLength": 0.0,
+            "shallowNetworkLength": 0.0
+          },
+          {
+            "variantId": "v2",
+            "rank": 2,
+            "strategy": "joint-nearest-first",
+            "score": 13.519311639999998,
+            "constructionCost": 276792130.0,
+            "networkConstructionCost": 217792130.0,
+            "chamberConstructionCost": 59000000.0,
+            "existingChamberTieInCount": 0,
+            "existingChamberTieInCost": 0.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 276792130.0,
+            "newNetworkLength": 1923.0440000000003,
+            "connectedOksCount": 17,
+            "newChamberCount": 15,
+            "technicalNodeCount": 0,
+            "lineCount": 29,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 917.5300053036988,
+            "rootCount": 3,
+            "attachmentPoints": [
+              "new chamber on line 126 @414432,6173286",
+              "new chamber on line 129 @414397,6173205",
+              "new chamber on line 122 @414532,6173468"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": -21.496999999999844,
+              "deltaCost": 5363066.0,
+              "deltaScore": 0.08567484799999647,
+              "deltaNewChambers": 2,
+              "deltaTieIns": 0,
+              "deltaSharedLength": 94.09792236031649,
+              "consumersWithDifferentAttachment": 0,
+              "consumersWithDifferentBranch": 0,
+              "newAttachmentPoints": 0,
+              "text": "vs v1: -21.5 m network; +5,363,066 ₽; +2 new chambers; +94.1 m shared sections"
+            },
+            "mode": "depth",
+            "specialCrossingCount": 0,
+            "maxDepth": 3.0,
+            "averageDepth": 2.9999999999999996,
+            "depthExtraCost": 0.0,
+            "verticalCrossingCount": 0,
+            "aboveCrossingCount": 0,
+            "belowCrossingCount": 0,
+            "depthTransitionCount": 0,
+            "deepNetworkLength": 0.0,
+            "shallowNetworkLength": 0.0
+          },
+          {
+            "variantId": "v3",
+            "rank": 3,
+            "strategy": "joint-existing-chambers",
+            "score": 13.821000256,
+            "constructionCost": 284551402.0,
+            "networkConstructionCost": 220551402.0,
+            "chamberConstructionCost": 49000000.0,
+            "existingChamberTieInCount": 3,
+            "existingChamberTieInCost": 15000000.0,
+            "unconnectedPenalty": 0.0,
+            "calculatedCost": 284551402.0,
+            "newNetworkLength": 1951.1870000000004,
+            "connectedOksCount": 17,
+            "newChamberCount": 13,
+            "technicalNodeCount": 0,
+            "lineCount": 30,
+            "unconnectedOksIds": [],
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ],
+            "sharedNetworkLength": 919.9357082970574,
+            "rootCount": 2,
+            "attachmentPoints": [
+              "existing chamber 106",
+              "existing chamber 109"
+            ],
+            "diffVsBest": {
+              "baseVariantId": "v1",
+              "deltaLength": 6.6460000000001855,
+              "deltaCost": 13122338.0,
+              "deltaScore": 0.3873634639999981,
+              "deltaNewChambers": 0,
+              "deltaTieIns": 3,
+              "deltaSharedLength": 96.50362535367515,
+              "consumersWithDifferentAttachment": 17,
+              "consumersWithDifferentBranch": 16,
+              "newAttachmentPoints": 2,
+              "text": "vs v1: +6.6 m network; +13,122,338 ₽; +3 existing-chamber tie-ins; +96.5 m shared sections; 17 OKS attach at a different point; 16 OKS use a different shared branch; 2 attachment points not used by v1"
+            },
+            "mode": "depth",
+            "specialCrossingCount": 0,
+            "maxDepth": 3.0,
+            "averageDepth": 2.999999999999999,
+            "depthExtraCost": 0.0,
+            "verticalCrossingCount": 0,
+            "aboveCrossingCount": 0,
+            "belowCrossingCount": 0,
+            "depthTransitionCount": 0,
+            "deepNetworkLength": 0.0,
+            "shallowNetworkLength": 0.0
+          }
+        ],
+        "memory": {
+          "VmRSS": 1053286400,
+          "VmHWM": 1057046528
+        }
+      }
+    ],
+    "metadata_path_variants_rejected": true,
+    "memory_after_large_uploads": {
+      "rss": {
+        "VmRSS": 1441832960,
+        "VmHWM": 1452773376
+      },
+      "VM.native_memory": "7:\n\nNative Memory Tracking:\n\nTotal: reserved=3742376KB, committed=1213848KB\n-                 Java Heap (reserved=2097152KB, committed=952320KB)\n                            (mmap: reserved=2097152KB, committed=952320KB) \n \n-                     Class (reserved=1121453KB, committed=82045KB)\n                            (classes #16262)\n                            (  instance classes #15101, array classes #1161)\n                            (malloc=3245KB #46181) \n                            (mmap: reserved=1118208KB, committed=78800KB) \n                            (  Metadata:   )\n                            (    reserved=69632KB, committed=67920KB)\n                            (    used=66265KB)\n                            (    free=1655KB)\n                            (    waste=0KB =0.00%)\n                            (  Class space:)\n                            (    reserved=1048576KB, committed=10880KB)\n                            (    used=9709KB)\n                            (    free=1171KB)\n                            (    waste=0KB =0.00%)\n \n-                    Thread (reserved=106323KB, committed=4731KB)\n                            (thread #52)\n                            (stack: reserved=106080KB, committed=4488KB)\n                            (malloc=184KB #314) \n                            (arena=59KB #102)\n \n-                      Code (reserved=251163KB, committed=50951KB)\n                            (malloc=3475KB #12227) \n                            (mmap: reserved=247688KB, committed=47476KB) \n \n-                        GC (reserved=132210KB, committed=89726KB)\n                            (malloc=21214KB #24003) \n                            (mmap: reserved=110996KB, committed=68512KB) \n \n-                  Compiler (reserved=284KB, committed=284KB)\n                            (malloc=151KB #1164) \n                            (arena=133KB #5)\n \n-                  Internal (reserved=1003KB, committed=1003KB)\n                            (malloc=971KB #2587) \n                            (mmap: reserved=32KB, committed=32KB) \n \n-                     Other (reserved=294KB, committed=294KB)\n                            (malloc=294KB #34) \n \n-                    Symbol (reserved=16841KB, committed=16841KB)\n                            (malloc=15970KB #206039) \n                            (arena=871KB #1)\n \n-    Native Memory Tracking (reserved=4679KB, committed=4679KB)\n                            (malloc=15KB #190) \n                            (tracking overhead=4664KB)\n \n-        Shared class space (reserved=9632KB, committed=9632KB)\n                            (mmap: reserved=9632KB, committed=9632KB) \n \n-               Arena Chunk (reserved=740KB, committed=740KB)\n                            (malloc=740KB) \n \n-                   Logging (reserved=4KB, committed=4KB)\n                            (malloc=4KB #189) \n \n-                 Arguments (reserved=18KB, committed=18KB)\n                            (malloc=18KB #480) \n \n-                    Module (reserved=276KB, committed=276KB)\n                            (malloc=276KB #2388) \n \n-              Synchronizer (reserved=297KB, committed=297KB)\n                            (malloc=297KB #2525) \n \n-                 Safepoint (reserved=8KB, committed=8KB)\n                            (mmap: reserved=8KB, committed=8KB)",
+      "GC.heap_info": "7:\n garbage-first heap   total 952320K, used 194492K [0x0000000080000000, 0x0000000100000000)\n  region size 1024K, 71 young (72704K), 4 survivors (4096K)\n Metaspace       used 75974K, capacity 78596K, committed 78800K, reserved 1118208K\n  class space    used 9709K, capacity 10799K, committed 10880K, reserved 1048576K"
+    },
+    "cancel": {
+      "status": "CANCELLED",
+      "temporary_data_removed": true
+    },
+    "crash_recovery": {
+      "legacy_multipart_compatible": true,
+      "states_before": [
+        "RUNNING",
+        "QUEUED"
+      ],
+      "jobs_after": [
+        {
+          "job_id": "b60f9a59-f01a-46c7-8c51-ffee3e129f93",
+          "status": "FAILED",
+          "input_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+          "reason": "Calculation interrupted by application restart. The input is retained and can be submitted for rerun."
+        },
+        {
+          "job_id": "428cf21e-c249-4c00-b653-2ec483fad6de",
+          "status": "FAILED",
+          "input_sha256": "cffb7133419d93fe364a53015a7d3ead289f671cbfaf6f4befe87f2a21914130",
+          "reason": "Calculation interrupted by application restart. The input is retained and can be submitted for rerun."
+        }
+      ],
+      "automatic_restart_count": 1,
+      "restart_policy": "unless-stopped"
+    },
+    "oversize_rejected_before_transfer": true,
+    "health": "UP",
+    "production_volumes_touched": false,
+    "memory_after_http": {
+      "rss": {
+        "VmRSS": 1053319168,
+        "VmHWM": 1057046528
+      },
+      "VM.native_memory": "7:\n\nNative Memory Tracking:\n\nTotal: reserved=3772222KB, committed=882770KB\n-                 Java Heap (reserved=2097152KB, committed=606208KB)\n                            (mmap: reserved=2097152KB, committed=606208KB) \n \n-                     Class (reserved=1119258KB, committed=81002KB)\n                            (classes #16368)\n                            (  instance classes #15200, array classes #1168)\n                            (malloc=3098KB #44493) \n                            (mmap: reserved=1116160KB, committed=77904KB) \n                            (  Metadata:   )\n                            (    reserved=67584KB, committed=66896KB)\n                            (    used=65170KB)\n                            (    free=1726KB)\n                            (    waste=0KB =0.00%)\n                            (  Class space:)\n                            (    reserved=1048576KB, committed=11008KB)\n                            (    used=9764KB)\n                            (    free=1244KB)\n                            (    waste=0KB =0.00%)\n \n-                    Thread (reserved=104278KB, committed=4726KB)\n                            (thread #51)\n                            (stack: reserved=104040KB, committed=4488KB)\n                            (malloc=180KB #308) \n                            (arena=58KB #100)\n \n-                      Code (reserved=250694KB, committed=45322KB)\n                            (malloc=3006KB #11054) \n                            (mmap: reserved=247688KB, committed=42316KB) \n \n-                        GC (reserved=130709KB, committed=75381KB)\n                            (malloc=19713KB #17782) \n                            (mmap: reserved=110996KB, committed=55668KB) \n \n-                  Compiler (reserved=262KB, committed=262KB)\n                            (malloc=129KB #1054) \n                            (arena=133KB #5)\n \n-                  Internal (reserved=826KB, committed=826KB)\n                            (malloc=794KB #2098) \n                            (mmap: reserved=32KB, committed=32KB) \n \n-                     Other (reserved=256KB, committed=256KB)\n                            (malloc=256KB #32) \n \n-                    Symbol (reserved=16855KB, committed=16855KB)\n                            (malloc=15984KB #205737) \n                            (arena=871KB #1)\n \n-    Native Memory Tracking (reserved=4542KB, committed=4542KB)\n                            (malloc=15KB #187) \n                            (tracking overhead=4527KB)\n \n-        Shared class space (reserved=9632KB, committed=9632KB)\n                            (mmap: reserved=9632KB, committed=9632KB) \n \n-               Arena Chunk (reserved=37143KB, committed=37143KB)\n                            (malloc=37143KB) \n \n-                   Logging (reserved=4KB, committed=4KB)\n                            (malloc=4KB #189) \n \n-                 Arguments (reserved=18KB, committed=18KB)\n                            (malloc=18KB #480) \n \n-                    Module (reserved=276KB, committed=276KB)\n                            (malloc=276KB #2389) \n \n-              Synchronizer (reserved=309KB, committed=309KB)\n                            (malloc=309KB #2626) \n \n-                 Safepoint (reserved=8KB, committed=8KB)\n                            (mmap: reserved=8KB, committed=8KB)",
+      "GC.heap_info": "7:\n garbage-first heap   total 606208K, used 304275K [0x0000000080000000, 0x0000000100000000)\n  region size 1024K, 220 young (225280K), 4 survivors (4096K)\n Metaspace       used 74933K, capacity 77674K, committed 77904K, reserved 1116160K\n  class space    used 9764K, capacity 10883K, committed 11008K, reserved 1048576K"
+    },
+    "compose_ps": "{\"Command\":\"\\\"sh -c 'java $JAVA_O…\\\"\",\"CreatedAt\":\"2026-10-17 00:43:42 +0300 MSK\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"7b0b2910a56e\",\"Image\":\"lct-finalization:verified\",\"Labels\":\"com.docker.compose.config-hash=2ffcef07265a223208cb9f0a3a12b2cefddebd0b7245659ca9df9d0759ba8792,com.docker.compose.container-number=1,com.docker.compose.service=app,com.docker.compose.version=5.2.0,org.opencontainers.image.title=ubuntu,com.docker.compose.depends_on=db:service_healthy:false,com.docker.compose.project=lct-final-upload-20261016214324,org.opencontainers.image.description=The Ubuntu container image maintained by Canonical\\n\\nUbuntu is a Debian-based Linux operating system that runs from the desktop to the cloud, to all your internet connected things.\\nIt is the world's most popular operating system across public clouds and OpenStack clouds.\\nIt is the number one platform for containers; from Docker to Kubernetes to LXD, Ubuntu can run your containers at scale.\\nFast, secure and simple, Ubuntu powers millions of PCs worldwide.\\n,com.docker.compose.image=sha256:9843b0abe130304ec4354acc44886bc91b7cfd54a42ae808ffce1265f007d150,com.docker.compose.project.config_files=<repo>/target/final-engineering/http/compose.json,com.docker.compose.project.working_dir=<repo>/target/final-engineering/http,com.docker.compose.oneoff=False,desktop.docker.io/ports.scheme=v2,org.opencontainers.image.created=2026-09-27T10:29:55.694692+00:00,org.opencontainers.image.version=26.04\",\"LocalVolumes\":\"1\",\"Mounts\":\"lct-final-uplo…\",\"Name\":\"lct-final-upload-20261016214324-app-1\",\"Names\":\"lct-final-upload-20261016214324-app-1\",\"Networks\":\"lct-final-upload-20261016214324_default\",\"Ports\":\"8080/tcp\",\"Project\":\"lct-final-upload-20261016214324\",\"Publishers\":[{\"URL\":\"\",\"TargetPort\":8080,\"PublishedPort\":0,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"app\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 37 seconds (healthy)\"}\n{\"Command\":\"\\\"caddy run --config …\\\"\",\"CreatedAt\":\"2026-10-17 00:43:43 +0300 MSK\",\"ExitCode\":0,\"Health\":\"\",\"ID\":\"8e9603798657\",\"Image\":\"caddy:2.11.4-alpine\",\"Labels\":\"org.opencontainers.image.source=https://github.com/caddyserver/caddy-docker,org.opencontainers.image.url=https://caddyserver.com,org.opencontainers.image.version=v2.11.4,com.docker.compose.config-hash=d4659879edfe8ca90077375cde3544c0126739e1b3eb659ca4b6b0597bf724ba,com.docker.compose.container-number=1,com.docker.compose.depends_on=app:service_healthy:false,com.docker.compose.project.config_files=<repo>/target/final-engineering/http/compose.json,desktop.docker.io/ports/80/tcp=127.0.0.1:18089,com.docker.compose.image=sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b,com.docker.compose.project=lct-final-upload-20261016214324,com.docker.compose.version=5.2.0,desktop.docker.io/binds/0/Source=<repo>/caddy/Caddyfile,org.opencontainers.image.licenses=Apache-2.0,org.opencontainers.image.title=Caddy,org.opencontainers.image.vendor=Light Code Labs,desktop.docker.io/binds/0/Target=/etc/caddy/Caddyfile,desktop.docker.io/ports.scheme=v2,com.docker.compose.oneoff=False,com.docker.compose.project.working_dir=<repo>/target/final-engineering/http,com.docker.compose.service=caddy,desktop.docker.io/binds/0/SourceKind=hostFile,org.opencontainers.image.description=a powerful, enterprise-ready, open source web server with automatic HTTPS written in Go,org.opencontainers.image.documentation=https://caddyserver.com/docs\",\"LocalVolumes\":\"2\",\"Mounts\":\"lct-final-uplo…,lct-final-uplo…,/host_mnt/User…\",\"Name\":\"lct-final-upload-20261016214324-caddy-1\",\"Names\":\"lct-final-upload-20261016214324-caddy-1\",\"Networks\":\"lct-final-upload-20261016214324_default\",\"Ports\":\"127.0.0.1:18089-\\u003e80/tcp\",\"Project\":\"lct-final-upload-20261016214324\",\"Publishers\":[{\"URL\":\"127.0.0.1\",\"TargetPort\":80,\"PublishedPort\":18089,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"caddy\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 3 minutes\"}\n{\"Command\":\"\\\"docker-entrypoint.s…\\\"\",\"CreatedAt\":\"2026-10-17 00:43:42 +0300 MSK\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"ec82012f5683\",\"Image\":\"postgres:16-alpine\",\"Labels\":\"com.docker.compose.config-hash=b825f44a153819ed01766d49c4fce2be38f189690083e2dee55531bef59273cc,com.docker.compose.project=lct-final-upload-20261016214324,com.docker.compose.service=db,com.docker.compose.version=5.2.0,desktop.docker.io/ports.scheme=v2,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=<repo>/target/final-engineering/http/compose.json,com.docker.compose.project.working_dir=<repo>/target/final-engineering/http\",\"LocalVolumes\":\"1\",\"Mounts\":\"lct-final-uplo…\",\"Name\":\"lct-final-upload-20261016214324-db-1\",\"Names\":\"lct-final-upload-20261016214324-db-1\",\"Networks\":\"lct-final-upload-20261016214324_default\",\"Ports\":\"5432/tcp\",\"Project\":\"lct-final-upload-20261016214324\",\"Publishers\":[{\"URL\":\"\",\"TargetPort\":5432,\"PublishedPort\":0,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"db\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 4 minutes (healthy)\"}"
+  },
+  "browser": {
+    "status": "NOT_VERIFIED",
+    "reason": "Chromium launch failed before opening the page (incomplete local installation). Firefox fallback was prepared but not run before the user requested the report.",
+    "failed_attempt": "target/final-engineering/http/browser-failed-incomplete-chromium.json"
+  },
+  "browser_runs": [],
+  "memory_at_teardown": {
+    "rss": {
+      "VmRSS": 1054998528,
+      "VmHWM": 1057046528
+    },
+    "VM.native_memory": "7:\n\nNative Memory Tracking:\n\nTotal: reserved=3723437KB, committed=847045KB\n-                 Java Heap (reserved=2097152KB, committed=606208KB)\n                            (mmap: reserved=2097152KB, committed=606208KB) \n \n-                     Class (reserved=1119269KB, committed=81525KB)\n                            (classes #16370)\n                            (  instance classes #15201, array classes #1169)\n                            (malloc=3109KB #44971) \n                            (mmap: reserved=1116160KB, committed=78416KB) \n                            (  Metadata:   )\n                            (    reserved=67584KB, committed=67408KB)\n                            (    used=65558KB)\n                            (    free=1850KB)\n                            (    waste=0KB =0.00%)\n                            (  Class space:)\n                            (    reserved=1048576KB, committed=11008KB)\n                            (    used=9765KB)\n                            (    free=1243KB)\n                            (    waste=0KB =0.00%)\n \n-                    Thread (reserved=92009KB, committed=3973KB)\n                            (thread #45)\n                            (stack: reserved=91800KB, committed=3764KB)\n                            (malloc=158KB #272) \n                            (arena=51KB #88)\n \n-                      Code (reserved=250814KB, committed=46474KB)\n                            (malloc=3126KB #11637) \n                            (mmap: reserved=247688KB, committed=43348KB) \n \n-                        GC (reserved=130725KB, committed=75397KB)\n                            (malloc=19729KB #18340) \n                            (mmap: reserved=110996KB, committed=55668KB) \n \n-                  Compiler (reserved=242KB, committed=242KB)\n                            (malloc=109KB #1062) \n                            (arena=133KB #5)\n \n-                  Internal (reserved=823KB, committed=823KB)\n                            (malloc=791KB #2086) \n                            (mmap: reserved=32KB, committed=32KB) \n \n-                     Other (reserved=258KB, committed=258KB)\n                            (malloc=258KB #33) \n \n-                    Symbol (reserved=16859KB, committed=16859KB)\n                            (malloc=15987KB #205976) \n                            (arena=871KB #1)\n \n-    Native Memory Tracking (reserved=4554KB, committed=4554KB)\n                            (malloc=17KB #220) \n                            (tracking overhead=4538KB)\n \n-        Shared class space (reserved=9632KB, committed=9632KB)\n                            (mmap: reserved=9632KB, committed=9632KB) \n \n-               Arena Chunk (reserved=485KB, committed=485KB)\n                            (malloc=485KB) \n \n-                   Logging (reserved=4KB, committed=4KB)\n                            (malloc=4KB #189) \n \n-                 Arguments (reserved=18KB, committed=18KB)\n                            (malloc=18KB #480) \n \n-                    Module (reserved=276KB, committed=276KB)\n                            (malloc=276KB #2389) \n \n-              Synchronizer (reserved=308KB, committed=308KB)\n                            (malloc=308KB #2614) \n \n-                 Safepoint (reserved=8KB, committed=8KB)\n                            (mmap: reserved=8KB, committed=8KB)",
+    "GC.heap_info": "7:\n garbage-first heap   total 606208K, used 309395K [0x0000000080000000, 0x0000000100000000)\n  region size 1024K, 225 young (230400K), 4 survivors (4096K)\n Metaspace       used 75323K, capacity 78064K, committed 78416K, reserved 1116160K\n  class space    used 9765K, capacity 10883K, committed 11008K, reserved 1048576K"
+  },
+  "browser_acceptance_complete": false,
+  "changed_files": [
+    {
+      "file": "README.md",
+      "sha256": "248b3477160f14451238039c74c2b71b913ac08ecac8f29593be5b6e7e11f4ec",
+      "change": "modified"
+    },
+    {
+      "file": "scripts/generate-upload-fixtures.py",
+      "sha256": "bea29d5e1c564258bbcdd581610872883efdfaf087db2175b050e24154254712",
+      "change": "new"
+    },
+    {
+      "file": "scripts/prepare-visibility-ablation.py",
+      "sha256": "a2e45f34b6a87dcee0fe50d2ebc5aea2abaf30d2b37b8aabd4b28a78f6845a83",
+      "change": "new"
+    },
+    {
+      "file": "scripts/summarize-finalization.py",
+      "sha256": "18ba028dce42bfee7c03535446f2c1f16c0fa2e172fd5174a8af738985aca70b",
+      "change": "new"
+    },
+    {
+      "file": "scripts/verify-finalization.py",
+      "sha256": "b7b2ccaa899c08237ad00f5c25d436e9fdcbf53a44d29fa13a4595521daf214f",
+      "change": "new"
+    },
+    {
+      "file": "scripts/verify-resumable-browser.cjs",
+      "sha256": "6ec77bc9100a65ffcaec736a0ed57ef124b637863fc4d2265f119860435b10c6",
+      "change": "new"
+    },
+    {
+      "file": "scripts/verify-resumable-http.py",
+      "sha256": "7e3f3db264dbbd9baf8b6cc61ce188083ef3e94f51f5d062f525f1582975a0c8",
+      "change": "new"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/api/ApiExceptionHandler.java",
+      "sha256": "dc2644523250caf7b5eb3f4bc3b40d66f5db9eb496d322ed7de91a97ca5827c5",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/api/JobController.java",
+      "sha256": "2add22c61ded75eaf6441241a50c4847383ebd868fbcd9a3771fcd767fe4a80e",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/api/UploadController.java",
+      "sha256": "d2de7f8690d479b0480fc6aa66d1506fefed4b5d6068d96d71f04ef79bf74adc",
+      "change": "new"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/api/UploadException.java",
+      "sha256": "8ffd88ac7aeee41b586c5b87ebcf48e9f752d710a85bb3bc8c819a84c2b9c5cc",
+      "change": "new"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/api/UploadRequestFilter.java",
+      "sha256": "4a5b7cef780b92201110d5c45041a6457f43fd1502c8fe3a51eb73afde3a11c4",
+      "change": "new"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/application/JobRunner.java",
+      "sha256": "f88f74c84f2129f954ffd68b05d55ba402aa5c62e31d41b3a8bfe0fa6884c3a2",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/application/JobService.java",
+      "sha256": "ad25dbae4c903409f95af3675d96b42cb47df2c994b5ba08ae9365423742cdd2",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/application/UploadService.java",
+      "sha256": "b188d868d572fe46d7d3bd429ec0e2bc9de7533c42629c8a1181cd123b724f5c",
+      "change": "new"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/persistence/JobRepository.java",
+      "sha256": "7038902daa424914353ee716504e7a9dfa288357e6b41ceaa9ad9ee4a232518b",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/restrictions/ObstacleSpace.java",
+      "sha256": "3f52e36067aec125e4bafc5f68711e9b9e338e16e556b39e20e3009c79df3c35",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/routing/NavGraph.java",
+      "sha256": "de713f2d63ab57223f495ea5acb68eadd0c786330b596b204c18ce47cce2c403",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/routing/PathSearch.java",
+      "sha256": "64699dfca2ef7fdc68f8cdf407cc7041fdcccec752a9e5eac166a5feef945152",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/solver/ForestBuilder.java",
+      "sha256": "28882cd45b4f58a24bd9e6c9fd493314559da2db5116b8d8adb0467c5f45bed3",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/java/ru/lct/heatnet/solver/SolverContext.java",
+      "sha256": "a6764f75e3f79e361432f29dc1cde6a29aa3be9753f2004fd787a2c4e09d9730",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/resources/static/app.js",
+      "sha256": "81d235e68bfe4171a69e7fad2f99eb37f1e5a255069859d9ac5aa422d4ea8ef3",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/resources/static/index.html",
+      "sha256": "c44860f04ac8ad51645606daad9d49fdb82db001de25ddc36bfa1dabf0804fe3",
+      "change": "modified"
+    },
+    {
+      "file": "src/main/resources/static/upload.js",
+      "sha256": "7ce2b7ab1962459b5da0d910e2720585f27cd6155b3069f77479df676fb80e6a",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/api/UploadStorageFailureTest.java",
+      "sha256": "66afbc7fba544e0ee66921c4a146488e2b9a65378c80682407ba55e1dcce8dbc",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/application/FailedJobInputRetentionTest.java",
+      "sha256": "ee26f82458c65a33b8f2238e000334cc6124e59e61e4eacf989a21195a639231",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/application/UploadServiceTest.java",
+      "sha256": "72e01daec832250b96982c1b012bd9030017160cba5d8da9c20c56837d6ab8be",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/input/ResumableUploadHttpTest.java",
+      "sha256": "e89d8dd5573b60e7f0c30077708c94ec758a2533c1d1f939cf7289b40232474a",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/restrictions/ForbiddenInteriorCertificateTest.java",
+      "sha256": "6194199483973efd2bd6128e20c50ab6da495ba883fc2673084d2d765257b4fd",
+      "change": "new"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/stress/ScaleBenchmarkMain.java",
+      "sha256": "f2e2b1c9f7e2d8ad867dd1564b2922a41c0f48c65bb373010fdb544623208d63",
+      "change": "modified"
+    },
+    {
+      "file": "src/test/java/ru/lct/heatnet/stress/StressMain.java",
+      "sha256": "f609e54823c6aa46ac92bf07c7e53c46ba19507d73953c632e71cc2d7de9cdd2",
+      "change": "modified"
+    },
+    {
+      "file": "src/test/js/large-input-ui.test.cjs",
+      "sha256": "7a823d414c87f8696883b9c0998022c2d34d897bdb203f02b541eac523f54f5b",
+      "change": "modified"
+    },
+    {
+      "file": "src/test/js/resumable-upload.test.cjs",
+      "sha256": "b9a342588b3782812785178218e02b83105c1b6a146993cc590d1eb299d58bb4",
+      "change": "new"
+    }
+  ],
+  "deleted_files": [],
+  "documentation": [
+    "README.md",
+    "docs/resumable-upload.md",
+    "examples/finalization/README.md"
+  ],
+  "protected_configuration_unchanged": [
+    "Dockerfile",
+    "docker-compose.yml",
+    ".env.example",
+    ".gitignore",
+    ".dockerignore",
+    "pom.xml",
+    "src/main/resources/application.yml",
+    "caddy/Caddyfile",
+    "src/main/resources/static/style.css"
+  ],
+  "production_volumes_touched": false,
+  "server_deployed": false,
+  "git_operations": 0,
+  "engineering_parser_output_sources_unchanged": [
+    "src/main/java/ru/lct/heatnet/depth/NetworkDepthPlanner.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthCostCalculator.java",
+    "src/main/java/ru/lct/heatnet/depth/VerticalObstacle.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthProfile.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthMetrics.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthProfileOptimizer.java",
+    "src/main/java/ru/lct/heatnet/depth/CrossingDepthOption.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthInterval.java",
+    "src/main/java/ru/lct/heatnet/depth/DepthProfileSegment.java",
+    "src/main/java/ru/lct/heatnet/config/HeatnetProperties.java",
+    "src/main/java/ru/lct/heatnet/config/DiameterTable.java",
+    "src/main/java/ru/lct/heatnet/config/DiameterSpec.java",
+    "src/main/java/ru/lct/heatnet/config/ChamberCostTable.java",
+    "src/main/java/ru/lct/heatnet/config/CustomRestrictionRegistrar.java",
+    "src/main/java/ru/lct/heatnet/config/RestrictionRules.java",
+    "src/main/java/ru/lct/heatnet/config/DepthRules.java",
+    "src/main/java/ru/lct/heatnet/config/RestrictionRule.java",
+    "src/main/java/ru/lct/heatnet/config/AppConfig.java",
+    "src/main/java/ru/lct/heatnet/config/Constants.java",
+    "src/main/java/ru/lct/heatnet/cost/LinkPiece.java",
+    "src/main/java/ru/lct/heatnet/cost/CostSummary.java",
+    "src/main/java/ru/lct/heatnet/cost/CostCalculator.java",
+    "src/main/java/ru/lct/heatnet/geo/GeoJsonGeometryCodec.java",
+    "src/main/java/ru/lct/heatnet/geo/BoundarySegments.java",
+    "src/main/java/ru/lct/heatnet/geo/InputResourceBudget.java",
+    "src/main/java/ru/lct/heatnet/geo/InputCoordinateSequence.java",
+    "src/main/java/ru/lct/heatnet/geo/CrsTransformer.java",
+    "src/main/java/ru/lct/heatnet/geo/InputParseException.java",
+    "src/main/java/ru/lct/heatnet/geo/ParseOptions.java",
+    "src/main/java/ru/lct/heatnet/geo/GeometryProcessingException.java",
+    "src/main/java/ru/lct/heatnet/geo/GeoJsonStreamReader.java",
+    "src/main/java/ru/lct/heatnet/geo/GeometryTolerance.java",
+    "src/main/java/ru/lct/heatnet/geo/RobustGeometry.java",
+    "src/main/java/ru/lct/heatnet/geo/GeometryUtils.java",
+    "src/main/java/ru/lct/heatnet/output/OutputFeature.java",
+    "src/main/java/ru/lct/heatnet/output/GeoJsonResultWriter.java",
+    "src/main/java/ru/lct/heatnet/output/OutputBuilder.java",
+    "src/main/java/ru/lct/heatnet/solver/SolverConfig.java",
+    "src/main/java/ru/lct/heatnet/restrictions/SpecialPassage.java",
+    "src/main/java/ru/lct/heatnet/hydraulic/HydraulicCalculator.java",
+    "src/main/java/ru/lct/heatnet/validation/VariantModel.java",
+    "src/main/java/ru/lct/heatnet/validation/DepthValidator.java",
+    "src/main/java/ru/lct/heatnet/validation/ValidationReport.java",
+    "src/main/java/ru/lct/heatnet/validation/ResultValidator.java",
+    "src/main/java/ru/lct/heatnet/validation/SpatialValidator.java",
+    "src/main/java/ru/lct/heatnet/validation/SolverVariantValidator.java",
+    "src/main/java/ru/lct/heatnet/validation/OutputFeatureReader.java",
+    "src/main/java/ru/lct/heatnet/validation/ValidationIssue.java"
+  ],
+  "remaining_limits": [
+    "Upload max 3 GiB is a transport limit, not a guarantee for arbitrary geometry complexity. Large transport fixtures preserve the 144-object scene and add unused text.",
+    "Graph search remains heuristic and bounded; resource exhaustion is COMPLEXITY_LIMIT, not proof of geometric impossibility.",
+    "The dense 250-consumer fixture still reaches the unchanged 4M directed-edge limit in separate-connections. The 500-consumer full solve is a single cold probe; repeated measurements cover its exact navigation graph.",
+    "Upload journal assumes one app process, a persistent Linux filesystem with hard links, atomic rename and directory fsync. Completed/cancelled metadata tombstones are retained.",
+    "No independent consumer clustering, strategy parallelism, global cache, candidate reduction, cost or engineering-rule changes.",
+    "16 GiB production sizing must reserve native JVM, PostgreSQL and OS memory; local 2 GiB heap measurements do not certify worst-case native memory at Xmx13g."
+  ],
+  "commands": [
+    "python3 scripts/verify-finalization.py --phase tests --label <fresh-label>",
+    "python3 scripts/verify-finalization.py --phase bench --label <fresh-label> --before finalization-profile",
+    "python3 scripts/verify-finalization.py --phase stress --label <fresh-label>",
+    "python3 scripts/generate-upload-fixtures.py",
+    "python3 scripts/verify-finalization.py --phase http --label <fresh-label>",
+    "python3 scripts/verify-finalization.py --phase browser --label <fresh-label>",
+    "python3 scripts/verify-finalization.py --phase stop --label <fresh-label>",
+    "python3 scripts/prepare-visibility-ablation.py",
+    "python3 scripts/benchmark-scale.py --label finalization-accounting --phase context --input target/scale-data/consumers-500.geojson --repeat 4 --timeout 900",
+    "python3 scripts/benchmark-scale.py --label finalization-harness --phase context --input target/scale-data/consumers-500.geojson --repeat 4 --timeout 300",
+    "python3 scripts/summarize-finalization.py --label finalization-final --runtime-label finalization-accepted --before finalization-profile --graph-build finalization-harness --control finalization-accounting",
+    "python3 scripts/verify-finalization.py --phase acceptance --label finalization-accepted --benchmark-label finalization-final --before finalization-profile --graph-build finalization-harness --control finalization-accounting"
+  ]
+}

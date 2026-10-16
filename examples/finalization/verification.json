@@ -1,0 +1,497 @@
+{
+  "generated_at_utc": "2026-10-16T22:40:44.914367+00:00",
+  "status": "VERIFIED_WITH_BROWSER_EXCLUDED_AND_DOCUMENTED_DENSE_LIMIT",
+  "browser": {
+    "status": "SKIPPED_BY_USER",
+    "end_to_end_pass": false,
+    "reason": "User explicitly excluded browser checks from this continuation. No browser upload was executed.",
+    "earlier_launch_only": "Existing Firefox launch timed out before any upload; no browser or packages installed."
+  },
+  "production_source_changes_this_iteration": 0,
+  "production_bytecode_unchanged": true,
+  "build_sha256": "31cef677bb2fcf5c72cebef3424f24804c9840be3007d7231fcc7e1b9e07bde1",
+  "tests": {
+    "java": {
+      "tests": 430,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "ui": 16,
+    "browser_e2e_included": false,
+    "java_log": "target/final-engineering/acceptance-close/java-tests.log",
+    "ui_log": "target/final-engineering/acceptance-close/ui-tests.log",
+    "focused_suite_results": {
+      "oracle.CompetitionBaselineTest": {
+        "tests": "1",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0.003"
+      },
+      "determinism.DeterminismTest": {
+        "tests": "4",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "62.383"
+      },
+      "stress.WitnessRoutesTest": {
+        "tests": "1",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0.021"
+      },
+      "stress.UniversalRoutingTest": {
+        "tests": "13",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "7.156"
+      },
+      "routing.NavGraphLimitTest": {
+        "tests": "5",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0.006"
+      },
+      "application.UploadServiceTest": {
+        "tests": "12",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0.145"
+      },
+      "application.JobRecoveryTest": {
+        "tests": "1",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0"
+      },
+      "input.ResumableUploadHttpTest": {
+        "tests": "2",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "1.188"
+      },
+      "api.UploadStorageFailureTest": {
+        "tests": "1",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "time": "0.003"
+      }
+    }
+  },
+  "competition": {
+    "PLANAR": {
+      "connected": 17,
+      "score": 13.433636792,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    "DEPTH": {
+      "connected": 17,
+      "score": 13.433636792,
+      "valid": true,
+      "errors": 0,
+      "warnings": 0
+    },
+    "output_sha256": {
+      "PLANAR": "3c73f8f240dc524dafea99f742d214bb0d0c70891a65a172205eaa470be0882b",
+      "DEPTH": "6c0b33e18658b923d5e74eb804272c0e2bb04eee5647e897542fb5efb081b385"
+    },
+    "byte_identity_test": "CompetitionBaselineTest.bothModesRemainByteIdenticalToFrozenCompetitionResults"
+  },
+  "osm_water": {
+    "summary": "target/acceptance-close/osm-water/summary.json",
+    "runs": [
+      {
+        "run": 1,
+        "input": "competition-osm-roads-water.geojson",
+        "mode": "PLANAR",
+        "input_sha256": "9e230ef172ad9d2378777aa7ffad09677a8ce17b9de41e83455079f77388d577",
+        "build_sha256": "31cef677bb2fcf5c72cebef3424f24804c9840be3007d7231fcc7e1b9e07bde1",
+        "features": 629,
+        "restrictions": 573,
+        "consumers": 17,
+        "valid": true,
+        "errors": 0,
+        "warnings": 0,
+        "issues": [
+          {
+            "severity": "INFO",
+            "code": "CROSSING_EXIT_ANGLE",
+            "message": "exit from road#\"osm-way-607500125\" at 42.0° (entry 48.0°; only the entry angle is mandatory)",
+            "variantId": "v1",
+            "featureId": "v1_net_31"
+          },
+          {
+            "severity": "INFO",
+            "code": "CROSSING_EXIT_ANGLE",
+            "message": "exit from road#\"osm-way-1292041084\" at 44.5° (entry 45.5°; only the entry angle is mandatory)",
+            "variantId": "v2",
+            "featureId": "v2_net_13"
+          }
+        ],
+        "metrics": {
+          "graph_nodes": 8773,
+          "graph_edges": 257376,
+          "graph_directed_edges": 514752,
+          "dijkstra_traversals": 219,
+          "geometry_visibility_checks": 5384611,
+          "dynamic_vertex_insertions": 1518,
+          "candidate_pairs_examined": 6227922,
+          "certified_interior_rejections": 44505,
+          "visibility_checks": 5384611,
+          "restriction_check_buffers": 602,
+          "tie_in_candidates": 398,
+          "candidate_hydraulic_recomputations": 1223,
+          "candidate_topology_copies": 1848,
+          "candidate_count": 1756,
+          "routing_graph_time_ms": 30734,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 14696448,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 16051,
+          "validation_time_ms": 55,
+          "solve_time_ms": 46840,
+          "mode": "planar"
+        },
+        "diagnostics": [
+          {
+            "severity": "INFO",
+            "code": "INPUT_SUMMARY",
+            "text": "features=629, source=1, heat_network=29, heat_chamber=9, oks_connection_point=17, restriction=573",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "INFO",
+            "code": "SOLVE_SUMMARY",
+            "text": "variants=3 of 5 candidates in 46840 ms",
+            "featureIndex": null,
+            "featureId": null
+          }
+        ],
+        "variants": [
+          {
+            "connected": 17,
+            "score": 14.142099592,
+            "cost": 291971914.0,
+            "new_length_m": 1988.9619999999998,
+            "new_chambers": 15,
+            "unconnected": {},
+            "notes": [
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ]
+          },
+          {
+            "connected": 17,
+            "score": 14.3813417,
+            "cost": 299398025.0,
+            "new_length_m": 1999.3990000000003,
+            "new_chambers": 14,
+            "unconnected": {},
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ]
+          },
+          {
+            "connected": 17,
+            "score": 14.762910723999997,
+            "cost": 299345383.0,
+            "new_length_m": 2127.08,
+            "new_chambers": 13,
+            "unconnected": {},
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 12: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point"
+            ]
+          }
+        ],
+        "engineering_oracle_issues": [],
+        "status": "DONE",
+        "output_sha256": "ac9491b90e062820fa0fd453b02f1ad6fe2f1d9dc05b2e7007a5c98eb6c2bde4",
+        "wall_ms": 47241,
+        "sampled_peak_heap_bytes": 424215264
+      },
+      {
+        "run": 1,
+        "input": "competition-osm-roads-water.geojson",
+        "mode": "DEPTH",
+        "input_sha256": "9e230ef172ad9d2378777aa7ffad09677a8ce17b9de41e83455079f77388d577",
+        "build_sha256": "31cef677bb2fcf5c72cebef3424f24804c9840be3007d7231fcc7e1b9e07bde1",
+        "features": 629,
+        "restrictions": 573,
+        "consumers": 17,
+        "valid": true,
+        "errors": 0,
+        "warnings": 0,
+        "issues": [
+          {
+            "severity": "INFO",
+            "code": "CROSSING_EXIT_ANGLE",
+            "message": "exit from road#\"osm-way-607500125\" at 42.0° (entry 48.0°; only the entry angle is mandatory)",
+            "variantId": "v1",
+            "featureId": "v1_net_31"
+          },
+          {
+            "severity": "INFO",
+            "code": "CROSSING_EXIT_ANGLE",
+            "message": "exit from road#\"osm-way-1292041084\" at 44.5° (entry 45.5°; only the entry angle is mandatory)",
+            "variantId": "v2",
+            "featureId": "v2_net_13"
+          }
+        ],
+        "metrics": {
+          "graph_nodes": 8774,
+          "graph_edges": 257515,
+          "graph_directed_edges": 515031,
+          "dijkstra_traversals": 2751,
+          "geometry_visibility_checks": 5386151,
+          "dynamic_vertex_insertions": 1519,
+          "candidate_pairs_examined": 6230144,
+          "certified_interior_rejections": 44587,
+          "visibility_checks": 5386151,
+          "restriction_check_buffers": 602,
+          "tie_in_candidates": 398,
+          "candidate_hydraulic_recomputations": 2722,
+          "candidate_topology_copies": 3996,
+          "candidate_count": 1757,
+          "routing_graph_time_ms": 30979,
+          "fallback_activations": 0,
+          "navigation_region_expansions": 0,
+          "routing_intersection_calls": 14982780,
+          "robust_overlay_retries": 0,
+          "variants_evaluated": 5,
+          "strategies": 5,
+          "routing_time_ms": 28204,
+          "validation_time_ms": 59,
+          "solve_time_ms": 59242,
+          "mode": "depth"
+        },
+        "diagnostics": [
+          {
+            "severity": "INFO",
+            "code": "INPUT_SUMMARY",
+            "text": "features=629, source=1, heat_network=29, heat_chamber=9, oks_connection_point=17, restriction=573",
+            "featureIndex": null,
+            "featureId": null
+          },
+          {
+            "severity": "INFO",
+            "code": "SOLVE_SUMMARY",
+            "text": "variants=3 of 5 candidates in 59242 ms",
+            "featureIndex": null,
+            "featureId": null
+          }
+        ],
+        "variants": [
+          {
+            "connected": 17,
+            "score": 14.138740444,
+            "cost": 291913123.0,
+            "new_length_m": 1988.3909999999998,
+            "new_chambers": 15,
+            "unconnected": {},
+            "notes": [
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ]
+          },
+          {
+            "connected": 17,
+            "score": 14.3813417,
+            "cost": 299398025.0,
+            "new_length_m": 1999.3990000000003,
+            "new_chambers": 14,
+            "unconnected": {},
+            "notes": [
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point",
+              "connection point 2: final segment uses a non-nearest boundary point"
+            ]
+          },
+          {
+            "connected": 17,
+            "score": 14.787341439999999,
+            "cost": 300218230.0,
+            "new_length_m": 2127.0769999999998,
+            "new_chambers": 13,
+            "unconnected": {},
+            "notes": [
+              "connection point 2: final segment uses a non-nearest boundary point",
+              "connection point 12: final segment uses a non-nearest boundary point",
+              "connection point 5: final segment uses a non-nearest boundary point",
+              "connection point 10: final segment uses a non-nearest boundary point",
+              "connection point 17: final segment uses a non-nearest boundary point"
+            ]
+          }
+        ],
+        "engineering_oracle_issues": [],
+        "status": "DONE",
+        "output_sha256": "e9020b2f05d0a4b04b779c711be0a8c4a0149249fc9a293fb0104a19e81dfc13",
+        "wall_ms": 59665,
+        "sampled_peak_heap_bytes": 525590944
+      }
+    ],
+    "byte_identical_to_previous": true
+  },
+  "dense_250": {
+    "status": "COMPLEXITY_LIMIT",
+    "production_fix_retained": false,
+    "source_unchanged": true,
+    "report": "target/acceptance-close/dense-250-audit-run1/summary.json",
+    "limit_snapshot": {
+      "graph": 0,
+      "stage": "separate-connections",
+      "event": "edge_limit",
+      "static_vertices": 3975,
+      "dynamic_vertices": 5008,
+      "directed_edges": 3999302,
+      "unique_undirected_connections": 2001212,
+      "duplicate_directed_edges": 0,
+      "exact_coordinate_duplicates": 590,
+      "millimetre_coordinate_duplicates": 590,
+      "edges_enumerated_by_dijkstra": 670073,
+      "edges_not_enumerated_by_dijkstra": 3329229,
+      "current_terminal_outgoing_edges": 1581112,
+      "rejected_addition_edges": 2761,
+      "full_visibility_checks": 8385891,
+      "candidate_pairs": 48356945,
+      "dynamic_insertions_cumulative": 8091,
+      "traversals_cumulative": 3714,
+      "by_vertex_kind": {
+        "junction": {
+          "edges": 2972838,
+          "scanned": 0,
+          "vertices": 2921,
+          "max_out_degree": 2022
+        },
+        "oks_approach": {
+          "edges": 262715,
+          "scanned": 191301,
+          "vertices": 1960,
+          "max_out_degree": 1594
+        },
+        "static": {
+          "edges": 662351,
+          "scanned": 478772,
+          "vertices": 3975,
+          "max_out_degree": 1882
+        },
+        "tie_in": {
+          "edges": 101398,
+          "scanned": 0,
+          "vertices": 127,
+          "max_out_degree": 1292
+        }
+      }
+    },
+    "structural_counters_equal_to_previous": [
+      "graph_nodes",
+      "graph_directed_edges",
+      "dijkstra_traversals",
+      "geometry_visibility_checks",
+      "candidate_pairs_examined",
+      "candidate_count",
+      "fallback_activations",
+      "navigation_region_expansions"
+    ],
+    "fallback_activations": 0,
+    "navigation_region_expansions": 0,
+    "root_cause": "Separate-connections eagerly connects accumulated junction candidates. 2921 junction vertices own 2972838 outgoing edges; no duplicate directed edges by vertex ID. Next insertion would require 4002063 edges.",
+    "rejected_changes": [
+      "Raising the edge cap or heap",
+      "Dropping unused edges: changing terminal sets and dynamic obstacles can make them relevant later",
+      "Merging coincident coordinates: different vertex roles/headings/exemptions and deterministic IDs are not interchangeable",
+      "Lazy adjacency redesign was not justified as a minimal risk-free change in the final acceptance scope"
+    ]
+  },
+  "reused_scale_evidence": [
+    {
+      "consumers": 50,
+      "report": "target/scale-results/finalization-final/consumers-50-planar.json",
+      "new_run": false,
+      "reason": "Identical solver bytecode and input SHA-256; no relevant production changes.",
+      "output_sha256": "8ba13635cb302bd76b4e28bbc54f77fad97520a4cd3bea994eb3022041826514",
+      "connected": 50,
+      "valid": true
+    },
+    {
+      "consumers": 100,
+      "report": "target/scale-results/finalization-final/consumers-100-planar.json",
+      "new_run": false,
+      "reason": "Identical solver bytecode and input SHA-256; no relevant production changes.",
+      "output_sha256": "3fb1e53ce38cdf22eac57a3508064597430e53b0e7e908dc137d67bf1121245d",
+      "connected": 100,
+      "valid": true
+    },
+    {
+      "consumers": 500,
+      "report": "target/scale-results/finalization-final/consumers-500-planar.json",
+      "new_run": false,
+      "reason": "Identical solver bytecode and input SHA-256; no relevant production changes.",
+      "output_sha256": "d90a59bd731c52b22236115700f0f9190c93595ef7fafa90ce830d6e23f7318c",
+      "connected": 500,
+      "valid": true
+    }
+  ],
+  "reused_docker_http_evidence": {
+    "report": "target/final-engineering/http/verification.json",
+    "new_run": false,
+    "reason": "Production sources, bytecode, frontend assets, Dockerfile and Compose unchanged; HTTP upload/recovery covered again by Java tests.",
+    "http_status": "OK",
+    "previous_real_http_sizes_bytes": [
+      565,
+      633402,
+      639754,
+      104857600,
+      1073741824,
+      3006477107,
+      35864692,
+      565,
+      633402
+    ],
+    "production_volumes_touched": false
+  },
+  "changes_this_iteration": [
+    "examples/finalization/README.md",
+    "scripts/profile-dense-graph.py",
+    "scripts/summarize-acceptance-close.py",
+    "src/test/java/ru/lct/heatnet/stress/GraphAuditProbe.java",
+    "examples/finalization/verification.json"
+  ],
+  "commands": [
+    "python3 scripts/profile-dense-graph.py --label dense-250-audit-fresh",
+    "python3 scripts/profile-dense-graph.py --label dense-250-audit-run1 --summarize-only",
+    "python3 scripts/verify-finalization.py --phase tests --label acceptance-close-fresh",
+    "python3 scripts/run-stress-suite.py --skip-build --docker-image lct-robustness-builder:baseline --maven-cache lct-robustness-m2 --manifest examples/stress/universal-manifest.json --scenario competition-osm-roads-water --mode BOTH --repeat 1 --out target/acceptance-close/osm-water-fresh",
+    "python3 scripts/summarize-acceptance-close.py --label acceptance-close-fresh --audit dense-250-audit-fresh --osm-out target/acceptance-close/osm-water-fresh"
+  ],
+  "command_notes": "The dense audit intentionally exits 2 for confirmed COMPLEXITY_LIMIT. Fresh runs must use fresh output directories; pass their names to the summarizer.",
+  "production_deployed": false,
+  "production_volumes_touched": false,
+  "git_operations": 0
+}

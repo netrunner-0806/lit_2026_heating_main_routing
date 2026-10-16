@@ -95,10 +95,11 @@ final class SpatialValidator {
                 Line b = vm.lines.get(j);
                 if (!a.metric.getEnvelopeInternal().intersects(b.metric.getEnvelopeInternal())) continue;
                 rep.counted("intersections");
-                Geometry x = a.metric.intersection(b.metric);
+                Geometry x = ru.lct.heatnet.geo.RobustGeometry.intersection(a.metric, b.metric, "validation network intersections");
                 boolean ok = true;
                 for (int k = 0; k < x.getNumGeometries(); k++) {
                     Geometry g = x.getGeometryN(k);
+                    if (g.isEmpty()) continue; // disjoint lines may have overlapping envelopes and LINESTRING EMPTY
                     if (!(g instanceof Point)) { ok = false; break; }
                     Coordinate p = g.getCoordinate();
                     boolean sharedNode = false;
@@ -108,7 +109,7 @@ final class SpatialValidator {
                 if (!ok) { rep.error("LINES_INTERSECT", "new lines " + a.id + " and " + b.id + " intersect outside a common node", vid, a.id); continue; }
                 // no exact intersection outside common nodes, but a long run closer than the coincidence tolerance
                 // (e.g. two lines drawn a fraction of a millimetre apart) is an overlap as well
-                double near = b.metric.intersection(a.metric.buffer(Constants.COINCIDENCE_TOL_M)).getLength();
+                double near = ru.lct.heatnet.geo.RobustGeometry.intersection(b.metric, a.metric.buffer(Constants.COINCIDENCE_TOL_M), "validation coincidence").getLength();
                 if (near > NEAR_OVERLAP_MAX_M)
                     rep.error("LINES_TOO_CLOSE", String.format(java.util.Locale.ROOT, "new lines %s and %s run within %.2f m of each other over %.2f m", a.id, b.id, Constants.COINCIDENCE_TOL_M, near), vid, a.id);
             }
@@ -148,7 +149,16 @@ final class SpatialValidator {
         double finalLen = 0;
         if (c.childEnd.kind == NodeKind.OKS) {
             own = ownPolygon(c.childEnd.coord, du);
-            if (own != null && c.coords.size() >= 2) finalLen = c.coords.get(0).distance(c.coords.get(1));
+            if (own != null && c.coords.size() >= 2) {
+                finalLen = c.coords.get(0).distance(c.coords.get(1));
+                double dx = c.coords.get(1).x - c.coords.get(0).x, dy = c.coords.get(1).y - c.coords.get(0).y;
+                // Output-only technical nodes (e.g. a special-section boundary) do not end the straight approach.
+                for (int i = 2; i < c.coords.size(); i++) {
+                    double sx = c.coords.get(i).x - c.coords.get(i - 1).x, sy = c.coords.get(i).y - c.coords.get(i - 1).y;
+                    if (Math.toDegrees(Math.abs(Math.atan2(dx * sy - dy * sx, dx * sx + dy * sy))) > STRAIGHT_TOL_DEG) break;
+                    finalLen += c.coords.get(i - 1).distance(c.coords.get(i));
+                }
+            }
         }
         boolean parentIsRoot = c.parentEnd != null && c.parentEnd.root;
         Envelope env = chainLine.getEnvelopeInternal();
@@ -189,6 +199,27 @@ final class SpatialValidator {
         String vid = vm.variantId;
         String lineId = c.lines.get(0).id;
         if (o == own) {
+            // The exemption permits one exit, not transit through another wing/courtyard.
+            // Merge contiguous intersection pieces: technical output splits are not separate exits.
+            Geometry inside = ru.lct.heatnet.geo.RobustGeometry.intersection(o.geom,
+                    lil.extractLine(0, finalLen), "validation own OKS approach " + o.label);
+            List<double[]> intervals = new ArrayList<>();
+            for (Object component : org.locationtech.jts.geom.util.LinearComponentExtracter.getLines(inside)) {
+                LineString part = (LineString) component;
+                if (part.isEmpty() || part.getLength() <= DIST_TOL_M) continue;
+                double a = lil.project(part.getCoordinateN(0));
+                double b = lil.project(part.getCoordinateN(part.getNumPoints() - 1));
+                intervals.add(new double[]{Math.min(a, b), Math.max(a, b)});
+            }
+            intervals.sort(java.util.Comparator.comparingDouble(a -> a[0]));
+            double coveredTo = 0;
+            for (double[] interval : intervals) {
+                if (interval[0] > coveredTo + DIST_TOL_M) {
+                    rep.error("OWN_OKS_CROSSED", "the final approach leaves and re-enters the own ОКС polygon", vid, lineId);
+                    break;
+                }
+                coveredTo = Math.max(coveredTo, interval[1]);
+            }
             // the final straight segment may enter the own polygon; the rest must keep the clearance
             if (c.length - finalLen > 1e-6) {
                 Geometry rest = lil.extractLine(finalLen, c.length);
@@ -236,11 +267,10 @@ final class SpatialValidator {
         RestrictionRule rule = o.rule;
         double ext = rule.sectionExtentM();
         double L = c.length;
-        Geometry inter = o.geom.intersection(chainLine);
+        Geometry inter = ru.lct.heatnet.geo.RobustGeometry.intersection(o.geom, chainLine, "validation special crossing " + o.rule.type());
         List<double[]> sections = new ArrayList<>();   // [from, to] along the chain
         List<double[]> covers = new ArrayList<>();     // intervals where alongside clearance is not checked
         int du = c.lines.get(0).du;
-        double coverR = rule.crossingCoverRadiusM(du, o.ownHalfWidth) - ext;
         if (parentIsRoot && o.existingNetwork) covers.add(new double[]{L - rule.tieInExemptRadiusM(du, maxExistingHalfWidth), L + 1});
         for (int k = 0; k < inter.getNumGeometries(); k++) {
             Geometry g = inter.getGeometryN(k);
@@ -286,7 +316,33 @@ final class SpatialValidator {
             }
             from = Math.max(0, from); to = Math.min(L, to);
             sections.add(new double[]{from, to});
-            covers.add(new double[]{from - coverR, to + coverR});
+            covers.add(new double[]{from, to});
+            // Independently determine the local straight approach through the actual object. Technical-node splits
+            // do not change this geometry, whereas a real turn ends the exemption. No arbitrary radius can hide
+            // a short parallel run after a crossing, and no other object's clearance is exempted.
+            double coreFrom = Math.max(0, from + ext), coreTo = Math.min(L, to - ext);
+            if (g instanceof Point) coreFrom = coreTo = lil.project(g.getCoordinate());
+            else {
+                coreFrom = Double.POSITIVE_INFINITY; coreTo = Double.NEGATIVE_INFINITY;
+                for (Coordinate cc : g.getCoordinates()) {
+                    double t = lil.project(cc); coreFrom = Math.min(coreFrom,t); coreTo = Math.max(coreTo,t);
+                }
+            }
+            double straightFrom=0, straightTo=L, position=0;
+            for(int j=1;j+1<c.coords.size();j++) {
+                position += c.coords.get(j-1).distance(c.coords.get(j));
+                if(GeometryUtils.turnAngleDeg(c.coords.get(j-1),c.coords.get(j),c.coords.get(j+1))<=0.01) continue;
+                if(position <= coreFrom + 1e-6) straightFrom=position;
+                if(position >= coreTo - 1e-6) { straightTo=position; break; }
+            }
+            Geometry transition=ru.lct.heatnet.geo.RobustGeometry.intersection(transitionZone(o,required),
+                    lil.extractLine(straightFrom,straightTo),"validation crossing transition " + o.label);
+            for(int j=0;j<transition.getNumGeometries();j++) {
+                Geometry part=transition.getGeometryN(j);if(part.isEmpty())continue;
+                double lo=Double.POSITIVE_INFINITY,hi=Double.NEGATIVE_INFINITY;
+                for(Coordinate cc:part.getCoordinates()) {double t=lil.project(cc);lo=Math.min(lo,t);hi=Math.max(hi,t);}
+                if(lo<=coreTo+1e-6 && hi>=coreFrom-1e-6)covers.add(new double[]{lo,hi});
+            }
             // straightness inside the section
             double acc = 0;
             for (int i = 1; i + 1 < c.coords.size(); i++) {
@@ -321,6 +377,13 @@ final class SpatialValidator {
             double d = o.geom.distance(part);
             if (d + DIST_TOL_M < required)
                 rep.error("CLEARANCE", String.format(java.util.Locale.ROOT, "route passes %.2f m from %s (< required %.2f m) outside a special passage", d, o.label, required), vid, lineAt(c, (r[0] + r[1]) / 2));
+        }
+    }
+
+    private static Geometry transitionZone(Obj o, double required) {
+        try { return o.geom.buffer(required,16); }
+        catch(org.locationtech.jts.geom.TopologyException ex) {
+            throw new ru.lct.heatnet.geo.GeometryProcessingException("validation crossing buffer " + o.label,ex);
         }
     }
 

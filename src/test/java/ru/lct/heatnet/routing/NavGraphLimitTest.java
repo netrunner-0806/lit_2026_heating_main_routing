@@ -11,6 +11,23 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NavGraphLimitTest {
+    @Test void edgeAndVisibilityBudgetsFailBeforeUnboundedAllocation() {
+        ObstacleSpace space = new ObstacleSpace(new SyntheticInput().rect(1, "water", 0, 0, 20, 20).build(), ClearanceClass.SMALL);
+        assertThrows(ComplexityLimitException.class, () -> new NavGraph(space, 300, 80, 4, 100_000));
+        assertThrows(ComplexityLimitException.class, () -> new NavGraph(space, 300, 80, 100_000, 4));
+    }
+
+    @Test void failedDynamicVertexDoesNotCorruptGraphAndTruncateReleasesEdges() {
+        ObstacleSpace space = new ObstacleSpace(new SyntheticInput().build(), ClearanceClass.SMALL);
+        NavGraph graph = new NavGraph(space, 300, 0, 2, 1000);
+        var ex=ru.lct.heatnet.restrictions.Exemptions.NONE;
+        graph.addVertex(new org.locationtech.jts.geom.Coordinate(0,0),ex,300,null);
+        graph.addVertex(new org.locationtech.jts.geom.Coordinate(10,0),ex,300,null);
+        assertThrows(ComplexityLimitException.class,()->graph.addVertex(new org.locationtech.jts.geom.Coordinate(20,0),ex,300,null));
+        assertEquals(2,graph.size());assertEquals(1,graph.edgeCount());
+        graph.truncate(1);graph.addVertex(new org.locationtech.jts.geom.Coordinate(30,0),ex,300,null);
+        assertEquals(1,graph.edgeCount());
+    }
     @Test void enormousExtentRejectedBeforeCollectingVertices() {
         ObstacleSpace space = new ObstacleSpace(new SyntheticInput()
                 .rect(1, "oks", 0, 0, 10, 10)
@@ -30,7 +47,7 @@ class NavGraphLimitTest {
 
     @Test void obstacleVertexCollectionIsBoundedWithoutGrid() {
         ObstacleSpace space = new ObstacleSpace(new SyntheticInput().rect(1, "oks", 0, 0, 20, 20).build(), ClearanceClass.SMALL);
-        assertThrows(IllegalArgumentException.class, () -> space.navigationVertices(2));
+        assertThrows(ComplexityLimitException.class, () -> space.navigationVertices(2));
         assertTrue(new NavGraph(space, 300, 80).staticCount() > 0);
     }
 }

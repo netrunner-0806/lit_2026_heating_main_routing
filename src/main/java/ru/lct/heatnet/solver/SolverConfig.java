@@ -6,6 +6,10 @@ public final class SolverConfig {
     public double staticRadius = 300;
     /** Spacing of helper free-space vertices ensuring connectivity across open areas, m (0 = none). */
     public double helperGridSpacing = 80;
+    /** Select navigation candidates locally only on larger scenes; all restrictions remain in the check index. */
+    public int localGraphMinimumObstacles = 2048;
+    /** Initial working margin around ALL consumers, existing network lines and chambers; failure expands it. */
+    public double localGraphMargin = 600;
     /** Visibility radius of terminals (connection points, tie-in and junction candidates), m. */
     public double terminalRadius = 600;
     /** Fallback sampling step of tie-in candidates along existing lines, m (geometric candidates are added on top). */
