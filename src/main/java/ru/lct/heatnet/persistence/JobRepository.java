@@ -8,6 +8,12 @@ import java.util.Collection;
 public interface JobRepository extends JpaRepository<JobEntity, String> {
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("delete from JobEntity j where j.id = :id and j.status in :terminal")
+    int deleteTerminal(@org.springframework.data.repository.query.Param("id") String id,
+                       @org.springframework.data.repository.query.Param("terminal") Collection<JobEntity.Status> terminal);
+
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("update JobEntity j set j.status = :running, j.startedAt = :now, j.progress = 'Parsing input' where j.id = :id and j.status = :queued")
     int claimQueuedStatus(@org.springframework.data.repository.query.Param("id") String id,
                     @org.springframework.data.repository.query.Param("now") java.time.Instant now,

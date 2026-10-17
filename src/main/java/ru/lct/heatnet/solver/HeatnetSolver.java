@@ -40,10 +40,18 @@ public final class HeatnetSolver {
 
     private final SolverConfig config;
     private final VariantValidator validator;
+    private final java.util.function.BiFunction<SolverContext, Strategy, VariantResult> strategyRunner;
 
     public HeatnetSolver(SolverConfig config, VariantValidator validator) {
+        this(config, validator, null);
+    }
+
+    /** Package-private execution seam for deterministic strategy-failure regression tests. */
+    HeatnetSolver(SolverConfig config, VariantValidator validator,
+                  java.util.function.BiFunction<SolverContext, Strategy, VariantResult> strategyRunner) {
         this.config = config == null ? SolverConfig.defaults() : config;
         this.validator = validator;
+        this.strategyRunner = strategyRunner == null ? this::buildWithClassUpgrades : strategyRunner;
     }
 
     public static List<Strategy> defaultStrategies() {
@@ -61,12 +69,12 @@ public final class HeatnetSolver {
     public SolveResult solve(InputModel input, List<Strategy> strategies, java.util.function.Consumer<String> progress) {
         long t0 = System.currentTimeMillis();
         Diagnostics diag = input.diagnostics();
-        SolverContext ctx = new SolverContext(input, config);
+        SolverContext ctx = new SolverContext(input, config, validator == null);
         List<VariantResult> candidates = new ArrayList<>();
         for (Strategy s : strategies) {
             if (progress != null) progress.accept("strategy " + s.name());
             try {
-                VariantResult vr = buildWithClassUpgrades(ctx, s);
+                VariantResult vr = strategyRunner.apply(ctx, s);
                 if (vr != null) { vr.setDepthMode(config.depthMode); candidates.add(vr); }
             } catch (RuntimeException ex) {
                 log.warn("strategy {} failed: {}", s, ex.toString(), ex);
@@ -75,28 +83,48 @@ public final class HeatnetSolver {
                         : ex instanceof ru.lct.heatnet.geo.GeometryProcessingException || ex instanceof org.locationtech.jts.geom.TopologyException
                         ? "INTERNAL_GEOMETRY_PROCESSING_FAILURE" : "INTERNAL_ERROR";
                 diag.error(code, "Strategy " + s.name() + " failed: " + ex.getMessage());
-                candidates.clear();
-                break;
+                // A completed topology belongs to its strategy and remains a candidate.
+                // The next ForestBuilder truncates dynamic graph vertices to the common base;
+                // job-wide visibility budgets stay consumed (they are never enlarged/reset).
             }
         }
         // validate, dedupe, rank
         List<VariantResult> valid = new ArrayList<>();
-        Set<String> signatures = new HashSet<>();
+        List<VariantResult> checked = new ArrayList<>();
         candidates.sort(Comparator.comparingDouble(v -> v.summary().score()));
         long validationMs = 0;
         for (VariantResult vr : candidates) {
             vr.setVariantId("candidate-" + vr.strategy());
             vr.setRank(0);
             long tv = System.currentTimeMillis();
-            List<String> errors = validator == null ? Collections.emptyList() : validator.validate(vr);
+            List<String> errors = validateCandidate(vr, diag);
             validationMs += System.currentTimeMillis() - tv;
+            if (errors.stream().anyMatch(e -> e.contains("[CLEARANCE]"))) {
+                try {
+                    ctx.requireExactClearance();
+                    Strategy strategy = strategies.stream().filter(s -> s.name().equals(vr.strategy())).findFirst().orElseThrow();
+                    VariantResult retry = strategyRunner.apply(ctx,strategy);
+                    if (retry != null) {
+                        retry.setDepthMode(config.depthMode);retry.setVariantId(vr.variantId());retry.setRank(0);
+                        List<String> retryErrors = validateCandidate(retry, diag);
+                        if (retryErrors.isEmpty()) { checked.add(retry);diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
+                        errors=retryErrors;
+                    }
+                } catch (RuntimeException ex) {
+                    String code=ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT" : "INTERNAL_ERROR";
+                    diag.error(code,"Exact-clearance retry for " + vr.strategy() + " failed: " + ex.getMessage());
+                }
+            }
             if (!errors.isEmpty()) {
                 log.warn("variant {} rejected by validator: {}", vr.strategy(), errors);
                 diag.warn("VARIANT_REJECTED", "Variant from strategy " + vr.strategy() + " rejected by the validator: " + String.join("; ", errors));
                 continue;
             }
-            String sig = signature(vr);
-            if (!signatures.add(sig)) {
+            checked.add(vr);
+        }
+        checked.sort(Comparator.comparingDouble(v -> v.summary().score()));
+        for (VariantResult vr : checked) {
+            if (valid.stream().anyMatch(previous -> equivalentRoutes(previous, vr))) {
                 diag.info("VARIANT_DUPLICATE", "Variant from strategy " + vr.strategy() + " duplicates a better one and is dropped");
                 continue;
             }
@@ -123,6 +151,19 @@ public final class HeatnetSolver {
         metrics.put("solve_time_ms", ms);
         metrics.put("mode", config.depthMode ? "depth" : "planar");
         return new SolveResult(valid, diag, ms, metrics);
+    }
+
+    private List<String> validateCandidate(VariantResult candidate, Diagnostics diag) {
+        if (validator == null) return Collections.emptyList();
+        try { return validator.validate(candidate); }
+        catch (RuntimeException ex) {
+            String code = ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT"
+                    : ex instanceof ru.lct.heatnet.geo.GeometryProcessingException || ex instanceof org.locationtech.jts.geom.TopologyException
+                    ? "INTERNAL_GEOMETRY_PROCESSING_FAILURE" : "INTERNAL_ERROR";
+            log.warn("validation of strategy {} failed", candidate.strategy(), ex);
+            diag.error(code, "Validation of strategy " + candidate.strategy() + " failed: " + ex.getMessage());
+            return Collections.singletonList("[" + code + "] candidate validation did not complete");
+        }
     }
 
     /** Builds a variant; if some link's DU needs a larger clearance class than routed, re-routes with raised floors. */
@@ -194,6 +235,35 @@ public final class HeatnetSolver {
         }
         Collections.sort(parts);
         return parts + "|links=" + vr.network().linkCount() + "|L=" + Math.round(vr.summary().newLength() / 5);
+    }
+
+    /** The previous 5 m grid signature was only a coarse summary, not route identity.
+     * Compare the complete consumer-to-root paths, independently of grid cell boundaries. */
+    static boolean equivalentRoutes(VariantResult a, VariantResult b) {
+        if(a.network().linkCount()!=b.network().linkCount()
+                ||Math.abs(a.summary().newLength()-b.summary().newLength())>5) return false;
+        Map<JsonId,NetNode> other=new HashMap<>();
+        for(NetNode cp:b.network().connectionNodes())other.put(cp.connectionPoint().id(),cp);
+        if(other.size()!=a.network().connectionNodes().size())return false;
+        for(NetNode cp:a.network().connectionNodes()) {
+            NetNode peer=other.get(cp.connectionPoint().id());
+            if(peer==null||cp.parent().parent().kind()!=peer.parent().parent().kind())return false;
+            org.locationtech.jts.geom.LineString x=consumerPath(cp),y=consumerPath(peer);
+            if(x.getEndPoint().distance(y.getEndPoint())>5)return false;
+            if(org.locationtech.jts.algorithm.distance.DiscreteHausdorffDistance.distance(x,y,.1)>5)return false;
+        }
+        return true;
+    }
+
+    private static org.locationtech.jts.geom.LineString consumerPath(NetNode cp) {
+        List<org.locationtech.jts.geom.Coordinate> coords=new ArrayList<>();
+        NetNode n=cp;
+        while(n.parent()!=null) {
+            List<org.locationtech.jts.geom.Coordinate> part=n.parent().coords();
+            for(int i=coords.isEmpty()?0:1;i<part.size();i++)coords.add(part.get(i));
+            n=n.parent().parent();
+        }
+        return ru.lct.heatnet.geo.GeometryUtils.GF.createLineString(coords.toArray(new org.locationtech.jts.geom.Coordinate[0]));
     }
 
     public static Set<JsonId> ids(List<ConnectionPoint> cps, Function<ConnectionPoint, JsonId> f) {

@@ -22,7 +22,7 @@ package ru.lct.heatnet.geo;
  * <tr><td>numeric rule thresholds (0.7 m, clearances, slope)</td><td>{@link #RULE_TOL}</td><td>1e-6</td></tr>
  * <tr><td>rounding of reported depths (4 decimals) / lengths (3 decimals)</td><td>{@link #DEPTH_REPORT_RESOLUTION_M} / {@link #LENGTH_REPORT_RESOLUTION_M}</td><td>1e-4 / 1e-3</td></tr>
  * <tr><td>whole-ruble costs recomputed by the validator</td><td>{@link #COST_TOL_RUB}</td><td>1 ruble per rounded term</td></tr>
- * <tr><td>score (4 decimals)</td><td>{@link #SCORE_TOL}</td><td>1e-3</td></tr>
+ * <tr><td>score (4 decimals)</td><td>{@link #SCORE_TOL}</td><td>5e-5 plus numerical epsilon</td></tr>
  * </table>
  */
 public final class GeometryTolerance {
@@ -51,5 +51,5 @@ public final class GeometryTolerance {
     /** Lengths are reported with 3 decimals (±0.0005). */
     public static final double LENGTH_REPORT_RESOLUTION_M = 1e-3;
     public static final double COST_TOL_RUB = 1.0;
-    public static final double SCORE_TOL = 1e-3;
+    public static final double SCORE_TOL = 0.00005 + 1e-9;
 }

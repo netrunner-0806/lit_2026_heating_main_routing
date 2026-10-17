@@ -27,7 +27,8 @@ public final class DepthProfileOptimizer {
 
     /** Minimal length of a run at the normal depth between two ramps for a return to 3.0 m to be worthwhile, m. */
     public static final double MIN_BASELINE_RUN_M = 5.0;
-    private static final int MAX_ENUMERATED_COMBOS = 4096;
+    /** Hard bound on complete profile evaluations; reaching it is reported, never treated as infeasibility. */
+    private static final int MAX_ENUMERATED_COMBOS = 65_536;
 
     public static final class Result {
         public final boolean feasible;
@@ -77,8 +78,23 @@ public final class DepthProfileOptimizer {
             if (p.options.isEmpty()) return Result.infeasible("no feasible vertical combination for " + p.obstacles);
         }
         long combos = 1;
-        for (Plateau p : plateaus) { combos *= p.options.size(); if (combos > MAX_ENUMERATED_COMBOS) break; }
-        List<int[]> choiceSets = combos <= MAX_ENUMERATED_COMBOS ? enumerate(plateaus) : greedy(plateaus);
+        for (Plateau p : plateaus) {
+            if (combos > MAX_ENUMERATED_COMBOS / p.options.size())
+                throw new ru.lct.heatnet.routing.ComplexityLimitException("DEPTH profile search exceeds " + MAX_ENUMERATED_COMBOS + " complete combinations");
+            combos *= p.options.size();
+        }
+        Iterable<int[]> choiceSets = () -> new java.util.Iterator<int[]>() {
+            final int[] index = new int[plateaus.size()];
+            boolean available = true;
+            public boolean hasNext() {return available;}
+            public int[] next() {
+                if (!available) throw new java.util.NoSuchElementException();
+                int[] result=index.clone(); int k=index.length-1;
+                while (k>=0 && ++index[k]>=plateaus.get(k).options.size()) {index[k]=0;k--;}
+                if(k<0)available=false;
+                return result;
+            }
+        };
         Result best = null;
         double[] bestKey = null;
         for (int[] choice : choiceSets) {
@@ -144,24 +160,28 @@ public final class DepthProfileOptimizer {
             perObject.add(ch);
         }
         List<List<CrossingDepthOption>> combos = new ArrayList<>();
+        List<DepthInterval> feasible = new ArrayList<>();
         combos.add(new ArrayList<>());
+        feasible.add(new DepthInterval(DepthRules.MIN_DEPTH_M, DepthRules.SANITY_MAX_DEPTH_M));
         for (List<CrossingDepthOption> ch : perObject) {
             List<List<CrossingDepthOption>> next = new ArrayList<>();
-            for (List<CrossingDepthOption> c : combos) for (CrossingDepthOption o : ch) { List<CrossingDepthOption> n = new ArrayList<>(c); n.add(o); next.add(n); }
-            combos = next;
-            if (combos.size() > 512) break; // pruning for very large overlap groups
+            List<DepthInterval> nextIntervals = new ArrayList<>();
+            for (int i=0;i<combos.size();i++) for (CrossingDepthOption option : ch) {
+                DepthInterval iv = feasible.get(i).intersect(option.interval());
+                if (iv.isEmpty()) continue;
+                boolean duplicate = false;
+                for (DepthInterval existing : nextIntervals)
+                    if (Math.abs(existing.lo-iv.lo)<1e-9 && Math.abs(existing.hi-iv.hi)<1e-9) {duplicate=true;break;}
+                if (duplicate) continue;
+                if ((long)(next.size()+1)*(combos.get(i).size()+1)>1_000_000)
+                    throw new ru.lct.heatnet.routing.ComplexityLimitException("DEPTH overlap option storage exceeds 1000000 entries");
+                List<CrossingDepthOption> n = new ArrayList<>(combos.get(i));n.add(option);
+                next.add(n);nextIntervals.add(iv);
+            }
+            combos=next;feasible=nextIntervals;
         }
-        for (List<CrossingDepthOption> c : combos) {
-            DepthInterval iv = new DepthInterval(DepthRules.MIN_DEPTH_M, DepthRules.SANITY_MAX_DEPTH_M);
-            for (CrossingDepthOption o : c) iv = iv.intersect(o.interval());
-            if (iv.isEmpty()) continue;
-            boolean dup = false;
-            for (DepthInterval e : p.intervals) if (Math.abs(e.lo - iv.lo) < 1e-9 && Math.abs(e.hi - iv.hi) < 1e-9) { dup = true; break; }
-            if (dup) continue;
-            p.options.add(c);
-            p.intervals.add(iv);
-        }
-        // prefer options whose interval is closest to the normal depth first (helps the greedy fallback)
+        p.options.addAll(combos);p.intervals.addAll(feasible);
+        // prefer options whose interval is closest to the normal depth first (deterministic tie order)
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < p.intervals.size(); i++) order.add(i);
         order.sort((a, b) -> Double.compare(Math.abs(p.intervals.get(a).closestTo(DepthRules.NORMAL_DEPTH_M) - DepthRules.NORMAL_DEPTH_M),
@@ -175,36 +195,6 @@ public final class DepthProfileOptimizer {
 
     private static DepthInterval clamp(DepthInterval iv) {
         return iv.intersect(new DepthInterval(DepthRules.MIN_DEPTH_M, DepthRules.SANITY_MAX_DEPTH_M));
-    }
-
-    private static List<int[]> enumerate(List<Plateau> plateaus) {
-        List<int[]> out = new ArrayList<>();
-        int n = plateaus.size();
-        int[] idx = new int[n];
-        if (n == 0) { out.add(idx); return out; }
-        while (true) {
-            out.add(idx.clone());
-            int k = n - 1;
-            while (k >= 0) {
-                idx[k]++;
-                if (idx[k] < plateaus.get(k).options.size()) break;
-                idx[k] = 0;
-                k--;
-            }
-            if (k < 0) break;
-        }
-        return out;
-    }
-
-    /** Fallback for very many plateaus: the closest-to-normal option everywhere plus one-change neighbours. */
-    private static List<int[]> greedy(List<Plateau> plateaus) {
-        List<int[]> out = new ArrayList<>();
-        int n = plateaus.size();
-        out.add(new int[n]);
-        for (int i = 0; i < n; i++) {
-            for (int o = 1; o < plateaus.get(i).options.size(); o++) { int[] c = new int[n]; c[i] = o; out.add(c); }
-        }
-        return out;
     }
 
     // ------------------------------------------------------------------------------------------------------------

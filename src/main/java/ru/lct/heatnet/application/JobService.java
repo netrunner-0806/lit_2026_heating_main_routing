@@ -196,9 +196,13 @@ public class JobService {
     }
 
     public void delete(String id) throws IOException {
-        Optional<JobEntity> e = repo.findById(id);
-        if (!e.isPresent()) return;
-        repo.deleteById(id);
+        // The status predicate and deletion execute atomically in the database. In particular,
+        // a worker's QUEUED -> RUNNING claim cannot race a read-then-delete operation.
+        int removed = repo.deleteTerminal(id, java.util.Arrays.asList(JobEntity.Status.DONE, JobEntity.Status.FAILED));
+        if (removed == 0) {
+            if (repo.existsById(id)) throw new ru.lct.heatnet.api.ConflictException("Cannot delete a QUEUED or RUNNING job; wait for completion");
+            return;
+        }
         Path dir = storageDir().resolve(id);
         if (Files.exists(dir)) {
             try (java.util.stream.Stream<Path> s = Files.walk(dir)) {

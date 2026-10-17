@@ -155,16 +155,18 @@ public final class GeoJsonStreamReader {
             return;
         }
         if (id == null) {
-            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", "Restriction has no id", idx, null);
+            if (type == ObjectType.RESTRICTION || type == ObjectType.OKS_CONNECTION_POINT)
+                diag.error("INVALID_INPUT", type.code() + " has no id", idx, null);
             diag.warn("MISSING_ID", "Feature of type " + type.code() + " has no 'id'; skipped", idx, null);
             return;
         }
         if (seenIds.add(id)) budget.charge(96 + 2L * id.text().length(), "id at feature #" + idx);
-        else diag.warn("DUPLICATE_ID", "Duplicate id " + id + " (type " + type.code() + ")", idx, id);
+        else diag.error("DUPLICATE_ID", "Duplicate id " + id + " (type " + type.code() + ")", idx, id);
 
         JsonNode geomNode = feature.get("geometry");
         if (geomNode == null || geomNode.isNull()) {
-            if (type == ObjectType.RESTRICTION) diag.error("INVALID_INPUT", "Restriction has no geometry", idx, id);
+            if (type == ObjectType.RESTRICTION || type == ObjectType.OKS_CONNECTION_POINT)
+                diag.error("INVALID_INPUT", type.code() + " has no geometry", idx, id);
             diag.warn("MISSING_GEOMETRY", "Feature has no geometry; skipped", idx, id);
             return;
         }
@@ -297,6 +299,8 @@ public final class GeoJsonStreamReader {
     private static Point requirePoint(Geometry g, ObjectType type, int idx, JsonId id, Diagnostics diag) {
         if (g instanceof Point) return (Point) g;
         if (g.getNumGeometries() == 1 && g.getGeometryN(0) instanceof Point) return (Point) g.getGeometryN(0);
+        if (type == ObjectType.OKS_CONNECTION_POINT)
+            diag.error("INVALID_INPUT", "oks_connection_point must be a Point, got " + g.getGeometryType(), idx, id);
         diag.warn("BAD_GEOMETRY_TYPE", type.code() + " must be a Point, got " + g.getGeometryType() + "; skipped", idx, id);
         return null;
     }

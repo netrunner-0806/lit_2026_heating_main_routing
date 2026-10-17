@@ -47,10 +47,11 @@ public final class SolverConfig {
     /**
      * Safety budget: hard cap of exactly evaluated attachment candidates per approach. Stage 1 evaluates {@link #topK}
      * candidates (continuing up to 8 x topK while none is feasible); if a point would otherwise stay unconnected, stage 2
-     * widens the search over all reachable candidates up to this cap and {@link #wideningTimeBudgetMs}.
+     * widens the search over all reachable candidates up to this deterministic cap.
      */
     public int maxCandidateEvaluations = 1000;
-    /** Safety budget of the widened (stage 2) search per approach, ms. */
+    /** Legacy configuration field, ignored: wall-clock limits made routing CPU-load dependent. */
+    @Deprecated
     public long wideningTimeBudgetMs = 15_000;
     /** Local improvement: max passes of leaf re-attachment (each pass stops early when nothing improves). */
     public int improvePasses = 1;

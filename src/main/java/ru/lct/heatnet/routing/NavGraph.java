@@ -311,6 +311,18 @@ public final class NavGraph {
         adj.set(from, na); weights.set(from, nw); special.set(from, ns);
     }
 
+    /** Remove only edges rejected by exact class clearance. All surviving order, weights and budgets are kept. */
+    public synchronized void recheckClearances() {
+        for (int from=0;from<coords.size();from++) {
+            int[] targets=adj.get(from).clone();
+            for (int to : targets) {
+                reserveVisibilityChecks(1); geometryChecks.increment();
+                if (!space.check(coords.get(from),coords.get(to),Exemptions.merge(exemptions.get(from),exemptions.get(to))).valid())
+                    removeEdge(from,to);
+            }
+        }
+    }
+
     /** Disables a vertex (its edges are skipped by searches). */
     public synchronized void deactivate(int v) { active.clear(v); }
 

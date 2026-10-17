@@ -21,10 +21,13 @@ public final class SolverVariantValidator implements HeatnetSolver.VariantValida
         int savedRank = variant.rank();
         variant.setVariantId(saved == null ? "candidate" : saved);
         variant.setRank(1);
-        List<OutputFeature> features = builder.build(variant);
-        ValidationReport rep = validator.validate(features);
-        variant.setVariantId(saved);
-        variant.setRank(savedRank);
-        return rep.errorsOf(variant.variantId() == null ? "candidate" : variant.variantId());
+        try {
+            List<OutputFeature> features = builder.build(variant);
+            ValidationReport rep = validator.validate(features);
+            return rep.errorsOf(variant.variantId());
+        } finally {
+            variant.setVariantId(saved);
+            variant.setRank(savedRank);
+        }
     }
 }

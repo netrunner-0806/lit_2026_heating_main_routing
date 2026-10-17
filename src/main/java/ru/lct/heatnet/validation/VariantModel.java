@@ -88,6 +88,7 @@ final class VariantModel {
         final List<double[]> lineIntervals = new ArrayList<>();
     }
 
+    boolean depthMode;
     final String variantId;
     final Map<JsonId, Node> nodes = new LinkedHashMap<>();
     final List<Line> lines = new ArrayList<>();

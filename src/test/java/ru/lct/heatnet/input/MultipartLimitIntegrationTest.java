@@ -58,6 +58,9 @@ class MultipartLimitIntegrationTest {
         Path input = Path.of(jobs.find(id).orElseThrow().getInputPath());
         assertEquals(THREE_GIB, Files.size(input));
         assertFalse(Files.exists(input.resolveSibling("input.part")));
+        // The runner is mocked: transition this test-owned record to a terminal state before cleanup.
+        var completed=repo.findById(id).orElseThrow();
+        completed.setStatus(ru.lct.heatnet.persistence.JobEntity.Status.FAILED);repo.saveAndFlush(completed);
         jobs.delete(id);
     }
 

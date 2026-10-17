@@ -48,6 +48,8 @@ public final class ObstacleSpace {
     private static final double SECTION_TOL = ru.lct.heatnet.geo.GeometryTolerance.COORDINATE_EQUALITY_M;
 
     private final ClearanceClass cls;
+    private boolean exactClearance;
+    public void requireExactClearance() { exactClearance = true; }
     private final List<ru.lct.heatnet.domain.ExistingChamber> chambers;
     private final List<Obstacle> obstacles;
     private final double[] required;
@@ -74,6 +76,12 @@ public final class ObstacleSpace {
     }
 
     public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred, Envelope navigationRegion) {
+        this(input,cls,deferred,navigationRegion,true);
+    }
+
+    /** Approximate checks are only candidate generation; callers must independently validate actual DU. */
+    public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred, Envelope navigationRegion, boolean exactClearance) {
+        this.exactClearance=exactClearance;
         this.navigationRegion=navigationRegion==null?null:new Envelope(navigationRegion);
         this.deferred = deferred || navigationRegion!=null;
         this.cls = cls;
@@ -211,9 +219,8 @@ public final class ObstacleSpace {
 
     /** True if the point lies inside a forbidden clearance zone (so a line cannot pass/end there). */
     public boolean insideForbidden(Coordinate c) {
-        if(forbiddenUnion!=null)return forbiddenUnion.intersects(GeometryUtils.point(c));
         Point p=GeometryUtils.point(c);
-        for(Obstacle o:query(new Envelope(c))) if(o.isForbidden() && prepared(o).intersects(p))return true;
+        for(Obstacle o:query(new Envelope(c))) if(o.isForbidden() && (prepared(o).intersects(p) || exactClearance && o.geometry().isWithinDistance(p,required[o.index()]-CHECK_EPS)))return true;
         return false;
     }
 
@@ -224,7 +231,7 @@ public final class ObstacleSpace {
         List<Obstacle> cands = index.query(new Envelope(c));
         for (Obstacle o : cands) {
             if (!o.isForbidden() || ex.ignores(o)) continue;
-            if (prepared(o).intersects(p) && !ex.exemptAt(o, c)) return true;
+            if ((prepared(o).intersects(p) || exactClearance && o.geometry().isWithinDistance(p,required[o.index()]-CHECK_EPS)) && !ex.exemptAt(o, c)) return true;
         }
         return false;
     }
@@ -237,7 +244,7 @@ public final class ObstacleSpace {
         Point p = GeometryUtils.point(c);
         @SuppressWarnings("unchecked")
         List<Obstacle> cands = index.query(new Envelope(c));
-        for (Obstacle o : cands) if (!ignore.contains(o.index()) && prepared(o).intersects(p)) return true;
+        for (Obstacle o : cands) if (!ignore.contains(o.index()) && (prepared(o).intersects(p) || exactClearance && o.geometry().isWithinDistance(p,required[o.index()]-CHECK_EPS))) return true;
         return false;
     }
 
@@ -296,12 +303,10 @@ public final class ObstacleSpace {
         String[] dirReason = {null, null};
         for (Obstacle o : cands) {
             if (ex.ignores(o)) continue;
-            PreparedGeometry zone = prepared(o);
-            if (!zone.intersects(seg)) continue;
+            if (!prepared(o).intersects(seg) && (!exactClearance || !o.geometry().isWithinDistance(seg, required[o.index()] - CHECK_EPS))) continue;
             List<double[]> exempt = ex.exemptIntervals(o, a, b, len);
             if (o.isForbidden()) {
-                List<double[]> inside = intervals(intersection(zone.getGeometry(), seg, o), a, len);
-                if (!covered(inside, exempt)) return SegmentCheck.invalid("clearance violated: " + o.describe());
+                if (!clearanceOutside(o, a, b, len, exempt)) return SegmentCheck.invalid("clearance violated: " + o.describe());
                 continue;
             }
             String err = specialCrossing(o, a, b, len, seg, exempt, ex, passages, dirOk, dirReason);
@@ -321,7 +326,6 @@ public final class ObstacleSpace {
         double ext = rule.sectionExtentM();
         List<double[]> covers = new ArrayList<>(exempt);
         Geometry core = intersection(o.geometry(), seg, o);
-        List<double[]> zoneHits = intervals(intersection(prepared(o).getGeometry(), seg, o), a, len);
         if (o.isPolygonal()) {
             List<double[]> inside = intervals(core, a, len);
             for (double[] iv : inside) {
@@ -353,7 +357,7 @@ public final class ObstacleSpace {
                     }
                 }
                 out.add(new SpecialPassage(o, Math.max(0, from), Math.min(len, to), rule.kSpec(), at(a, b, len, (entry + exit) / 2), angEntry));
-                addCrossingTransition(covers, zoneHits, entry, exit, from, to);
+                addCrossingTransition(covers, o, a, b, len, entry, exit, from, to);
             }
         } else {
             // linear object: crossing points; collinear overlaps are not allowed
@@ -384,23 +388,38 @@ public final class ObstacleSpace {
                 if (rule.minCrossingAngleDeg() > 0 && ang + 1e-6 < rule.minCrossingAngleDeg())
                     return String.format(java.util.Locale.ROOT, "crossing angle %.1f° < %.0f° for %s", ang, rule.minCrossingAngleDeg(), o.describe());
                 out.add(new SpecialPassage(o, from, to, rule.kSpec(), at(a, b, len, t), ang));
-                addCrossingTransition(covers, zoneHits, t, t, from, to);
+                addCrossingTransition(covers, o, a, b, len, t, t, from, to);
             }
         }
         // alongside clearance outside crossings/exemptions
-        if (!covered(zoneHits, covers)) return "clearance violated alongside " + o.describe();
+        if (!clearanceOutside(o, a, b, len, covers)) return "clearance violated alongside " + o.describe();
         return null;
     }
 
-    /** Only the connected clearance-zone interval of THIS actual crossing on THIS straight segment is exempt.
-     * This affects clearance, never the statutory passage length or its coefficient. Other obstacles are checked
-     * separately; a neighbouring segment without an actual crossing receives no transition exemption.
-     */
-    private static void addCrossingTransition(List<double[]> covers, List<double[]> hits,
-                                              double entry, double exit, double from, double to) {
+    /** Exact distances to the original geometry decide admissibility. Navigation buffers are only candidates. */
+    private boolean clearanceOutside(Obstacle o, Coordinate a, Coordinate b, double len, List<double[]> covers) {
+        if (!exactClearance)
+            return covered(intervals(intersection(prepared(o).getGeometry(),GeometryUtils.line(a,b),o),a,len),covers);
+        List<double[]> sorted = new ArrayList<>(covers);
+        sorted.sort(java.util.Comparator.comparingDouble(v -> v[0]));
+        double at = 0;
+        for (double[] cover : sorted) {
+            double end = Math.min(len, cover[0]);
+            if (end > at + 1e-9 && o.geometry().distance(GeometryUtils.line(at(a,b,len,at),at(a,b,len,end)))
+                    < required[o.index()] - CHECK_EPS) return false;
+            at = Math.max(at,cover[1]);
+            if (at >= len) return true;
+        }
+        return at >= len || o.geometry().distance(GeometryUtils.line(at(a,b,len,at),b)) >= required[o.index()] - CHECK_EPS;
+    }
+
+    /** Exempt only the finite boundary/axis edges at this crossing; passage cost extent is unchanged. */
+    private void addCrossingTransition(List<double[]> covers, Obstacle o, Coordinate a, Coordinate b,
+                                       double len, double entry, double exit, double from, double to) {
         covers.add(new double[]{from, to});
-        for (double[] hit : hits) if (hit[0] <= exit + SECTION_TOL && hit[1] >= entry - SECTION_TOL)
-            covers.add(new double[]{hit[0], hit[1]});
+        covers.addAll(o.boundarySegments().crossingClearanceIntervals(a,b,at(a,b,len,entry),required[o.index()]));
+        if (exit != entry)
+            covers.addAll(o.boundarySegments().crossingClearanceIntervals(a,b,at(a,b,len,exit),required[o.index()]));
     }
 
     /** Only attachment terminals may end inside road/tram; arbitrary graph vertices cannot truncate a passage. */

@@ -44,7 +44,7 @@ public final class SolverContext {
         ClassResources(ClearanceClass cls) {
             long t0 = System.currentTimeMillis();
             this.cls = cls;
-            this.space = new ObstacleSpace(input, cls, input.restrictions().size()>2048, initialNavigationRegion());
+            this.space = new ObstacleSpace(input, cls, input.restrictions().size()>2048, initialNavigationRegion(), exactClearance);
             this.graph = new NavGraph(space, config.staticRadius, config.helperGridSpacing);
             double maxExistingHalf = 0;
             for (ExistingNetworkLine l : input.networkLines()) maxExistingHalf = Math.max(maxExistingHalf, l.halfWidthM());
@@ -116,7 +116,10 @@ public final class SolverContext {
                     if (dup) continue;
                     int adj = netIndex.existingAdjacencyAt(t);
                     if (adj + 1 > Constants.MAX_CHAMBER_DEGREE) continue;
-                    out.add(new TieInCandidate(TieInCandidate.Kind.NEW_CHAMBER_ON_LINE, t, null, line, adj));
+                    out.add(new TieInCandidate(TieInCandidate.Kind.NEW_CHAMBER_ON_LINE, t, null,
+                            netIndex.linesNear(t, ru.lct.heatnet.geo.GeometryTolerance.ON_LINE_M).stream()
+                                    .max(java.util.Comparator.comparingInt(ExistingNetworkLine::diameter)
+                                            .thenComparing(ExistingNetworkLine::id)).orElse(line), adj));
                     acceptedPts.add(t);
                     sourceStats.merge((String) cand[1], 1, Integer::sum);
                 }
@@ -207,10 +210,32 @@ public final class SolverContext {
         return m;
     }
 
-    public SolverContext(InputModel input, SolverConfig config) {
+    private boolean exactClearance;
+    private RuntimeException clearanceUpgradeFailure;
+    public SolverContext(InputModel input, SolverConfig config) { this(input, config, true); }
+    SolverContext(InputModel input, SolverConfig config, boolean exactClearance) {
+        this.exactClearance=exactClearance;
         this.input = input;
         this.config = config;
         this.netIndex = new ExistingNetworkIndex(input);
+    }
+
+    /** Upgrade candidate graphs in place after an actual-DU clearance rejection. Keeps budgets and indexes. */
+    void requireExactClearance() {
+        if (clearanceUpgradeFailure != null) throw clearanceUpgradeFailure;
+        if (exactClearance) return;
+        exactClearance=true;
+        for (ClassResources r : resources.values()) r.space.requireExactClearance();
+        try {
+        for (ClassResources r : resources.values()) {
+            r.graph.truncate(r.baseSize);
+            r.graph.recheckClearances();
+        }
+        } catch (RuntimeException ex) {
+            // Do not reuse a partially rechecked graph after a resource/geometry failure.
+            clearanceUpgradeFailure=ex;
+            throw ex;
+        }
     }
 
     public InputModel input() { return input; }

@@ -15,7 +15,7 @@ import ru.lct.heatnet.geo.InputParseException;
 
 /** Uniform JSON error responses with input diagnostics where available. */
 @RestControllerAdvice
-public class ApiExceptionHandler {
+public class ApiExceptionHandler extends org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
     private final ObjectMapper mapper = new ObjectMapper();
@@ -25,9 +25,22 @@ public class ApiExceptionHandler {
         return body(HttpStatus.valueOf(ex.status()), ex.getMessage(), null);
     }
 
-    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
-    public ResponseEntity<ObjectNode> unreadableRequest(org.springframework.http.converter.HttpMessageNotReadableException ex) {
-        return body(HttpStatus.BAD_REQUEST, "Invalid JSON request body", null);
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object ignored,
+            org.springframework.http.HttpHeaders headers, HttpStatus status,
+            org.springframework.web.context.request.WebRequest request) {
+        // Keep Spring's status and protocol headers (Allow, Accept), without exposing request/body internals.
+        return new ResponseEntity<>(body(status, status.getReasonPhrase(), null).getBody(), headers, status);
+    }
+
+    @ExceptionHandler(java.util.concurrent.RejectedExecutionException.class)
+    public ResponseEntity<ObjectNode> unavailable(java.util.concurrent.RejectedExecutionException ex) {
+        return body(HttpStatus.SERVICE_UNAVAILABLE, "Processing queue is temporarily unavailable", null);
+    }
+
+    @ExceptionHandler(ru.lct.heatnet.routing.ComplexityLimitException.class)
+    public ResponseEntity<ObjectNode> complexity(ru.lct.heatnet.routing.ComplexityLimitException ex) {
+        return body(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), null);
     }
 
     @ExceptionHandler(NotFoundException.class)

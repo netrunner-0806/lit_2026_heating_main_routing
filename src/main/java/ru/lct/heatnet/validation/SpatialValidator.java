@@ -335,13 +335,11 @@ final class SpatialValidator {
                 if(position <= coreFrom + 1e-6) straightFrom=position;
                 if(position >= coreTo - 1e-6) { straightTo=position; break; }
             }
-            Geometry transition=ru.lct.heatnet.geo.RobustGeometry.intersection(transitionZone(o,required),
-                    lil.extractLine(straightFrom,straightTo),"validation crossing transition " + o.label);
-            for(int j=0;j<transition.getNumGeometries();j++) {
-                Geometry part=transition.getGeometryN(j);if(part.isEmpty())continue;
-                double lo=Double.POSITIVE_INFINITY,hi=Double.NEGATIVE_INFINITY;
-                for(Coordinate cc:part.getCoordinates()) {double t=lil.project(cc);lo=Math.min(lo,t);hi=Math.max(hi,t);}
-                if(lo<=coreTo+1e-6 && hi>=coreFrom-1e-6)covers.add(new double[]{lo,hi});
+            ru.lct.heatnet.geo.BoundarySegments boundary = new ru.lct.heatnet.geo.BoundarySegments(o.geom);
+            Coordinate straightA = lil.extractPoint(straightFrom), straightB = lil.extractPoint(straightTo);
+            for (double pos : new double[]{coreFrom,coreTo}) {
+                for (double[] interval : boundary.crossingClearanceIntervals(straightA,straightB,lil.extractPoint(pos),required))
+                    covers.add(new double[]{straightFrom+interval[0],straightFrom+interval[1]});
             }
             // straightness inside the section
             double acc = 0;
@@ -364,8 +362,9 @@ final class SpatialValidator {
                     l.coveringObjects.add(o.label);
                     l.kSpecExpected = Math.max(l.kSpecExpected, rule.kSpec());
                     l.crossings.add(crossing);
-                    if (l.special && (iv[0] < from - SECTION_SNAP_M || iv[1] > to + SECTION_SNAP_M) && !coveredByOthers(l, iv, sections))
-                        rep.warn("SPECIAL_LONGER_THAN_SECTION", String.format(java.util.Locale.ROOT, "special line extends beyond the special section of %s", o.label), vid, l.id);
+                    if ((iv[0] < from - SECTION_SNAP_M && iv[1] > from + SECTION_SNAP_M)
+                            || (iv[0] < to - SECTION_SNAP_M && iv[1] > to + SECTION_SNAP_M))
+                        rep.error("SECTION_BOUNDARY_NOT_SPLIT", "line must be split at each special-section boundary of " + o.label, vid, l.id);
                 }
             }
         }
@@ -378,19 +377,6 @@ final class SpatialValidator {
             if (d + DIST_TOL_M < required)
                 rep.error("CLEARANCE", String.format(java.util.Locale.ROOT, "route passes %.2f m from %s (< required %.2f m) outside a special passage", d, o.label, required), vid, lineAt(c, (r[0] + r[1]) / 2));
         }
-    }
-
-    private static Geometry transitionZone(Obj o, double required) {
-        try { return o.geom.buffer(required,16); }
-        catch(org.locationtech.jts.geom.TopologyException ex) {
-            throw new ru.lct.heatnet.geo.GeometryProcessingException("validation crossing buffer " + o.label,ex);
-        }
-    }
-
-    private static boolean coveredByOthers(Line l, double[] iv, List<double[]> sections) {
-        List<double[]> rem = subtract(new double[]{iv[0], iv[1]}, sections);
-        for (double[] r : rem) if (r[1] - r[0] > SECTION_SNAP_M) return false;
-        return true;
     }
 
     private String lineAt(Chain c, double pos) {

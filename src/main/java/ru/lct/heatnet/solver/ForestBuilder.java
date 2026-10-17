@@ -321,7 +321,7 @@ public final class ForestBuilder {
     /**
      * Best attachment of one approach: Dijkstra to all targets, exact evaluation of the best candidates by estimate,
      * plus the direct attachment. {@code widen} = stage 2: the evaluation limit doubles while nothing is feasible up to
-     * {@link SolverConfig#maxCandidateEvaluations} / {@link SolverConfig#wideningTimeBudgetMs}.
+     * {@link SolverConfig#maxCandidateEvaluations}; elapsed time never changes routing decisions.
      */
     private Attempt evaluateApproach(ConnectionPoint cp, Approach ap, SolverContext.ClassResources r, boolean relaxed, boolean widen, StringBuilder evaluation) {
         Map<Integer, Target> tg = targets.get(r.cls);
@@ -347,7 +347,6 @@ public final class ForestBuilder {
         int evaluated = 0, noRoute = 0, rejected = 0, rerouted = 0;
         int limit = cfg.topK;
         int stage1Cap = cfg.topK * 8;
-        long t0 = System.currentTimeMillis();
         boolean budgetExceeded = false;
         List<Attempt> considered = new ArrayList<>();
         List<String> rejectedNotes = new ArrayList<>();
@@ -357,7 +356,6 @@ public final class ForestBuilder {
                 if (best != null) break;
                 if (!widen && evaluated >= stage1Cap) break;
                 if (evaluated >= cfg.maxCandidateEvaluations) { budgetExceeded = true; break; }
-                if (widen && System.currentTimeMillis() - t0 > cfg.wideningTimeBudgetMs) { budgetExceeded = true; break; }
                 limit = Math.min(limit * 2, widen ? cfg.maxCandidateEvaluations : stage1Cap); // staged widening while nothing is feasible
             }
             int v = (int) cand[1];

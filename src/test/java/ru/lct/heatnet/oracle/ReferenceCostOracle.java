@@ -78,7 +78,9 @@ final class ReferenceCostOracle {
                 ExistingNetworkLine ex = ch.existingLineId == null ? null : ReferenceOutputOracle.existingLine(in, String.valueOf(ch.existingLineId));
                 if (ex == null) out.add("chamber " + ch.id + ": existing_line_id " + ch.existingLineId + " not found in the input");
                 else {
-                    maxDu = Math.max(maxDu, ex.diameter());
+                    for (ExistingNetworkLine adjacent : in.networkLines())
+                        if (adjacent.line().distance(ru.lct.heatnet.geo.CrsTransformer.METRIC_FACTORY.createPoint(ch.metric)) <= 0.05)
+                            maxDu = Math.max(maxDu, adjacent.diameter());
                     if (ex.line().distance(ru.lct.heatnet.geo.CrsTransformer.METRIC_FACTORY.createPoint(ch.metric)) > 0.05)
                         out.add("chamber " + ch.id + " is not on the existing line " + ch.existingLineId);
                 }

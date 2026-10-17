@@ -66,9 +66,9 @@ public final class ResultValidator {
         ValidationReport rep = new ValidationReport();
         Map<String, VariantModel> variants = new LinkedHashMap<>();
         // ---- schema & grouping ----
-        Set<String> seenIds = new HashSet<>();
+        Set<JsonId> seenIds = new HashSet<>();
         for (OutputFeature f : features) {
-            String type = f.objectType();
+            String type = f.prop("object_type") instanceof String ? (String)f.prop("object_type") : null;
             Object vidObj = f.prop("variant_id");
             String vid = vidObj == null ? null : String.valueOf(vidObj);
             String fid = f.prop("id") == null ? null : String.valueOf(f.prop("id"));
@@ -76,7 +76,8 @@ public final class ResultValidator {
             if (type == null || !OUTPUT_TYPES.contains(type)) { rep.error("BAD_OBJECT_TYPE", "object_type '" + type + "' is not allowed in the output", vid, fid); continue; }
             if (fid == null) { rep.error("MISSING_ID", "feature without id", vid, null); continue; }
             if (vid == null) { rep.error("MISSING_VARIANT_ID", "feature without variant_id", null, fid); continue; }
-            if (!seenIds.add(vid + "|" + fid)) rep.error("DUPLICATE_ID", "duplicate id in variant", vid, fid);
+            if (!seenIds.add(idOf(f.prop("id")))) rep.error("DUPLICATE_ID", "duplicate id in output file", vid, fid);
+            validateAttributeTypes(f,rep,vid,fid);
             VariantModel vm = variants.computeIfAbsent(vid, VariantModel::new);
             switch (type) {
                 case "heat_network": readLine(f, vm, rep); break;
@@ -92,6 +93,27 @@ public final class ResultValidator {
         for (VariantModel vm : variants.values()) validateVariant(vm, rep);
         validateRanks(variants, rep);
         return rep;
+    }
+
+    private static void validateAttributeTypes(OutputFeature f, ValidationReport rep, String vid, String fid) {
+        for (String name : new String[]{"id","variant_id","start_node_id","end_node_id"}) {
+            Object value=f.prop(name);
+            if(value!=null && !(value instanceof String) && !(value instanceof Number))
+                rep.error("BAD_ID_TYPE",name+" must be a string or number",vid,fid);
+        }
+        for (String name : new String[]{"flow_tph","length","cost","depth_start","depth_end","construction_cost",
+                "chamber_construction_cost","existing_chamber_tie_in_cost","unconnected_penalty","calculated_cost","new_network_length","score"}) {
+            Object value=f.prop(name);
+            if(value!=null && (!(value instanceof Number) || !Double.isFinite(((Number)value).doubleValue())))
+                rep.error("BAD_NUMBER",name+" must be a finite JSON number",vid,fid);
+        }
+        for (String name : new String[]{"diameter","rank","existing_chamber_tie_in_count","connected_oks_count",
+                "attachment_point_count","depth_transition_count","vertical_crossing_count","above_crossing_count","below_crossing_count","pass_under_count"}) {
+            Object value=f.prop(name);
+            if(value!=null && (!(value instanceof Number) || !Double.isFinite(((Number)value).doubleValue())
+                    || ((Number)value).doubleValue()!=Math.rint(((Number)value).doubleValue()) || ((Number)value).doubleValue()<0))
+                rep.error("BAD_INTEGER",name+" must be a non-negative JSON integer",vid,fid);
+        }
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -179,6 +201,10 @@ public final class ResultValidator {
     private void validateVariant(VariantModel vm, ValidationReport rep) {
         String vid = vm.variantId;
         if (vm.summary == null) rep.error("MISSING_SUMMARY", "variant has no variant_summary", vid, null);
+        Object declaredMode=vm.summary==null?null:vm.summary.prop("mode");
+        if(declaredMode!=null && !"depth".equals(declaredMode) && !"planar".equals(declaredMode))
+            rep.error("BAD_MODE","mode, when supplied, must be planar or depth",vid,null);
+        vm.depthMode="depth".equals(declaredMode) || declaredMode==null && vm.lines.stream().anyMatch(l->l.depthStart!=null||l.depthEnd!=null);
         // input nodes available for references
         Map<JsonId, ConnectionPoint> cps = new HashMap<>();
         for (ConnectionPoint cp : input.connectionPoints()) cps.put(cp.id(), cp);
@@ -220,12 +246,15 @@ public final class ResultValidator {
                     List<ExistingNetworkLine> on = netIndex.linesNear(n.coord, ON_LINE_TOL_M);
                     if (!on.isEmpty()) {
                         n.root = true;
-                        n.onExistingLine = on.get(0);
+                        n.onExistingLine = on.stream().max(java.util.Comparator.comparingInt(ExistingNetworkLine::diameter)
+                                .thenComparing(ExistingNetworkLine::id)).orElseThrow();
                         n.existingAdjacency = netIndex.existingAdjacencyAt(n.coord);
                         // 10 m rule
                         // + coordinate noise of the WGS84 round trip (~1e-9 m): the inclusive 10 m rule stays inclusive
                         for (ExistingChamber ch : netIndex.chambersNear(n.coord, Constants.EXISTING_CHAMBER_SNAP_DISTANCE_M + ru.lct.heatnet.geo.GeometryTolerance.COORDINATE_EQUALITY_M)) {
-                            if (netIndex.existingAdjacency(ch) + n.degree() <= Constants.MAX_CHAMBER_DEGREE)
+                            Node existing = vm.nodes.get(ch.id());
+                            int newAdjacent = existing == null ? 0 : existing.degree();
+                            if (netIndex.existingAdjacency(ch) + newAdjacent + n.degree() <= Constants.MAX_CHAMBER_DEGREE)
                                 rep.error("EXISTING_CHAMBER_WITHIN_10M", "new chamber " + n.id + " is " + String.format(java.util.Locale.ROOT, "%.1f", ch.coordinate().distance(n.coord)) + " m from existing chamber " + ch.id() + " which could be used", vid, n.id.text());
                         }
                     } else if (n.degree() < 3) {
@@ -263,7 +292,7 @@ public final class ResultValidator {
         for (Object o : unconnectedIds) {
             JsonId id = idOf(o);
             if (!cps.containsKey(id)) rep.error("BAD_UNCONNECTED", "unconnected id " + id + " is not an input oks_connection_point (type preserved?)", vid, null);
-            unconnected.add(id);
+            if (!unconnected.add(id)) rep.error("DUPLICATE_UNCONNECTED", "duplicate unconnected id " + id, vid, null);
         }
         double unconnectedFlow = 0;
         for (ConnectionPoint cp : input.connectionPoints()) {
@@ -298,9 +327,9 @@ public final class ResultValidator {
         // ---- costs & summary ----
         validateCosts(vm, rep, unconnected, cps);
         // ---- depth mode ----
-        boolean depthMode = vm.summary != null && "depth".equals(vm.summary.prop("mode"));
+        boolean depthMode = vm.depthMode;
         if (depthMode) new DepthValidator(vm, rep).validate();
-        else for (Line l : vm.lines) if (l.depthStart != null || l.depthEnd != null) rep.warn("DEPTH_NOT_NULL", "depth given although this is the planar mode", vid, l.id);
+        else for (Line l : vm.lines) if (l.depthStart != null || l.depthEnd != null) rep.error("DEPTH_NOT_NULL", "depth given although this is the planar mode", vid, l.id);
     }
 
     private Node resolve(VariantModel vm, Map<JsonId, ConnectionPoint> cps, Map<JsonId, ExistingChamber> chambers, Object ref, ValidationReport rep, Line l) {
@@ -521,7 +550,7 @@ public final class ResultValidator {
             DiameterSpec s = DiameterTable.byDu(l.du).orElse(null);
             if (s == null) continue;
             double k = l.special ? l.kSpecExpected : 1.0;
-            boolean depthMode = vm.summary != null && "depth".equals(vm.summary.prop("mode"));
+            boolean depthMode = vm.depthMode;
             double kDepth = depthMode && l.depthStart != null && l.depthEnd != null ? ru.lct.heatnet.depth.DepthCostCalculator.kDepth(l.depthStart, l.depthEnd) : Constants.K_DEPTH_2D;
             double expected = l.declaredLength * s.costPerMeter() * kDepth * k;
             if (Math.abs(expected - l.declaredCost) > 1.0 + expected * 1e-6)

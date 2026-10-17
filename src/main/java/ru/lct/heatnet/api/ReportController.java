@@ -38,33 +38,43 @@ public class ReportController {
     @GetMapping("/report.json")
     @Operation(summary = "Отчёт по вариантам: распределение ДУ, длины и стоимости по ДУ, спецпроходы, камеры, врезки, глубина")
     public JsonNode reportJson(@PathVariable String id) throws IOException {
-        JobEntity e = job(id);
-        List<OutputFeature> fs = new OutputFeatureReader().read(Paths.get(e.getResultPath()));
-        ObjectNode root = mapper.createObjectNode();
-        root.put("jobId", id);
-        root.put("mode", e.getMode());
-        root.put("inputFile", e.getOriginalFilename());
-        root.set("inputStats", jobs.parse(e.getInputStatsJson()));
-        ArrayNode variants = root.putArray("variants");
-        for (String vid : variantIds(fs)) variants.add(variantReport(fs, vid));
-        return root;
+        try (AnalysisAdmission admission = AnalysisAdmission.acquire()) {
+            JobEntity e = job(id);
+            List<OutputFeature> fs = readResult(e);
+            ObjectNode root = mapper.createObjectNode();
+            root.put("jobId", id);
+            root.put("mode", e.getMode());
+            root.put("inputFile", e.getOriginalFilename());
+            root.set("inputStats", jobs.parse(e.getInputStatsJson()));
+            ArrayNode variants = root.putArray("variants");
+            for (String vid : variantIds(fs)) variants.add(variantReport(fs, vid));
+            return root;
+        }
     }
 
     @GetMapping(value = "/report.csv", produces = "text/csv")
     @Operation(summary = "Отчёт по участкам новой сети в CSV")
     public ResponseEntity<String> reportCsv(@PathVariable String id) throws IOException {
-        JobEntity e = job(id);
-        List<OutputFeature> fs = new OutputFeatureReader().read(Paths.get(e.getResultPath()));
-        StringBuilder sb = new StringBuilder("variant_id;id;start_node_id;end_node_id;flow_tph;diameter;length_m;laying_method;k_spec;depth_start;depth_end;k_depth;cost_rub;crossed_restrictions\n");
-        for (OutputFeature f : fs) {
-            if (!"heat_network".equals(f.objectType())) continue;
-            sb.append(f.prop("variant_id")).append(';').append(f.prop("id")).append(';').append(f.prop("start_node_id")).append(';').append(f.prop("end_node_id")).append(';')
-                    .append(f.prop("flow_tph")).append(';').append(f.prop("diameter")).append(';').append(f.prop("length")).append(';').append(f.prop("laying_method")).append(';')
-                    .append(f.prop("k_spec")).append(';').append(f.prop("depth_start")).append(';').append(f.prop("depth_end")).append(';').append(f.prop("k_depth")).append(';')
-                    .append(f.prop("cost")).append(';').append(String.valueOf(f.prop("crossed_restrictions")).replace(';', ',')).append('\n');
+        try (AnalysisAdmission admission = AnalysisAdmission.acquire()) {
+            JobEntity e = job(id);
+            List<OutputFeature> fs = readResult(e);
+            StringBuilder sb = new StringBuilder("variant_id;id;start_node_id;end_node_id;flow_tph;diameter;length_m;laying_method;k_spec;depth_start;depth_end;k_depth;cost_rub;crossed_restrictions\n");
+            for (OutputFeature f : fs) {
+                if (!"heat_network".equals(f.objectType())) continue;
+                sb.append(f.prop("variant_id")).append(';').append(f.prop("id")).append(';').append(f.prop("start_node_id")).append(';').append(f.prop("end_node_id")).append(';')
+                        .append(f.prop("flow_tph")).append(';').append(f.prop("diameter")).append(';').append(f.prop("length")).append(';').append(f.prop("laying_method")).append(';')
+                        .append(f.prop("k_spec")).append(';').append(f.prop("depth_start")).append(';').append(f.prop("depth_end")).append(';').append(f.prop("k_depth")).append(';')
+                        .append(f.prop("cost")).append(';').append(String.valueOf(f.prop("crossed_restrictions")).replace(';', ',')).append('\n');
+            }
+            return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"report-" + id + ".csv\"")
+                    .contentType(MediaType.parseMediaType("text/csv; charset=utf-8")).body(sb.toString());
         }
-        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"report-" + id + ".csv\"")
-                .contentType(MediaType.parseMediaType("text/csv; charset=utf-8")).body(sb.toString());
+    }
+
+    private List<OutputFeature> readResult(JobEntity e) throws IOException {
+        try (java.io.InputStream in=java.nio.file.Files.newInputStream(Paths.get(e.getResultPath()))) {
+            return new OutputFeatureReader().readBounded(in,AnalysisAdmission.outputBytes());
+        }
     }
 
     private JobEntity job(String id) {

@@ -35,15 +35,19 @@ public class ValidationController {
     @Operation(summary = "Проверить результат", description = "Принимает входной GeoJSON (input) и результат (result) и возвращает отчёт валидатора: схема, топология, повороты, пересечения, ограничения, расходы, ДУ, предельные длины, стоимости, сводки, ранги.")
     public JsonNode validate(@RequestParam("input") MultipartFile input, @RequestParam("result") MultipartFile result,
                              @RequestParam(value = "unknownRestrictionPolicy", required = false) ParseOptions.UnknownRestrictionPolicy policy) throws IOException {
-        InputModel model;
-        try (InputStream in = input.getInputStream()) {
-            model = new GeoJsonStreamReader(new ParseOptions(policy)).read(in);
+        try (AnalysisAdmission admission = AnalysisAdmission.acquire()) {
+            InputModel model;
+            try (InputStream in = input.getInputStream()) {
+                model = new GeoJsonStreamReader(AnalysisAdmission.inputOptions(policy)).read(in);
+            }
+            if (model.diagnostics().hasErrors())
+                throw new ru.lct.heatnet.geo.InputParseException("Invalid input; validation cannot omit consumers", model.diagnostics());
+            List<OutputFeature> features;
+            try (InputStream in = result.getInputStream()) {
+                features = new OutputFeatureReader().readBounded(in, AnalysisAdmission.outputBytes());
+            }
+            ValidationReport report = new ResultValidator(model).validate(features);
+            return runner.validation(report);
         }
-        List<OutputFeature> features;
-        try (InputStream in = result.getInputStream()) {
-            features = new OutputFeatureReader().read(in);
-        }
-        ValidationReport report = new ResultValidator(model).validate(features);
-        return runner.validation(report);
     }
 }

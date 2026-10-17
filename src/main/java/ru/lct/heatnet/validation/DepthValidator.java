@@ -119,10 +119,11 @@ final class DepthValidator {
             check("shallow_network_length", shallow, 0.05);
             check("depth_extra_cost", extra, 2.0);
             Object vc = vm.summary.prop("vertical_crossing_count");
-            if (!(vc instanceof Number) || ((Number) vc).intValue() != vertical)
+            if (vc != null && (!(vc instanceof Number) || ((Number) vc).intValue() != vertical))
                 rep.error("DEPTH_SUMMARY", "vertical_crossing_count = " + vc + " but " + vertical + " utility crossings found", vid, String.valueOf(vm.summary.prop("id")));
             Object ac = vm.summary.prop("above_crossing_count"), bc = vm.summary.prop("below_crossing_count");
-            if (!(ac instanceof Number) || ((Number) ac).intValue() != above || !(bc instanceof Number) || ((Number) bc).intValue() != below)
+            if (ac != null && (!(ac instanceof Number) || ((Number) ac).intValue() != above)
+                    || bc != null && (!(bc instanceof Number) || ((Number) bc).intValue() != below))
                 rep.error("DEPTH_SUMMARY", "above/below counts " + ac + "/" + bc + " but recomputed " + above + "/" + below, vid, String.valueOf(vm.summary.prop("id")));
             if (transitions == 0 && (vm.summary.prop("depth_transition_count") instanceof Number) && ((Number) vm.summary.prop("depth_transition_count")).intValue() != 0)
                 rep.error("DEPTH_SUMMARY", "depth_transition_count > 0 but no sloped feature exists", vid, String.valueOf(vm.summary.prop("id")));
@@ -131,6 +132,7 @@ final class DepthValidator {
 
     private void check(String name, double expected, double tol) {
         Object v = vm.summary.prop(name);
+        if (v == null) return; // Optional explanatory extensions, not mandatory Table 7 attributes.
         if (!(v instanceof Number)) { rep.error("DEPTH_SUMMARY", name + " missing in the depth summary", vid, String.valueOf(vm.summary.prop("id"))); return; }
         double d = ((Number) v).doubleValue();
         if (Math.abs(d - expected) > tol) rep.error("DEPTH_SUMMARY", String.format(java.util.Locale.ROOT, "%s = %.3f but recomputed %.3f", name, d, expected), vid, String.valueOf(vm.summary.prop("id")));

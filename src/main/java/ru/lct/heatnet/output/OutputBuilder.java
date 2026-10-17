@@ -39,6 +39,12 @@ public final class OutputBuilder {
         NodeRef(JsonId id, double[] wgs) { this.id = id; this.wgs = wgs; }
     }
 
+    /** Preserve measured flow across a capacity boundary; suppress only floating addition noise. */
+    private static double outputFlow(double flow) {
+        double rounded = round(flow, 3);
+        return Math.abs(flow - rounded) <= 4 * Math.ulp(flow) ? rounded : flow;
+    }
+
     public List<OutputFeature> build(VariantResult variant) {
         String vid = variant.variantId();
         NewNetwork net = variant.network();
@@ -107,7 +113,7 @@ public final class OutputBuilder {
                         .prop("variant_id", vid)
                         .prop("start_node_id", start.id.toJavaValue())
                         .prop("end_node_id", end.id.toJavaValue())
-                        .prop("flow_tph", round(link.flow(), 3))
+                        .prop("flow_tph", outputFlow(link.flow()))
                         .prop("diameter", link.du())
                         .prop("length", round(piece.length(), 3))
                         .prop("laying_method", piece.special() ? Constants.LAYING_SPECIAL : Constants.LAYING_BASE)

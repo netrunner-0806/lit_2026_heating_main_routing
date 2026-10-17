@@ -6,7 +6,7 @@
   const SCORE_DECIMALS = 4;
   const MAX_INPUT_PREVIEW_BYTES = 10 * 1024 * 1024;
   const fmtScore = (v) => fmtNum(v, SCORE_DECIMALS);
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmtBytes = (b) => b >= 1024 ** 3 ? fmtNum(b / 1024 ** 3, 2) + ' ГиБ' : b >= 1024 ** 2 ? fmtNum(b / 1024 ** 2, 1) + ' МиБ' : b >= 1024 ? fmtNum(b / 1024, 0) + ' КиБ' : b + ' Б';
   const fmtDuration = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -255,12 +255,12 @@
         return;
       }
       showPhase('busy', 'Получение результата', modeText);
-      setStatus(`Готово · ${j.variantCount} вариант(а) · режим ${modeText}`);
+      setStatus(`Готово · ${esc(j.variantCount)} вариант(а) · режим ${modeText}`);
       await loadResult(id, version);
       if (id !== currentJob || version !== jobVersion) return;
       setRunBusy(false);
       const secs = j.elapsedMs ? ' · ' + fmtNum(j.elapsedMs / 1000, 1) + ' с' : '';
-      showPhase('ok', 'Расчёт завершён', `${j.variantCount} вариант(а)${secs}`);
+      showPhase('ok', 'Расчёт завершён', `${esc(j.variantCount)} вариант(а)${secs}`);
       retryCount = 0;
       loadJobs();
     } catch (e) {
@@ -288,7 +288,7 @@
       ['Применено доп. правил', s.custom_rule_restrictions], ['Системы координат', s.crs]];
     const crs = String(s.crs || '').replace('EPSG:', '').replace(' -> ', ' → ').replace('EPSG:', '');
     $('diagLine').textContent = `${s.features} объектов · ${s.oks_points} ОКС · ${s.restrictions} ограничений · CRS ${crs}`;
-    $('diagnostics').innerHTML = '<table>' + rows.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('') + '</table>';
+    $('diagnostics').innerHTML = '<table>' + rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') + '</table>';
     const warns = (j.diagnostics || []).filter((d) => d.severity === 'WARNING');
     if (warns.length) $('diagnostics').innerHTML += `<details><summary>Предупреждения: ${warns.length}</summary>${warns.slice(0, 20).map((d) => `<div class="notes">${esc(d.code)}: ${esc(d.text)}</div>`).join('')}</details>`;
     $('diagCard').hidden = false;
@@ -333,7 +333,7 @@
     tabs.innerHTML = '';
     (res.variants || []).forEach((v) => {
       const b = document.createElement('button');
-      b.textContent = `${v.variantId} · место ${v.rank} · S ${fmtScore(v.score)}`;
+      b.textContent = `${esc(v.variantId)} · место ${esc(v.rank)} · S ${fmtScore(v.score)}`;
       b.addEventListener('click', () => showVariant(v.variantId));
       tabs.appendChild(b);
     });
@@ -362,7 +362,7 @@
     else if (warnings > 0) { cls = 'warn'; title = 'Валидатор: корректно, есть предупреждения'; }
     else { cls = 'valid'; title = 'Валидатор: корректно'; }
     b.className = 'badge ' + cls;
-    b.innerHTML = `<span class="big">${title}</span><span class="small">${checks.toLocaleString('ru-RU')} проверок · ошибок ${errors}${warnings ? ' · предупреждений ' + warnings : ''}</span>`;
+    b.innerHTML = `<span class="big">${title}</span><span class="small">${esc(checks.toLocaleString('ru-RU'))} проверок · ошибок ${esc(errors)}${warnings ? ' · предупреждений ' + esc(warnings) : ''}</span>`;
     b.hidden = false;
   }
 
@@ -428,20 +428,20 @@
         const color = byDepth ? depthColor(mid) : (special ? '#d000d0' : '#1d4ed8');
         const layer = L.geoJSON(f, { style: { color, weight: duWeight(p.diameter) + (special && byDepth ? 2 : 0), opacity: 0.95, dashArray: special && byDepth ? '8 4' : null } });
         layer.on('click', () => showFeature(p));
-        const depthTxt = p.depth_start != null ? ` · h ${fmtNum(p.depth_start, 2)}→${fmtNum(p.depth_end, 2)} м · Kгл ${p.k_depth}` : '';
-        layer.bindTooltip(`ДУ ${p.diameter} · ${fmtNum(p.flow_tph, 2)} т/ч · ${fmtNum(p.length, 1)} м${special ? ' · спецпроход K=' + p.k_spec : ''}${depthTxt}`, { sticky: true });
+        const depthTxt = p.depth_start != null ? ` · h ${fmtNum(p.depth_start, 2)}→${fmtNum(p.depth_end, 2)} м · Kгл ${esc(p.k_depth)}` : '';
+        layer.bindTooltip(`ДУ ${esc(p.diameter)} · ${fmtNum(p.flow_tph, 2)} т/ч · ${fmtNum(p.length, 1)} м${special ? ' · спецпроход K=' + esc(p.k_spec) : ''}${depthTxt}`, { sticky: true });
         groups.newNet.addLayer(layer);
       } else if (p.object_type === 'heat_chamber') {
         const [x, y] = f.geometry.coordinates;
         const m = L.circleMarker([y, x], { radius: 7, color: '#7a5c00', fillColor: '#facc15', fillOpacity: 1, weight: 2 });
         m.on('click', () => showFeature(p));
-        m.bindTooltip(`Новая камера ${p.id}: ДУ ${p.diameter}, ${fmtMoney(p.cost)}`);
+        m.bindTooltip(`Новая камера ${esc(p.id)}: ДУ ${esc(p.diameter)}, ${fmtMoney(p.cost)}`);
         groups.newChambers.addLayer(m);
       } else if (p.object_type === 'technical_node') {
         const [x, y] = f.geometry.coordinates;
         const m = L.circleMarker([y, x], { radius: 4, color: '#4c1d95', fillColor: '#7c3aed', fillOpacity: 1, weight: 1 });
         m.on('click', () => showFeature(p));
-        m.bindTooltip(`Технический узел ${p.id}`);
+        m.bindTooltip(`Технический узел ${esc(p.id)}`);
         groups.techNodes.addLayer(m);
       }
     });
@@ -463,7 +463,7 @@
   }
 
   function renderSummary(s, v) {
-    const kv = (k, val, wide) => `<div class="kv${wide ? ' wide' : ''}"><div class="k">${k}</div><div class="v">${val}</div></div>`;
+    const kv = (k, val, wide) => `<div class="kv${wide ? ' wide' : ''}"><div class="k">${k}</div><div class="v">${esc(val)}</div></div>`;
     const total = jobMeta && jobMeta.connectionPointCount != null ? jobMeta.connectionPointCount
       : (inputGeo ? inputGeo.features : []).filter((f) => f.properties.object_type === 'oks_connection_point').length;
     const connected = v.connectedOksCount ?? '—';
@@ -488,9 +488,9 @@
   function renderComparison(vid) {
     const vs = resultData.variants || [];
     if (vs.length < 2) { $('comparison').innerHTML = ''; return; }
-    const rows = vs.map((v) => `<tr class="${v.variantId === vid ? 'active' : ''}"><td>${v.variantId} · ${v.strategy}</td><td>${v.rank}</td><td>${fmtScore(v.score)}</td>` +
-      `<td>${fmtMoney(v.calculatedCost)}</td><td>${fmtNum(v.newNetworkLength, 1)}</td><td>${v.newChamberCount}</td><td>${v.existingChamberTieInCount}</td>` +
-      `<td>${v.connectedOksCount}</td><td>${fmtNum(v.sharedNetworkLength, 1)}</td><td>${v.rootCount}</td>${v.mode === 'depth' ? `<td>${fmtNum(v.maxDepth, 2)}</td>` : ''}</tr>`).join('');
+    const rows = vs.map((v) => `<tr class="${v.variantId === vid ? 'active' : ''}"><td>${esc(v.variantId)} · ${esc(v.strategy)}</td><td>${esc(v.rank)}</td><td>${fmtScore(v.score)}</td>` +
+      `<td>${fmtMoney(v.calculatedCost)}</td><td>${fmtNum(v.newNetworkLength, 1)}</td><td>${esc(v.newChamberCount)}</td><td>${esc(v.existingChamberTieInCount)}</td>` +
+      `<td>${esc(v.connectedOksCount)}</td><td>${fmtNum(v.sharedNetworkLength, 1)}</td><td>${esc(v.rootCount)}</td>${v.mode === 'depth' ? `<td>${fmtNum(v.maxDepth, 2)}</td>` : ''}</tr>`).join('');
     let html = `<table><tr><th>вариант</th><th>место</th><th>S</th><th>стоимость</th><th>длина, м</th><th>нов. камер</th><th>врезок</th><th>ОКС</th><th>общая, м</th><th>корней</th>${vs[0].mode === 'depth' ? '<th>макс. h</th>' : ''}</tr>${rows}</table>`;
     const cur = vs.find((v) => v.variantId === vid);
     if (cur && cur.diffVsBest) html += `<div class="diff">${esc(cur.diffVsBest.text)}</div>`;
@@ -507,10 +507,10 @@
     const errors = issues.filter((i) => i.severity === 'ERROR'), warnings = issues.filter((i) => i.severity === 'WARNING');
     const total = Object.values(val.checks || {}).reduce((a, b) => a + b, 0);
     let html = errors.length ? `<span class="bad">Валидатор: ${errors.length} ошибок</span>` : `<span class="ok">Валидатор: ошибок нет</span>`;
-    html += ` · проверок: ${total}` + (warnings.length ? `, предупреждений ${warnings.length}` : '');
+    html += ` · проверок: ${esc(total)}` + (warnings.length ? `, предупреждений ${warnings.length}` : '');
     const grouped = GROUPS.map(([name, test]) => [name, Object.entries(val.checks || {}).filter(([k]) => test(k)).reduce((a, [, v]) => a + v, 0)]).filter(([, n]) => n > 0);
-    html += `<details><summary>по группам проверок</summary><div class="groups">${grouped.map(([n, c]) => `<span>${n}</span><span>${c}</span>`).join('')}</div></details>`;
-    if (issues.length) html += '<ul>' + issues.slice(0, 50).map((i) => `<li><b>${i.severity}</b> ${esc(i.code)}: ${esc(i.message)}</li>`).join('') + '</ul>';
+    html += `<details><summary>по группам проверок</summary><div class="groups">${grouped.map(([n, c]) => `<span>${esc(n)}</span><span>${esc(c)}</span>`).join('')}</div></details>`;
+    if (issues.length) html += '<ul>' + issues.slice(0, 50).map((i) => `<li><b>${esc(i.severity)}</b> ${esc(i.code)}: ${esc(i.message)}</li>`).join('') + '</ul>';
     $('validation').innerHTML = html;
   }
 
@@ -522,7 +522,7 @@
       if (k === 'cost') val = fmtMoney(v);
       else if (Array.isArray(v)) val = v.join(', ') || '—';
       else if (v == null) val = 'null';
-      return `<tr><td>${k}</td><td>${esc(val)}</td></tr>`;
+      return `<tr><td>${esc(k)}</td><td>${esc(val)}</td></tr>`;
     }).join('');
     $('feature').innerHTML = `<table>${rows}</table>`;
     const ins = $('inspector');
@@ -535,10 +535,10 @@
           ${utility ? `<div>Коммуникация: верх ${fmtNum(c.utility_top, 2)} м · низ ${fmtNum(c.utility_bottom, 2)} м</div>` : `<div>Требуемое заглубление: ≥ ${fmtNum(c.required_min_depth, 2)} м</div>`}
           <div>Новая сеть: верх ${fmtNum(c.new_top, 2)} м · низ ${fmtNum(c.new_bottom, 2)} м (H ${fmtNum(c.new_height, 3)} м)</div>
           ${utility ? `<div>Требуемый просвет: ${fmtNum(c.required_clearance, 2)} м · фактический: ${fmtNum(c.actual_clearance, 2)} м</div>` : `<div>Фактическая глубина: ${fmtNum(c.actual_depth, 2)} м</div>`}
-          <div>Статус: <span class="st ${ok ? 'ok' : 'bad'}">${ok ? 'соответствует' : 'нарушение'}</span> · Kспец ${c.k_spec} · Kгл ${p.k_depth} · ${fmtMoney(p.cost)}</div></div>`;
+          <div>Статус: <span class="st ${ok ? 'ok' : 'bad'}">${ok ? 'соответствует' : 'нарушение'}</span> · Kспец ${esc(c.k_spec)} · Kгл ${esc(p.k_depth)} · ${fmtMoney(p.cost)}</div></div>`;
       }).join('');
     } else if (p.object_type === 'heat_network' && p.depth_start != null) {
-      ins.innerHTML = `<div class="cross">Глубина ${fmtNum(p.depth_start, 2)} → ${fmtNum(p.depth_end, 2)} м · уклон ${p.slope} · Kгл ${p.k_depth}${p.laying_method === 'special' ? ' · Kспец ' + p.k_spec : ''}</div>`;
+      ins.innerHTML = `<div class="cross">Глубина ${fmtNum(p.depth_start, 2)} → ${fmtNum(p.depth_end, 2)} м · уклон ${esc(p.slope)} · Kгл ${esc(p.k_depth)}${p.laying_method === 'special' ? ' · Kспец ' + esc(p.k_spec) : ''}</div>`;
     } else ins.innerHTML = '';
   }
 
@@ -600,14 +600,14 @@
     svg += `<line x1="${L}" y1="${Y(3)}" x2="${W - R}" y2="${Y(3)}" stroke="#94a3b8" stroke-dasharray="4 3"/><text x="${W - R - 2}" y="${Y(3) - 3}" font-size="9" text-anchor="end" fill="#64748b">обычная глубина 3,0 м</text>`;
     // crossings: utilities and road/tram zones
     segs.forEach((g) => (g.p.crossings || []).forEach((c) => {
-      if (c.utility_top != null) svg += `<rect x="${X(g.s0)}" y="${Y(c.utility_top)}" width="${Math.max(2, X(g.s1) - X(g.s0))}" height="${Math.max(2, Y(c.utility_bottom) - Y(c.utility_top))}" fill="${RESTRICTION_COLORS[c.type] || '#999'}" opacity="0.8"><title>${esc(c.object)} ${c.utility_top}–${c.utility_bottom} м</title></rect>`;
-      else svg += `<rect x="${X(g.s0)}" y="${Y(0)}" width="${Math.max(2, X(g.s1) - X(g.s0))}" height="${Y(c.required_min_depth) - Y(0)}" fill="${RESTRICTION_COLORS[c.type] || '#e9c46a'}" opacity="0.5"><title>${esc(c.object)}: cover ≥ ${c.required_min_depth} м</title></rect>`;
+      if (c.utility_top != null) svg += `<rect x="${X(g.s0)}" y="${Y(c.utility_top)}" width="${Math.max(2, X(g.s1) - X(g.s0))}" height="${Math.max(2, Y(c.utility_bottom) - Y(c.utility_top))}" fill="${RESTRICTION_COLORS[c.type] || '#999'}" opacity="0.8"><title>${esc(c.object)} ${esc(c.utility_top)}–${esc(c.utility_bottom)} м</title></rect>`;
+      else svg += `<rect x="${X(g.s0)}" y="${Y(0)}" width="${Math.max(2, X(g.s1) - X(g.s0))}" height="${Y(c.required_min_depth) - Y(0)}" fill="${RESTRICTION_COLORS[c.type] || '#e9c46a'}" opacity="0.5"><title>${esc(c.object)}: cover ≥ ${esc(c.required_min_depth)} м</title></rect>`;
     }));
     // network top (and bottom)
     const top = segs.map((g) => `${X(g.s0)},${Y(g.d0)} ${X(g.s1)},${Y(g.d1)}`).join(' ');
     const bottom = segs.map((g) => `${X(g.s0)},${Y(g.d0 + heightOf(g.p.diameter))} ${X(g.s1)},${Y(g.d1 + heightOf(g.p.diameter))}`).join(' ');
     svg += `<polyline points="${bottom}" fill="none" stroke="#93c5fd" stroke-width="1.5"/><polyline points="${top}" fill="none" stroke="#1d4ed8" stroke-width="2.5"/>`;
-    segs.forEach((g) => { if (Math.abs(g.d1 - g.d0) > 1e-6) svg += `<line x1="${X(g.s0)}" y1="${Y(g.d0)}" x2="${X(g.s1)}" y2="${Y(g.d1)}" stroke="#f59e0b" stroke-width="3"><title>уклон ${g.p.slope}</title></line>`; });
+    segs.forEach((g) => { if (Math.abs(g.d1 - g.d0) > 1e-6) svg += `<line x1="${X(g.s0)}" y1="${Y(g.d0)}" x2="${X(g.s1)}" y2="${Y(g.d1)}" stroke="#f59e0b" stroke-width="3"><title>уклон ${esc(g.p.slope)}</title></line>`; });
     // nodes
     segs.forEach((g, i) => {
       const n = idx.nodes[g.toNode];
@@ -648,7 +648,7 @@
     const planarGeo = jobMeta.mode === 'DEPTH' ? geo : resultGeo, depthGeo = jobMeta.mode === 'DEPTH' ? resultGeo : geo;
     const crossingsByType = (g, vid) => { const m = {}; g.features.filter((f) => String(f.properties.variant_id) === vid && f.properties.object_type === 'heat_network' && f.properties.laying_method === 'special').forEach((f) => (f.properties.crossed_restrictions || []).forEach((c) => { const t = String(c).split('#')[0]; m[t] = (m[t] || 0) + 1; })); return m; };
     const pc = crossingsByType(planarGeo, planar.variantId), dc = crossingsByType(depthGeo, depthV.variantId);
-    const row = (k, a, b) => `<tr><td>${k}</td><td>${a}</td><td>${b}</td></tr>`;
+    const row = (k, a, b) => `<tr><td>${esc(k)}</td><td>${esc(a)}</td><td>${esc(b)}</td></tr>`;
     let html = `<table><tr><th></th><th>2D, лучший</th><th>с глубиной, лучший</th></tr>` +
       row('Стоимость', fmtMoney(planar.calculatedCost), fmtMoney(depthV.calculatedCost)) + row('Длина', fmtNum(planar.newNetworkLength, 1) + ' м', fmtNum(depthV.newNetworkLength, 1) + ' м') +
       row('S', fmtScore(planar.score), fmtScore(depthV.score)) + row('Новые камеры', planar.newChamberCount, depthV.newChamberCount) +
@@ -683,7 +683,7 @@
     const counts = {};
     decs.forEach((d) => (counts[d.type] = (counts[d.type] || 0) + 1));
     const order = ['VARIANT_RANKED', 'TIE_IN_SELECTED', 'ROUTE_SELECTED', 'CHAMBER_CREATED', 'ROUTE_REJECTED', 'DEPTH_BELOW_SELECTED', 'DEPTH_ABOVE_SELECTED', 'DEPTH_UNDER_SELECTED', 'DIAMETER_SELECTED'];
-    let html = `<div class="notes">${Object.entries(counts).map(([k, n]) => `${k}: ${n}`).join(' · ')}</div>`;
+    let html = `<div class="notes">${Object.entries(counts).map(([k, n]) => `${esc(k)}: ${n}`).join(' · ')}</div>`;
     order.forEach((type) => {
       const items = decs.filter((d) => d.type === type);
       if (!items.length) return;
@@ -708,7 +708,7 @@
     const ranked = decs.find((d) => d.type === 'VARIANT_RANKED');
     if (ranked) {
       const i = ranked.inputs || {};
-      lines.push(`<b>Вариант ${esc(vid)}</b>: место ${esc(String(ranked.decision).replace(/^.*rank\s*/, ''))} по score ${fmtScore(i.score)}, стратегия ${esc(i.strategy || '—')}${i.candidates_total ? ` (из ${i.candidates_total} построенных вариантов)` : ''}.`);
+      lines.push(`<b>Вариант ${esc(vid)}</b>: место ${esc(String(ranked.decision).replace(/^.*rank\s*/, ''))} по score ${fmtScore(i.score)}, стратегия ${esc(i.strategy || '—')}${i.candidates_total ? ` (из ${esc(i.candidates_total)} построенных вариантов)` : ''}.`);
     }
     // the final attachment of every point (the improvement pass may re-attach a point: keep the last decision)
     const last = new Map();
@@ -718,13 +718,13 @@
       const how = d.type === 'TIE_IN_SELECTED' ? `врезка: ${ru(d.decision)}` : `подключение к новой сети (${ru(d.decision)})`;
       const extra = [i.route_length_m != null ? `маршрут ${fmtNum(i.route_length_m, 1)} м` : null, i.special_passages ? `спецпроходов ${i.special_passages}` : null,
         i.boundary_point === 'next feasible' ? 'выход через следующую допустимую точку границы' : null].filter(Boolean).join(', ');
-      lines.push(`ОКС <b>${esc(d.objectId)}</b> → ${how}${extra ? ` — ${extra}` : ''}.`);
+      lines.push(`ОКС <b>${esc(d.objectId)}</b> → ${esc(how)}${extra ? ` — ${esc(extra)}` : ''}.`);
     });
     if (last.size) lines.push(`Для каждой точки выбран кандидат присоединения с минимальным приростом score среди оценённых (существующие камеры, новые камеры на линии, развилки на построенной сети).`);
     decs.filter((d) => d.type === 'ROUTE_REJECTED' && d.decision === 'unconnected').forEach((d) => lines.push(`ОКС <b>${esc(d.objectId)}</b> не подключён: ${esc(d.reason)}.`));
     const vs = ((resultData && resultData.variants) || []).find((x) => x.variantId === vid) || {};
     const chambers = vs.newChamberCount != null ? vs.newChamberCount : decs.filter((d) => d.type === 'CHAMBER_CREATED').length;
-    if (chambers) lines.push(`Новых камер: ${chambers} — развилка допускается только в камере; врезка в существующую камеру делается, если она есть в 10 м и имеет свободное примыкание.`);
+    if (chambers) lines.push(`Новых камер: ${esc(chambers)} — развилка допускается только в камере; врезка в существующую камеру делается, если она есть в 10 м и имеет свободное примыкание.`);
     const dus = decs.filter((d) => d.type === 'DIAMETER_SELECTED');
     if (dus.length) {
       const byFlow = dus.filter((d) => /^minimum DU/.test(d.reason || '')).length;
@@ -742,7 +742,7 @@
   async function loadJobs() {
     try {
       const jobs = await fetch('/api/v1/jobs').then((r) => r.json());
-      $('jobs').innerHTML = jobs.slice(0, 10).map((j) => `<div class="job" tabindex="0" role="button" data-id="${esc(j.id)}"><div>${esc(j.originalFilename || '—')} · ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'} · ${j.status === 'DONE' ? `вариантов ${j.variantCount}` : j.status}</div><div class="id">${new Date(j.createdAt).toLocaleString('ru-RU')}</div></div>`).join('') || '<span class="muted">пока нет</span>';
+      $('jobs').innerHTML = jobs.slice(0, 10).map((j) => `<div class="job" tabindex="0" role="button" data-id="${esc(j.id)}"><div>${esc(j.originalFilename || '—')} · ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'} · ${j.status === 'DONE' ? `вариантов ${esc(j.variantCount)}` : esc(j.status)}</div><div class="id">${new Date(j.createdAt).toLocaleString('ru-RU')}</div></div>`).join('') || '<span class="muted">пока нет</span>';
       $('jobs').querySelectorAll('.job').forEach((el) => {
         el.addEventListener('click', () => openJob(el.dataset.id));
         el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openJob(el.dataset.id); } });

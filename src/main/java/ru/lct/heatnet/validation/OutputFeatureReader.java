@@ -43,6 +43,23 @@ public final class OutputFeatureReader {
         return out;
     }
 
+    /** HTTP analyses retain the result model; bound its raw representation before Jackson allocates it.
+     * This is a resource limit, not an input-file/upload size limit. */
+    public List<OutputFeature> readBounded(InputStream in, long byteLimit) throws IOException {
+        if (byteLimit<=0) throw new IllegalArgumentException("positive result analysis budget required");
+        return read(new java.io.FilterInputStream(in) {
+            long count;
+            private void charge(int n) {
+                if(n>0 && (count+=n)>byteLimit)
+                    throw new ru.lct.heatnet.routing.ComplexityLimitException("HTTP result analysis exceeds " + byteLimit + " input bytes; download remains available");
+            }
+            @Override public int read() throws IOException {int n=in.read();charge(n<0?0:1);return n;}
+            @Override public int read(byte[] b,int off,int len) throws IOException {
+                int n=in.read(b,off,(int)Math.min(len,Math.max(1,byteLimit-count+1)));charge(n);return n;
+            }
+        });
+    }
+
     private static OutputFeature convert(JsonNode feature) {
         JsonNode geom = feature.get("geometry");
         OutputFeature of;
