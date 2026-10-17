@@ -37,6 +37,7 @@ venv/
 *.key
 *.p12
 *.pfx
+/heatnet_deploy
 
 # Local application storage (includes upload sessions and chunks)
 /data/jobs/
@@ -44,6 +45,7 @@ venv/
 /logs/
 
 # Local environment and IDE
+.claude/
 .idea/
 .vscode/
 *.iml

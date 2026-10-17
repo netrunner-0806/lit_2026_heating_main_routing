@@ -7,10 +7,15 @@
   const MAX_INPUT_PREVIEW_BYTES = 10 * 1024 * 1024;
   const fmtScore = (v) => fmtNum(v, SCORE_DECIMALS);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtBytes = (b) => b >= 1024 ** 3 ? fmtNum(b / 1024 ** 3, 2) + ' ГиБ' : b >= 1024 ** 2 ? fmtNum(b / 1024 ** 2, 1) + ' МиБ' : b >= 1024 ? fmtNum(b / 1024, 0) + ' КиБ' : b + ' Б';
+  const fmtDuration = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
   // ---- map (Leaflet, OpenStreetMap Standard basemap with visible attribution) ----
   const OSM_TILES = { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors', maxZoom: 19 };
   const map = L.map('map', { preferCanvas: true, attributionControl: true }).setView([55.75, 37.62], 13);
+  // no library prefix in the attribution (Leaflet's default one also carries an inline flag image); the
+  // OpenStreetMap copyright notice of the tile layer below stays in the attribution control
+  if (map.attributionControl) map.attributionControl.setPrefix(false);
   const osm = L.tileLayer(OSM_TILES.url, { maxZoom: OSM_TILES.maxZoom, attribution: OSM_TILES.attribution }).addTo(map);
   $('basemap').addEventListener('change', (e) => (e.target.checked ? osm.addTo(map) : map.removeLayer(osm)));
 
@@ -26,34 +31,37 @@
     { key: 'techNodes', name: 'Технические узлы', color: '#7c3aed' },
   ];
   const groups = {};
+  // the side panel list and the map legend toggle the same layer groups and mirror each other
+  function setLayerVisible(key, visible, origin) {
+    visible ? groups[key].addTo(map) : map.removeLayer(groups[key]);
+    if (origin !== 'panel') { const side = document.querySelector(`#layers input[data-layer="${key}"]`); if (side) side.checked = visible; }
+    if (origin !== 'legend') { const leg = document.querySelector(`.legend input[data-legend="${key}"]`); if (leg) leg.checked = visible; }
+  }
   layerDefs.forEach((d) => {
     groups[d.key] = L.layerGroup().addTo(map);
     const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" checked data-layer="${d.key}"> <span class="sw" style="background:${d.color}"></span>${d.name}`;
-    label.querySelector('input').addEventListener('change', (e) => (e.target.checked ? groups[d.key].addTo(map) : map.removeLayer(groups[d.key])));
+    label.innerHTML = `<input type="checkbox" checked data-layer="${d.key}"><span class="sw" style="background:${d.color}"></span><span class="name">${d.name}</span>`;
+    label.querySelector('input').addEventListener('change', (e) => setLayerVisible(d.key, e.target.checked, 'panel'));
     $('layers').appendChild(label);
   });
   const legend = L.control({ position: 'bottomright' });
   legend.onAdd = () => {
     const div = L.DomUtil.create('div', 'legend');
     const rows = [
-      ['existing', '<span class="sw" style="border-color:#d62828"></span>Existing heat network'],
-      ['newNet', '<span class="sw" style="border-color:#1d4ed8"></span>Generated heat network'],
-      ['newNet', '<span class="sw" style="border-color:#d000d0"></span>Special passages', 'special'],
-      ['points', '<span class="dot" style="background:#2a9d8f;border-color:#1b4332"></span>OKS connection points'],
-      ['chambers', '<span class="dot" style="background:#fff;border-color:#000"></span>Existing chambers'],
-      ['newChambers', '<span class="dot" style="background:#facc15;border-color:#7a5c00"></span>New chambers'],
-      ['techNodes', '<span class="dot" style="background:#7c3aed;border-color:#4c1d95;width:8px;height:8px"></span>Technical nodes'],
-      ['restrictions', '<span class="box" style="background:#8d99ae"></span>Restrictions (oks / water / railway / road…)'],
+      ['existing', '<span class="sw" style="border-color:#d62828"></span>Существующая сеть'],
+      ['newNet', '<span class="sw" style="border-color:#1d4ed8"></span>Новая сеть'],
+      ['newNet', '<span class="sw" style="border-color:#d000d0"></span>Спецпроходы', 'special'],
+      ['points', '<span class="dot" style="background:#2a9d8f;border-color:#1b4332"></span>Точки подключения ОКС'],
+      ['chambers', '<span class="dot" style="background:#fff;border-color:#000"></span>Существующие камеры'],
+      ['newChambers', '<span class="dot" style="background:#facc15;border-color:#7a5c00"></span>Новые камеры'],
+      ['techNodes', '<span class="dot" style="background:#7c3aed;border-color:#4c1d95;width:8px;height:8px"></span>Технические узлы'],
+      ['restrictions', '<span class="box" style="background:#8d99ae"></span>Ограничения'],
     ];
-    div.innerHTML = '<h4>Legend</h4>' + rows.map((r) => r[2] === 'special' ? `<label>${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}"> ${r[1]}</label>`).join('');
+    // collapsed on narrow windows so that it does not cover the map; one click opens it
+    const wide = typeof window === 'undefined' || !window.innerWidth || window.innerWidth > 820;
+    div.innerHTML = `<details${wide ? ' open' : ''}><summary>Легенда</summary>` + '<div class="rows">' + rows.map((r) => r[2] === 'special' ? `<label class="plain">${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}">${r[1]}</label>`).join('') + '</div></details>';
     L.DomEvent.disableClickPropagation(div);
-    div.querySelectorAll('input[data-legend]').forEach((cb) => cb.addEventListener('change', (e) => {
-      const k = e.target.dataset.legend;
-      e.target.checked ? groups[k].addTo(map) : map.removeLayer(groups[k]);
-      const side = document.querySelector(`#layers input[data-layer="${k}"]`);
-      if (side) side.checked = e.target.checked;
-    }));
+    div.querySelectorAll('input[data-legend]').forEach((cb) => cb.addEventListener('change', (e) => setLayerVisible(e.target.dataset.legend, e.target.checked, 'legend')));
     return div;
   };
   legend.addTo(map);
@@ -63,26 +71,75 @@
   let currentJob = null, jobMeta = null, resultData = null, resultGeo = null, inputGeo = null, currentVariant = null, pollTimer = null;
   let reference = null, explainData = null, otherMode = null;
   let jobVersion = 0, retryCount = 0;
-  const STAGES = ['Parsing input', 'Building routing graph', 'Generating variants · flows · DU · depth profiles · cost', 'Validating', 'Done'];
+  const RUN_LABEL = 'Загрузить и рассчитать', RESUME_LABEL = 'Продолжить загрузку';
 
-  $('modeSwitch').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-    mode = b.dataset.mode;
-    $('modeSwitch').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
-  }));
+  function setMode(m) {
+    mode = m;
+    $('modeSwitch').querySelectorAll('button').forEach((x) => {
+      const on = x.dataset.mode === m;
+      x.classList.toggle('active', on);
+      if (x.setAttribute) x.setAttribute('aria-pressed', String(on));
+    });
+  }
+  $('modeSwitch').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
-  function setStatus(text, isError) { const s = $('status'); s.textContent = text; s.className = 'status' + (isError ? ' error' : ''); }
+  // ---- input file chooser ----
+  function setFileState(state, metaText) {
+    const box = $('fileBox'), f = $('file').files && $('file').files[0];
+    box.dataset.state = state;
+    $('fileName').textContent = f ? f.name : 'Файл не выбран';
+    $('fileMeta').textContent = metaText || (f ? fmtBytes(f.size) + (f.lastModified ? ' · изменён ' + new Date(f.lastModified).toLocaleString('ru-RU') : '') : 'GeoJSON FeatureCollection, WGS84 · до 3 ГиБ');
+    $('fileClear').hidden = !f || state === 'busy';
+    $('file').disabled = state === 'busy';
+  }
+  $('file').addEventListener('change', () => { setFileState($('file').files[0] ? 'selected' : 'empty'); });
+  $('fileClear').addEventListener('click', () => { $('file').value = ''; setFileState('empty'); });
 
+  // ---- run status: factual phases only (upload progress from XHR, calculation stage from the job status) ----
+  /** kind: busy (indeterminate) | progress (percent known) | ok | error | paused | idle */
+  function showPhase(kind, title, value, percent) {
+    const box = $('runStatus');
+    box.hidden = false;
+    box.dataset.kind = kind;
+    $('rsTitle').textContent = title || '';
+    $('rsValue').textContent = value || '';
+    const bar = $('rsBar');
+    bar.hidden = kind !== 'busy' && kind !== 'progress';
+    bar.classList.toggle('indeterminate', kind === 'busy');
+    const fill = $('rsFill');
+    if (fill.style) fill.style.width = kind === 'progress' ? Math.max(0, Math.min(100, percent)) + '%' : '';
+  }
+  function setStatus(text, isError) {
+    const s = $('status'); s.textContent = text; s.className = 'status' + (isError ? ' error' : '');
+    if (text) $('runStatus').hidden = false;
+  }
+  function setRunBusy(busy, label) {
+    const b = $('run');
+    b.disabled = busy;
+    b.classList.toggle('is-busy', busy);
+    b.textContent = label || (busy ? 'Выполняется…' : RUN_LABEL);
+    setFileState(busy ? 'busy' : ($('file').files && $('file').files[0] ? 'selected' : 'empty'));
+  }
+
+  // backend progress strings (JobRunner): queued -> Building routing graph -> Generating ...: strategy X -> Validating -> Done
+  const STAGES = ['Разбор входного файла', 'Построение графа маршрутов', 'Подбор вариантов, расходов и ДУ', 'Проверка вариантов валидатором'];
+  function stageOf(progress) {
+    const p = String(progress || '').toLowerCase();
+    if (p.startsWith('building')) return 1;
+    if (p.startsWith('generating')) return 2;
+    if (p.startsWith('validating')) return 3;
+    return 0;
+  }
   function renderStages(progress, status) {
     const box = $('stages');
-    if (!progress) { box.hidden = true; return; }
-    let cur = 0;
-    const p = progress.toLowerCase();
-    if (p.startsWith('parsing')) cur = 0; else if (p.startsWith('building')) cur = 1; else if (p.startsWith('generating')) cur = 2; else if (p.startsWith('validating')) cur = 3; else if (p.startsWith('done')) cur = 4;
+    if (!progress || status !== 'RUNNING') { box.hidden = true; return; }
+    const cur = stageOf(progress);
     const depth = (jobMeta && jobMeta.mode === 'DEPTH') || mode === 'DEPTH';
+    const strategy = cur === 2 ? String(progress).replace(/^[^:]*:\s*/, '').replace(/^strategy\s+/i, '') : '';
     box.innerHTML = STAGES.map((s, i) => {
-      if (i === 2 && !depth) s = 'Generating variants · flows · DU · cost';
-      const cls = i < cur || status === 'DONE' ? 'done' : i === cur ? 'current' : 'pending';
-      return `<div class="stage ${cls}">${s}${i === cur && status !== 'DONE' ? ' — ' + esc(progress.replace(/^[^:]*:\s*/, '')) : ''}</div>`;
+      if (i === 2 && depth) s = 'Подбор вариантов, расходов, ДУ и профилей глубины';
+      const cls = i < cur ? 'done' : i === cur ? 'current' : 'pending';
+      return `<div class="stage ${cls}"><span>${s}${i === cur && strategy ? ` <span class="sub">· стратегия ${esc(strategy)}</span>` : ''}</span></div>`;
     }).join('');
     box.hidden = false;
   }
@@ -90,18 +147,24 @@
   const uploader = new HeatnetUpload((p) => {
     $('uploadPanel').hidden = false;
     const percent = p.totalBytes ? 100 * p.sentBytes / p.totalBytes : 0;
-    $('uploadProgress').value = percent;
-    $('uploadStatus').textContent = `${fmtNum(percent, 1)}% · ${fmtNum(p.sentBytes / 1024 ** 2, 1)} / ${fmtNum(p.totalBytes / 1024 ** 2, 1)} МиБ. ${p.message}`;
+    const amount = p.totalBytes ? `${fmtBytes(p.sentBytes)} из ${fmtBytes(p.totalBytes)}` : '';
+    if (p.state === 'UPLOADING') showPhase('progress', 'Отправка файла', `${fmtNum(percent, 1)}% · ${amount}`, percent);
+    else if (p.state === 'VERIFYING') { const sent = p.totalBytes && p.sentBytes >= p.totalBytes; showPhase('busy', sent ? 'Проверка целостности на сервере' : 'Подготовка файла', sent ? amount : p.totalBytes ? fmtBytes(p.totalBytes) : ''); }
+    else if (p.state === 'RETRYING') showPhase('busy', 'Повтор передачи', amount);
+    else if (p.state === 'PAUSED') showPhase('paused', 'Загрузка остановлена', amount);
+    else if (p.state === 'COMPLETE') showPhase('busy', 'Файл принят', 'создаётся задание');
+    else if (p.state === 'CANCELLED') showPhase('idle', 'Загрузка отменена', '');
+    $('uploadStatus').textContent = p.message || '';
     $('pauseUpload').disabled = p.state === 'PAUSED' || p.state === 'COMPLETE' || p.state === 'CANCELLED';
-    if (p.state === 'PAUSED') { $('run').disabled = false; $('run').textContent = 'Продолжить загрузку'; }
-    if (p.state === 'COMPLETE' || p.state === 'CANCELLED') $('cancelUpload').disabled = true;
+    if (p.state === 'PAUSED') setRunBusy(false, RESUME_LABEL);
+    if (p.state === 'COMPLETE' || p.state === 'CANCELLED') { $('cancelUpload').disabled = true; $('uploadPanel').hidden = true; }
   });
   if (uploader.saved) {
     $('uploadPanel').hidden = false;
-    $('uploadStatus').textContent = 'Незавершённая загрузка: ' + uploader.saved.file.name + '. Выберите тот же файл для продолжения.';
-    $('run').textContent = 'Продолжить загрузку';
-    mode = uploader.saved.request.mode;
-    $('modeSwitch').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+    showPhase('paused', 'Незавершённая загрузка', uploader.saved.file.name);
+    $('uploadStatus').textContent = 'Выберите тот же файл (' + uploader.saved.file.name + ') для продолжения или отмените загрузку.';
+    $('run').textContent = RESUME_LABEL;
+    setMode(uploader.saved.request.mode);
     $('policy').value = uploader.saved.request.unknownRestrictionPolicy;
     $('maxVariants').value = uploader.saved.request.maxVariants;
   }
@@ -109,45 +172,58 @@
   $('cancelUpload').addEventListener('click', async () => {
     $('run').disabled = true; $('cancelUpload').disabled = true;
     try {
-      await uploader.cancel(); $('run').disabled = false; $('run').textContent = 'Загрузить и рассчитать';
-    } catch (e) { $('uploadStatus').textContent = e.message; $('cancelUpload').disabled = false; }
-    finally { $('run').disabled = false; }
+      await uploader.cancel(); setRunBusy(false);
+    } catch (e) { $('uploadStatus').textContent = e.message; $('cancelUpload').disabled = false; setRunBusy(false, RESUME_LABEL); }
   });
   $('run').addEventListener('click', async () => {
     const f = $('file').files[0];
-    if (!f) { setStatus('Выберите файл GeoJSON', true); return; }
-    $('run').disabled = true;
+    if (!f) {
+      setFileState('error', 'Выберите входной GeoJSON для расчёта');
+      showPhase('error', 'Файл не выбран', '');
+      setStatus('Выберите файл GeoJSON', true);
+      return;
+    }
+    setRunBusy(true);
     $('cancelUpload').disabled = false;
     $('stages').hidden = true;
     setStatus('Расчёт начнётся после полной загрузки и проверки файла');
     try {
       const id = await uploader.start(f, { mode, unknownRestrictionPolicy: $('policy').value, maxVariants: Number($('maxVariants').value) });
-      $('run').textContent = 'Загрузить и рассчитать'; openJob(id);
-    } catch (e) { setStatus('Ошибка: ' + e.message, true); $('run').disabled = false; }
+      openJob(id, true);
+    } catch (e) {
+      setStatus('Ошибка: ' + e.message, true);
+      if (!uploader.saved) { showPhase('error', 'Файл не передан', ''); setFileState('error', e.message); setRunBusy(false); }
+      else { setRunBusy(false, RESUME_LABEL); setFileState('selected'); }
+    }
   });
 
   $('rerunOther').addEventListener('click', async () => {
     if (!currentJob || !jobMeta) return;
     const other = jobMeta.mode === 'DEPTH' ? 'PLANAR' : 'DEPTH';
-    $('run').disabled = true;
-    const r = await fetch('/api/v1/jobs/' + currentJob + '/rerun?mode=' + other, { method: 'POST' });
-    const j = await r.json();
-    if (!r.ok) { setStatus('Ошибка: ' + (j.message || r.statusText), true); $('run').disabled = false; return; }
-    openJob(j.id);
+    setRunBusy(true);
+    showPhase('busy', 'Запуск расчёта', other === 'DEPTH' ? 'с учётом глубины' : '2D');
+    setStatus('');
+    try {
+      const r = await fetch('/api/v1/jobs/' + currentJob + '/rerun?mode=' + other, { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || j.error || 'HTTP ' + r.status);
+      openJob(j.id, true);
+    } catch (e) { showPhase('error', 'Расчёт не запущен', ''); setStatus('Ошибка: ' + e.message, true); setRunBusy(false); }
   });
 
-  async function openJob(id) {
+  async function openJob(id, own) {
     currentJob = id;
     const version = ++jobVersion;
     clearTimeout(pollTimer);
     ['resultCard', 'profileCard', 'explainCard', 'modeCompareCard', 'featureCard', 'techCard'].forEach((id) => { $(id).hidden = true; if ($(id).tagName === 'DETAILS') $(id).open = false; });
     retryCount = 0;
+    if (!own) showPhase('busy', 'Загрузка задания', String(id).slice(0, 8));
     poll(id, version);
   }
 
   async function fetchJson(url) {
     const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!r.ok) { const e = new Error(`HTTP ${r.status}`); e.status = r.status; throw e; }
     return r.status === 204 ? null : r.json();
   }
 
@@ -156,33 +232,47 @@
       const j = await fetchJson('/api/v1/jobs/' + id);
       if (id !== currentJob || version !== jobVersion) return;
       jobMeta = j;
-      if (j.mode && j.mode !== mode) { // the switch reflects the mode of the job being shown
-        mode = j.mode;
-        $('modeSwitch').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.dataset.mode === mode));
-      }
+      if (j.mode && j.mode !== mode) setMode(j.mode); // the switch reflects the mode of the job being shown
+      const modeText = j.mode === 'DEPTH' ? 'с учётом глубины' : '2D';
       renderStages(j.progress, j.status);
       if (j.status === 'QUEUED' || j.status === 'RUNNING') {
-        setStatus(`Задание ${j.id.slice(0, 8)}… ${j.status} · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
+        if (j.status === 'QUEUED') showPhase('busy', 'В очереди на расчёт', modeText);
+        else {
+          const started = j.startedAt ? Date.parse(j.startedAt) : NaN;
+          showPhase('busy', 'Расчёт выполняется…', Number.isFinite(started) ? 'идёт ' + fmtDuration(Date.now() - started) : modeText);
+        }
+        setStatus(`Задание ${j.id.slice(0, 8)} · режим ${modeText}. Процент выполнения сервер не сообщает; этап обновляется по мере расчёта.`);
         retryCount = 0;
         pollTimer = setTimeout(() => poll(id, version), 1500);
         return;
       }
-      $('run').disabled = false;
-      $('stages').hidden = true; // progress is shown only while the calculation runs
       renderDiagnostics(j);
       if (j.status === 'FAILED') {
-        setStatus('Ошибка расчёта: ' + (j.error || '') + '\n' + (j.diagnostics || []).filter((d) => d.severity !== 'INFO').map((d) => `${d.severity} ${d.code}: ${d.text}`).join('\n'), true);
+        setRunBusy(false);
+        showPhase('error', 'Ошибка расчёта', modeText);
+        setStatus((j.error || 'Расчёт завершился с ошибкой') + '\n' + (j.diagnostics || []).filter((d) => d.severity !== 'INFO').map((d) => `${d.severity} ${d.code}: ${d.text}`).join('\n'), true);
         loadJobs();
         return;
       }
-      setStatus(`Готово · ${j.variantCount} вариант(а) · режим ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'}`);
+      showPhase('busy', 'Получение результата', modeText);
+      setStatus(`Готово · ${j.variantCount} вариант(а) · режим ${modeText}`);
       await loadResult(id, version);
       if (id !== currentJob || version !== jobVersion) return;
+      setRunBusy(false);
+      const secs = j.elapsedMs ? ' · ' + fmtNum(j.elapsedMs / 1000, 1) + ' с' : '';
+      showPhase('ok', 'Расчёт завершён', `${j.variantCount} вариант(а)${secs}`);
       retryCount = 0;
       loadJobs();
     } catch (e) {
       if (id !== currentJob || version !== jobVersion) return;
+      if (e.status === 404) { // the job does not exist (deleted or wrong link): retrying cannot help
+        setRunBusy(false);
+        showPhase('error', 'Задание не найдено', String(id).slice(0, 8));
+        setStatus('Сервер не знает такого задания (HTTP 404). Возможно, оно было удалено.', true);
+        return;
+      }
       const delay = Math.min(30000, 2000 * Math.pow(2, Math.min(retryCount++, 4)));
+      showPhase('paused', e.status ? 'Ошибка сервера' : 'Нет связи с сервером', `повтор через ${delay / 1000} с`);
       setStatus(`Не удалось получить статус или результат (${e.message}). Повтор через ${delay / 1000} с…`, true);
       pollTimer = setTimeout(() => poll(id, version), delay);
     }
@@ -192,10 +282,10 @@
     const s = j.inputStats;
     if (!s) { $('diagCard').hidden = true; return; }
     const types = Object.entries(s.restriction_types || {}).map(([k, v]) => `${k} ${v}`).join(', ') || '—';
-    const rows = [['Features', s.features], ['Existing networks', s.existing_networks], ['Existing chambers', s.existing_chambers], ['OKS points', s.oks_points],
-      ['Restrictions', s.restrictions], ['Restriction types', types], ['Invalid geometries fixed', s.invalid_geometries_fixed],
-      ['Unknown restriction types', `${s.unknown_restrictions} ${s.unknown_restrictions ? '[ ' + (j.unknownRestrictionPolicy === 'FORBIDDEN' ? 'forbidden' : 'ignored') + ' ]' : ''}`],
-      ['Custom rules applied', s.custom_rule_restrictions], ['CRS', s.crs]];
+    const rows = [['Объектов', s.features], ['Линий существующей сети', s.existing_networks], ['Существующих камер', s.existing_chambers], ['Точек подключения ОКС', s.oks_points],
+      ['Ограничений', s.restrictions], ['Типы ограничений', types], ['Исправлено геометрий', s.invalid_geometries_fixed],
+      ['Неизвестные restriction_type', `${s.unknown_restrictions} ${s.unknown_restrictions ? '(' + (j.unknownRestrictionPolicy === 'FORBIDDEN' ? 'считаются запретом' : 'игнорируются') + ')' : ''}`],
+      ['Применено доп. правил', s.custom_rule_restrictions], ['Системы координат', s.crs]];
     const crs = String(s.crs || '').replace('EPSG:', '').replace(' -> ', ' → ').replace('EPSG:', '');
     $('diagLine').textContent = `${s.features} объектов · ${s.oks_points} ОКС · ${s.restrictions} ограничений · CRS ${crs}`;
     $('diagnostics').innerHTML = '<table>' + rows.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('') + '</table>';
@@ -243,7 +333,7 @@
     tabs.innerHTML = '';
     (res.variants || []).forEach((v) => {
       const b = document.createElement('button');
-      b.textContent = `${v.variantId} · rank ${v.rank} · S=${fmtScore(v.score)}`;
+      b.textContent = `${v.variantId} · место ${v.rank} · S ${fmtScore(v.score)}`;
       b.addEventListener('click', () => showVariant(v.variantId));
       tabs.appendChild(b);
     });
@@ -268,11 +358,11 @@
     const checks = Object.values(val.checks || {}).reduce((a, x) => a + x, 0);
     const errors = val.errors || 0, warnings = val.warnings || 0;
     let cls, title;
-    if (errors > 0) { cls = 'invalid'; title = 'INVALID'; }
-    else if (warnings > 0) { cls = 'warn'; title = 'VALID WITH WARNINGS'; }
-    else { cls = 'valid'; title = 'VALID'; }
+    if (errors > 0) { cls = 'invalid'; title = 'Валидатор: есть ошибки'; }
+    else if (warnings > 0) { cls = 'warn'; title = 'Валидатор: корректно, есть предупреждения'; }
+    else { cls = 'valid'; title = 'Валидатор: корректно'; }
     b.className = 'badge ' + cls;
-    b.innerHTML = `<span class="big">${title}</span><span class="small">${checks.toLocaleString('ru-RU')} checks · ${errors} errors${warnings ? ' · ' + warnings + ' warnings' : ''}</span>`;
+    b.innerHTML = `<span class="big">${title}</span><span class="small">${checks.toLocaleString('ru-RU')} проверок · ошибок ${errors}${warnings ? ' · предупреждений ' + warnings : ''}</span>`;
     b.hidden = false;
   }
 
@@ -286,23 +376,23 @@
         const c = RESTRICTION_COLORS[p.restriction_type] || '#ff69b4';
         const isLine = f.geometry && /Line/.test(f.geometry.type);
         layer = L.geoJSON(f, { style: isLine ? { color: c, weight: 3, dashArray: '6 4' } : { color: c, weight: 1, fillColor: c, fillOpacity: 0.35 } });
-        layer.bindPopup(`<b>restriction</b> ${p.restriction_type}<br>id: ${p.id}${p.address ? '<br>' + esc(p.address) : ''}`);
+        layer.bindPopup(`<b>Ограничение</b> ${esc(p.restriction_type)}<br>id: ${esc(p.id)}${p.address ? '<br>' + esc(p.address) : ''}`);
         groups.restrictions.addLayer(layer);
       } else if (t === 'heat_network') {
         layer = L.geoJSON(f, { style: { color: '#d62828', weight: 4, opacity: 0.85 } });
-        layer.bindPopup(`<b>Существующая сеть</b> id ${p.id}<br>ДУ ${p.diameter}`);
+        layer.bindPopup(`<b>Существующая сеть</b> id ${esc(p.id)}<br>ДУ ${esc(p.diameter)}`);
         groups.existing.addLayer(layer);
       } else if (t === 'heat_chamber') {
         const [x, y] = f.geometry.coordinates;
-        layer = L.circleMarker([y, x], { radius: 6, color: '#000', fillColor: '#fff', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Камера</b> id ${p.id}`);
+        layer = L.circleMarker([y, x], { radius: 6, color: '#000', fillColor: '#fff', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Камера</b> id ${esc(p.id)}`);
         groups.chambers.addLayer(layer);
       } else if (t === 'oks_connection_point') {
         const [x, y] = f.geometry.coordinates;
-        layer = L.circleMarker([y, x], { radius: 7, color: '#1b4332', fillColor: '#2a9d8f', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Точка подключения ОКС</b> id ${p.id}<br>расход ${p.flow_tph} т/ч`);
+        layer = L.circleMarker([y, x], { radius: 7, color: '#1b4332', fillColor: '#2a9d8f', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Точка подключения ОКС</b> id ${esc(p.id)}<br>расход ${esc(p.flow_tph)} т/ч`);
         groups.points.addLayer(layer);
       } else if (t === 'source') {
         const [x, y] = f.geometry.coordinates;
-        layer = L.circleMarker([y, x], { radius: 9, color: '#9c2a00', fillColor: '#f77f00', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Источник</b> ${esc(p.name || '')} id ${p.id}`);
+        layer = L.circleMarker([y, x], { radius: 9, color: '#9c2a00', fillColor: '#f77f00', fillOpacity: 1, weight: 2 }).bindPopup(`<b>Источник</b> ${esc(p.name || '')} id ${esc(p.id)}`);
         groups.source.addLayer(layer);
       }
       if (layer && layer.getBounds) { const b = layer.getBounds(); if (b.isValid()) bounds.push(b); }
@@ -329,7 +419,7 @@
     const feats = variantFeatures(vid);
     const byDepth = $('colorMode').value === 'depth' && resultData.mode === 'DEPTH';
     $('depthLegend').hidden = !byDepth;
-    if (byDepth) $('depthLegend').innerHTML = '<div>Глубина верха габарита новой сети</div><div class="bar"></div><div class="ticks"><span>0.7 m (мельче)</span><span>3.0 m</span><span>4.0+ m (глубже)</span></div>';
+    if (byDepth) $('depthLegend').innerHTML = '<div>Глубина верха габарита новой сети</div><div class="bar"></div><div class="ticks"><span>0,7 м (мельче)</span><span>3,0 м</span><span>4,0+ м (глубже)</span></div>';
     feats.forEach((f) => {
       const p = f.properties;
       if (p.object_type === 'heat_network') {
@@ -389,7 +479,7 @@
         kv('Пересечения по вертикали', `${s.vertical_crossing_count} · над ${s.above_crossing_count} · под ${s.below_crossing_count}`) + kv('Переходов глубины', s.depth_transition_count);
     } else ds.hidden = true;
     const u = s.unconnected_oks_ids || [];
-    $('unconnected').innerHTML = u.length ? `<span class="bad">Не подключены (маршрут не найден): ${u.join(', ')}</span>` : '<span class="ok">Все точки подключения подключены</span>';
+    $('unconnected').innerHTML = u.length ? `<span class="bad">Не подключены (маршрут не найден): ${u.map(esc).join(', ')}</span>` : '<span class="ok">Все точки подключения подключены</span>';
     const notes = (v.notes || []).map(esc).join('<br>');
     const attach = (v.attachmentPoints || []).map(esc).join('; ');
     $('techJob').innerHTML = $('techJob').innerHTML.split('<br>')[0] + (attach ? `<br>Точки присоединения: ${attach}` : '') + (notes ? `<br>${notes}` : '');
@@ -401,10 +491,10 @@
     const rows = vs.map((v) => `<tr class="${v.variantId === vid ? 'active' : ''}"><td>${v.variantId} · ${v.strategy}</td><td>${v.rank}</td><td>${fmtScore(v.score)}</td>` +
       `<td>${fmtMoney(v.calculatedCost)}</td><td>${fmtNum(v.newNetworkLength, 1)}</td><td>${v.newChamberCount}</td><td>${v.existingChamberTieInCount}</td>` +
       `<td>${v.connectedOksCount}</td><td>${fmtNum(v.sharedNetworkLength, 1)}</td><td>${v.rootCount}</td>${v.mode === 'depth' ? `<td>${fmtNum(v.maxDepth, 2)}</td>` : ''}</tr>`).join('');
-    let html = `<table><tr><th>variant</th><th>rank</th><th>score</th><th>cost</th><th>length, м</th><th>new ch.</th><th>tie-ins</th><th>OKS</th><th>shared, м</th><th>roots</th>${vs[0].mode === 'depth' ? '<th>max h</th>' : ''}</tr>${rows}</table>`;
+    let html = `<table><tr><th>вариант</th><th>место</th><th>S</th><th>стоимость</th><th>длина, м</th><th>нов. камер</th><th>врезок</th><th>ОКС</th><th>общая, м</th><th>корней</th>${vs[0].mode === 'depth' ? '<th>макс. h</th>' : ''}</tr>${rows}</table>`;
     const cur = vs.find((v) => v.variantId === vid);
     if (cur && cur.diffVsBest) html += `<div class="diff">${esc(cur.diffVsBest.text)}</div>`;
-    else if (cur) html += `<div class="diff">${vid} is the reference (rank 1) for the comparison</div>`;
+    else if (cur) html += `<div class="diff">${esc(vid)} — базовый вариант (место 1) для сравнения</div>`;
     $('comparison').innerHTML = html;
   }
 
@@ -442,10 +532,10 @@
         const ok = utility ? c.actual_clearance >= c.required_clearance - 1e-6 : c.actual_depth >= c.required_min_depth - 1e-6;
         return `<div class="cross"><div><b>${esc(c.type)}</b> · ${esc(c.object)}</div>
           <div>Способ: <b>${esc(c.method)}</b></div>
-          ${utility ? `<div>Existing utility: top ${fmtNum(c.utility_top, 2)} m · bottom ${fmtNum(c.utility_bottom, 2)} m</div>` : `<div>Required cover: ≥ ${fmtNum(c.required_min_depth, 2)} m</div>`}
-          <div>New heat network: top ${fmtNum(c.new_top, 2)} m · bottom ${fmtNum(c.new_bottom, 2)} m (H ${fmtNum(c.new_height, 3)} m)</div>
-          ${utility ? `<div>Required clearance: ${fmtNum(c.required_clearance, 2)} m · Actual: ${fmtNum(c.actual_clearance, 2)} m</div>` : `<div>Actual depth: ${fmtNum(c.actual_depth, 2)} m</div>`}
-          <div>Status: <span class="st ${ok ? 'ok' : 'bad'}">${ok ? 'VALID' : 'VIOLATION'}</span> · Kspec ${c.k_spec} · Kdepth ${p.k_depth} · ${fmtMoney(p.cost)}</div></div>`;
+          ${utility ? `<div>Коммуникация: верх ${fmtNum(c.utility_top, 2)} м · низ ${fmtNum(c.utility_bottom, 2)} м</div>` : `<div>Требуемое заглубление: ≥ ${fmtNum(c.required_min_depth, 2)} м</div>`}
+          <div>Новая сеть: верх ${fmtNum(c.new_top, 2)} м · низ ${fmtNum(c.new_bottom, 2)} м (H ${fmtNum(c.new_height, 3)} м)</div>
+          ${utility ? `<div>Требуемый просвет: ${fmtNum(c.required_clearance, 2)} м · фактический: ${fmtNum(c.actual_clearance, 2)} м</div>` : `<div>Фактическая глубина: ${fmtNum(c.actual_depth, 2)} м</div>`}
+          <div>Статус: <span class="st ${ok ? 'ok' : 'bad'}">${ok ? 'соответствует' : 'нарушение'}</span> · Kспец ${c.k_spec} · Kгл ${p.k_depth} · ${fmtMoney(p.cost)}</div></div>`;
       }).join('');
     } else if (p.object_type === 'heat_network' && p.depth_start != null) {
       ins.innerHTML = `<div class="cross">Глубина ${fmtNum(p.depth_start, 2)} → ${fmtNum(p.depth_end, 2)} м · уклон ${p.slope} · Kгл ${p.k_depth}${p.laying_method === 'special' ? ' · Kспец ' + p.k_spec : ''}</div>`;
@@ -559,19 +649,19 @@
     const crossingsByType = (g, vid) => { const m = {}; g.features.filter((f) => String(f.properties.variant_id) === vid && f.properties.object_type === 'heat_network' && f.properties.laying_method === 'special').forEach((f) => (f.properties.crossed_restrictions || []).forEach((c) => { const t = String(c).split('#')[0]; m[t] = (m[t] || 0) + 1; })); return m; };
     const pc = crossingsByType(planarGeo, planar.variantId), dc = crossingsByType(depthGeo, depthV.variantId);
     const row = (k, a, b) => `<tr><td>${k}</td><td>${a}</td><td>${b}</td></tr>`;
-    let html = `<table><tr><th></th><th>PLANAR best</th><th>DEPTH best</th></tr>` +
-      row('Cost', fmtMoney(planar.calculatedCost), fmtMoney(depthV.calculatedCost)) + row('Length', fmtNum(planar.newNetworkLength, 1) + ' м', fmtNum(depthV.newNetworkLength, 1) + ' м') +
-      row('Score', fmtScore(planar.score), fmtScore(depthV.score)) + row('New chambers', planar.newChamberCount, depthV.newChamberCount) +
-      row('Special crossings', planar.specialCrossingCount, depthV.specialCrossingCount) + row('Tie-ins', planar.existingChamberTieInCount, depthV.existingChamberTieInCount) +
-      row('Max depth', '—', fmtNum(depthV.maxDepth, 2) + ' м') + row('Depth extra cost', '—', fmtMoney(depthV.depthExtraCost)) +
-      row('Δ cost', '', fmtMoney(depthV.calculatedCost - planar.calculatedCost)) + row('Δ length', '', fmtNum(depthV.newNetworkLength - planar.newNetworkLength, 1) + ' м') + '</table>';
+    let html = `<table><tr><th></th><th>2D, лучший</th><th>с глубиной, лучший</th></tr>` +
+      row('Стоимость', fmtMoney(planar.calculatedCost), fmtMoney(depthV.calculatedCost)) + row('Длина', fmtNum(planar.newNetworkLength, 1) + ' м', fmtNum(depthV.newNetworkLength, 1) + ' м') +
+      row('S', fmtScore(planar.score), fmtScore(depthV.score)) + row('Новые камеры', planar.newChamberCount, depthV.newChamberCount) +
+      row('Спецпроходы', planar.specialCrossingCount, depthV.specialCrossingCount) + row('Врезки', planar.existingChamberTieInCount, depthV.existingChamberTieInCount) +
+      row('Макс. глубина', '—', fmtNum(depthV.maxDepth, 2) + ' м') + row('Стоимость заглубления', '—', fmtMoney(depthV.depthExtraCost)) +
+      row('Δ стоимости', '', fmtMoney(depthV.calculatedCost - planar.calculatedCost)) + row('Δ длины', '', fmtNum(depthV.newNetworkLength - planar.newNetworkLength, 1) + ' м') + '</table>';
     const diffs = [];
     const pa = new Set(planar.attachmentPoints || []), da = new Set(depthV.attachmentPoints || []);
     const changed = [...da].filter((x) => !pa.has(x)).length;
-    if (changed) diffs.push(`Depth-aware variant uses ${changed} other attachment point${changed > 1 ? 's' : ''}`);
-    Object.keys({ ...pc, ...dc }).forEach((t) => { const d = (dc[t] || 0) - (pc[t] || 0); if (d < 0) diffs.push(`Route avoids ${-d} ${t} crossing${-d > 1 ? 's' : ''}`); if (d > 0) diffs.push(`Route adds ${d} ${t} crossing${d > 1 ? 's' : ''}`); });
-    if (depthV.belowCrossingCount) diffs.push(`${depthV.belowCrossingCount} crossing${depthV.belowCrossingCount > 1 ? 's' : ''} pass BELOW the utility, ${depthV.aboveCrossingCount || 0} ABOVE`);
-    if (!diffs.length) diffs.push('Same horizontal route; only the vertical profile differs');
+    if (changed) diffs.push(`Вариант с глубиной использует другие точки присоединения: ${changed}`);
+    Object.keys({ ...pc, ...dc }).forEach((t) => { const d = (dc[t] || 0) - (pc[t] || 0); if (d < 0) diffs.push(`Трасса обходит пересечения ${t}: ${-d}`); if (d > 0) diffs.push(`Трасса добавляет пересечения ${t}: ${d}`); });
+    if (depthV.belowCrossingCount) diffs.push(`Пересечений под коммуникацией: ${depthV.belowCrossingCount}, над: ${depthV.aboveCrossingCount || 0}`);
+    if (!diffs.length) diffs.push('Трасса в плане та же; отличается только вертикальный профиль');
     html += `<div class="diff">${diffs.map(esc).join('<br>')}</div><div class="notes">Ранжирование режимов раздельное; это сравнение лучших вариантов, а не общий rank.</div>`;
     $('modeCompare').innerHTML = html;
     const dCost = depthV.calculatedCost - planar.calculatedCost, dLen = depthV.newNetworkLength - planar.newNetworkLength;
@@ -652,8 +742,11 @@
   async function loadJobs() {
     try {
       const jobs = await fetch('/api/v1/jobs').then((r) => r.json());
-      $('jobs').innerHTML = jobs.slice(0, 10).map((j) => `<div class="job" data-id="${j.id}"><div>${esc(j.originalFilename || '—')} · ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'} · ${j.status === 'DONE' ? `вариантов ${j.variantCount}` : j.status}</div><div class="id">${new Date(j.createdAt).toLocaleString('ru-RU')}</div></div>`).join('') || '<span class="muted">пока нет</span>';
-      $('jobs').querySelectorAll('.job').forEach((el) => el.addEventListener('click', () => openJob(el.dataset.id)));
+      $('jobs').innerHTML = jobs.slice(0, 10).map((j) => `<div class="job" tabindex="0" role="button" data-id="${esc(j.id)}"><div>${esc(j.originalFilename || '—')} · ${j.mode === 'DEPTH' ? 'с учётом глубины' : '2D'} · ${j.status === 'DONE' ? `вариантов ${j.variantCount}` : j.status}</div><div class="id">${new Date(j.createdAt).toLocaleString('ru-RU')}</div></div>`).join('') || '<span class="muted">пока нет</span>';
+      $('jobs').querySelectorAll('.job').forEach((el) => {
+        el.addEventListener('click', () => openJob(el.dataset.id));
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openJob(el.dataset.id); } });
+      });
     } catch (e) { /* ignore */ }
   }
   loadJobs();

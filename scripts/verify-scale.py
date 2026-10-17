@@ -48,7 +48,7 @@ def main():
         for key in totals:totals[key]+=int(xml.get(key,'0'))
     if totals['failures'] or totals['errors'] or totals['skipped']:raise RuntimeError(totals)
     (out/'java-summary.json').write_text(json.dumps(totals,indent=2)+'\n')
-    run(['node','--test','src/test/js/large-input-ui.test.cjs'],'ui')
+    run(['node','--test']+[str(f.relative_to(ROOT)) for f in sorted((ROOT/'src/test/js').glob('*.test.cjs'))],'ui')
     tap=(out/'ui.log').read_text()
     ui={key:int(re.search(r'^# '+key+r' (\d+)$',tap,re.M).group(1)) for key in ['tests','pass','fail','skipped']}
     (out/'ui-summary.json').write_text(json.dumps(ui,indent=2)+'\n')

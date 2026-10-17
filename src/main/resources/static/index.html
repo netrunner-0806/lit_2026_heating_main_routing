@@ -5,48 +5,66 @@
   <title>Трассы подключения к тепловым сетям</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/webjars/leaflet/1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/style.css?v=8">
+  <link rel="stylesheet" href="/style.css?v=10">
 </head>
 <body>
-<header>
-  <div class="brand">Сервис моделирования трасс подключения к тепловым сетям <span class="muted">ЛЦТ 2026</span></div>
-  <nav><a href="/swagger-ui.html" target="_blank">Swagger</a><a href="/reference.html" target="_blank">Справочники</a></nav>
+<header class="topbar">
+  <div class="brand"><span class="brand-name">Сервис моделирования трасс подключения к тепловым сетям</span><span class="brand-tag">ЛЦТ 2026</span></div>
+  <nav class="topnav"><a href="/swagger-ui.html" target="_blank" rel="noopener">Swagger</a><a href="/reference.html" target="_blank" rel="noopener">Справочники</a></nav>
 </header>
 <main>
-  <aside id="panel">
-    <!-- 1. input -->
-    <section class="card">
-      <h3>1. Входной GeoJSON</h3>
-      <input type="file" id="file" accept=".geojson,.json,application/geo+json,application/json">
-      <div class="row"><span>Режим расчёта <span class="info" title="Режим с учётом глубины строит трассу заново, учитывая вертикальное положение коммуникаций.">i</span></span>
-        <div class="segmented" id="modeSwitch">
-          <button type="button" data-mode="PLANAR" class="active">2D</button>
-          <button type="button" data-mode="DEPTH">С учётом глубины</button>
-        </div></div>
+  <aside id="panel" aria-label="Панель управления">
+    <!-- 1. input and run -->
+    <section class="card pane-run">
+      <h3 class="pane-title">Входные данные</h3>
+
+      <div class="file-box" id="fileBox" data-state="empty">
+        <input type="file" id="file" class="sr-only" accept=".geojson,.json,application/geo+json,application/json">
+        <label for="file" class="file-pick">
+          <span class="file-main">
+            <span class="file-name" id="fileName">Файл не выбран</span>
+            <span class="file-meta" id="fileMeta">GeoJSON FeatureCollection, WGS84 · до 3 ГиБ</span>
+          </span>
+          <span class="file-action" id="fileAction">Выбрать</span>
+        </label>
+        <button type="button" class="file-clear" id="fileClear" hidden aria-label="Убрать выбранный файл">Убрать</button>
+      </div>
+
+      <div class="field">
+        <span class="field-label" id="modeLabel">Режим расчёта <span class="info" tabindex="0" title="Режим с учётом глубины строит трассу заново, учитывая вертикальное положение коммуникаций.">i</span></span>
+        <div class="segmented" id="modeSwitch" role="group" aria-labelledby="modeLabel">
+          <button type="button" data-mode="PLANAR" class="active" aria-pressed="true">2D</button>
+          <button type="button" data-mode="DEPTH" aria-pressed="false">С учётом глубины</button>
+        </div>
+      </div>
       <label class="row"><span>Неизвестные restriction_type</span>
         <select id="policy"><option value="IGNORE">игнорировать</option><option value="FORBIDDEN">считать запретом (1 м)</option></select></label>
       <label class="row"><span>Макс. вариантов</span>
         <select id="maxVariants"><option>3</option><option>2</option><option>1</option></select></label>
-      <button id="run" class="primary">Загрузить и рассчитать</button>
-      <div id="uploadPanel" hidden>
-        <label for="uploadProgress">Загрузка файла</label>
-        <progress id="uploadProgress" max="100" value="0" style="width:100%"></progress>
-        <div id="uploadStatus" class="notes" role="status" aria-live="polite"></div>
-        <div class="actions">
-          <button id="pauseUpload" class="button secondary" type="button">Пауза</button>
-          <button id="cancelUpload" class="button secondary" type="button">Отменить загрузку</button>
+
+      <button id="run" class="primary" type="button">Загрузить и рассчитать</button>
+
+      <div class="run-status" id="runStatus" data-kind="idle" hidden role="status" aria-live="polite">
+        <div class="rs-head"><span class="rs-title" id="rsTitle"></span><span class="rs-value" id="rsValue"></span></div>
+        <div class="rs-bar" id="rsBar" hidden><div class="rs-fill" id="rsFill"></div></div>
+        <div id="status" class="status"></div>
+        <div id="stages" class="stages" hidden></div>
+        <div id="uploadPanel" class="upload-panel" hidden>
+          <div id="uploadStatus" class="notes"></div>
+          <div class="actions">
+            <button id="pauseUpload" class="button secondary small" type="button">Пауза</button>
+            <button id="cancelUpload" class="button secondary small" type="button">Отменить загрузку</button>
+          </div>
         </div>
       </div>
-      <div id="status" class="status"></div>
-      <div id="stages" class="stages" hidden></div>
     </section>
 
     <!-- 2. result -->
     <section class="card" id="resultCard" hidden>
-      <h3>2. Результат <span id="modeTag" class="tag"></span></h3>
+      <h3 class="pane-title">Результат <span id="modeTag" class="tag"></span></h3>
       <div id="badge" class="badge" hidden></div>
       <div id="perf" class="perf"></div>
-      <div id="variantTabs" class="tabs"></div>
+      <div id="variantTabs" class="tabs" role="tablist" aria-label="Варианты"></div>
       <div id="summary" class="summary"></div>
       <div id="depthSummary" class="summary depth" hidden></div>
       <div id="unconnected" class="unconnected"></div>
@@ -58,16 +76,16 @@
 
     <!-- clicked object (appears on demand) -->
     <section class="card" id="featureCard" hidden>
-      <h3>Объект</h3>
+      <h3 class="pane-title">Объект</h3>
       <div id="inspector" class="inspector"></div>
-      <details><summary>Все свойства</summary><div id="feature" class="feature"></div></details>
+      <details class="sub"><summary>Все свойства</summary><div id="feature" class="feature"></div></details>
     </section>
 
     <!-- 3. map layers -->
-    <section class="card">
-      <h3>Слои</h3>
+    <section class="card pane-layers">
+      <h3 class="pane-title">Слои карты</h3>
       <div id="layers" class="layers"></div>
-      <label><input type="checkbox" id="basemap" checked> Подложка OpenStreetMap Standard (нужен интернет)</label>
+      <label class="check basemap-row"><input type="checkbox" id="basemap" checked> <span>Подложка OpenStreetMap <span class="muted">(нужен интернет)</span></span></label>
       <label class="row" id="colorModeRow" hidden><span>Цвет новой сети</span>
         <select id="colorMode"><option value="default">по умолчанию</option><option value="depth">по глубине</option></select></label>
       <div id="depthLegend" class="depthLegend" hidden></div>
@@ -97,13 +115,13 @@
     </details>
 
     <details class="card" id="techCard" hidden>
-      <summary><span class="h">Технические детали</span><span class="line">валидатор · варианты · метрики · журнал решений</span></summary>
+      <summary><span class="h">Технические детали</span><span class="line">валидатор · варианты · метрики · журнал</span></summary>
       <div id="techJob" class="notes"></div>
       <div id="validation" class="validation"></div>
       <div id="comparison" class="comparison"></div>
       <div id="techPerf" class="notes"></div>
-      <div class="actions"><a id="downloadReport" class="button secondary" target="_blank">Отчёт JSON</a><a id="downloadCsv" class="button secondary" download>CSV</a></div>
-      <details><summary>Журнал решений (сырые события)</summary><div id="explain" class="explain"></div></details>
+      <div class="actions"><a id="downloadReport" class="button secondary small" target="_blank" rel="noopener">Отчёт JSON</a><a id="downloadCsv" class="button secondary small" download>CSV</a></div>
+      <details class="sub"><summary>Журнал решений (сырые события)</summary><div id="explain" class="explain"></div></details>
     </details>
 
     <details class="card" id="jobsCard">
@@ -111,10 +129,10 @@
       <div id="jobs" class="jobs"></div>
     </details>
   </aside>
-  <div id="map"></div>
+  <div id="map" aria-label="Карта"></div>
 </main>
 <script src="/webjars/leaflet/1.9.4/dist/leaflet.js"></script>
 <script src="/upload.js?v=1"></script>
-<script src="/app.js?v=10"></script>
+<script src="/app.js?v=14"></script>
 </body>
 </html>

@@ -32,7 +32,7 @@ def main():
     if a.docker_image:
         mvn=['docker','run','--rm','--cpus','8','--memory','4g','-v',f'{ROOT}:/work','-v',f'{source}:/source.geojson:ro',
              '-v',f'{a.maven_cache}:/root/.m2','-w','/work',a.docker_image]+mvn
-    run(mvn,'java.log');run(['node','--test','src/test/js/large-input-ui.test.cjs'],'ui.log')
+    run(mvn,'java.log');run(['node','--test']+[str(f.relative_to(ROOT)) for f in sorted((ROOT/'src/test/js').glob('*.test.cjs'))],'ui.log')
     common=[sys.executable,'scripts/run-stress-suite.py','--skip-build','--repeat',str(a.repeat)]
     if a.docker_image:common+=['--docker-image',a.docker_image,'--maven-cache',a.maven_cache]
     run(common+['--manifest','examples/stress/universal-manifest.json','--source',str(source),'--out',str(a.out/'universal')])

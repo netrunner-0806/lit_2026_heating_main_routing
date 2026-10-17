@@ -1,0 +1,613 @@
+# CI/CD: verify -> build-and-publish (GHCR) -> optional manual deploy (SSH + Docker Compose).
+# Runs on every push to main; the first step of verify decides whether anything relevant changed. Irrelevant pushes
+# (documentation only) end with a successful verify and skipped publish/deploy instead of being filtered out by `paths`.
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy to production after verification and image publication'
+        type: boolean
+        required: false
+        default: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-26.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    outputs:
+      relevant: ${{ steps.detect.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changes relevant to build, tests and deployment
+        id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # Paths that influence the application, its tests (fixtures live in examples/ and ТЗ/), the Docker build
+          # or the deployment. Anything else (README, docs, scripts) does not trigger verify/publish/deploy.
+          RELEVANT='^(src/|pom\.xml$|Dockerfile$|\.dockerignore$|docker-compose\.yml$|compose\.prod\.yaml$|caddy/|\.github/workflows/|examples/|ТЗ/)'
+          relevant=true
+          reason=""
+          if [ "$EVENT" != "push" ]; then
+            reason="manual run ($EVENT): verification and publication run (deployment remains manual)"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            reason="first push of the branch: no previous commit to compare, verification and publication run (deployment remains manual)"
+          elif ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            reason="previous commit $BEFORE is not available (force push / missing history): verification and publication run (deployment remains manual)"
+          elif ! changed=$(git -c core.quotePath=false diff --name-only "$BEFORE" "$AFTER"); then
+            reason="git diff failed: verification and publication run (deployment remains manual)"
+          else
+            {
+              echo "### Changed files ($BEFORE..$AFTER)"
+              echo '```'
+              printf '%s\n' "${changed:-<none>}"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            if printf '%s\n' "$changed" | grep -Eq "$RELEVANT"; then
+              reason="relevant files changed"
+            else
+              relevant=false
+              reason="only files irrelevant to build, tests and deployment changed (e.g. documentation): verify, build-and-publish and deploy are skipped"
+            fi
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+          echo "$reason"
+          echo "**Pipeline:** $reason" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-java@v6
+        if: steps.detect.outputs.relevant == 'true'
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - uses: actions/setup-node@v7
+        if: steps.detect.outputs.relevant == 'true'
+        with:
+          node-version: '24'
+
+      - name: JavaScript syntax check
+        if: steps.detect.outputs.relevant == 'true'
+        run: |
+          files=(src/main/resources/static/*.js src/test/js/*.cjs)
+          for f in "${files[@]}"; do node --check "$f"; done
+          echo "Syntax OK: ${#files[@]} files"
+
+      - name: Secret scan (gitleaks)
+        if: steps.detect.outputs.relevant == 'true'
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "$tarball" gitleaks
+          cd "$GITHUB_WORKSPACE"
+          # Scan the commits of this push; without a usable previous commit scan the whole working tree.
+          if [ "$EVENT" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            "$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="${BEFORE}..${AFTER}" .
+          else
+            "$RUNNER_TEMP/gitleaks" dir --no-banner --redact .
+          fi
+
+      - name: Java static check (javac -Xlint:all, report)
+        if: steps.detect.outputs.relevant == 'true'
+        run: |
+          # No linter is configured in pom.xml; compile the main sources with all javac lint categories enabled.
+          # Compilation errors fail the job; lint warnings are reported in the log and the job summary.
+          mvn -B -ntp -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
+          find src/main/java -name '*.java' > "$RUNNER_TEMP/sources.txt"
+          mkdir -p "$RUNNER_TEMP/lint-classes"
+          javac -Xlint:all -Xmaxwarns 10000 -proc:none -encoding UTF-8 --release 11 \
+            -cp "$(cat "$RUNNER_TEMP/classpath.txt")" -d "$RUNNER_TEMP/lint-classes" \
+            @"$RUNNER_TEMP/sources.txt" 2>&1 | tee "$RUNNER_TEMP/javac-lint.txt"
+          warnings=$(grep -c ': warning:' "$RUNNER_TEMP/javac-lint.txt" || true)
+          echo "### Java static check" >> "$GITHUB_STEP_SUMMARY"
+          echo "javac -Xlint:all: compilation OK, ${warnings} warning(s) (report only)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dependency vulnerability scan (osv-scanner, report only)
+        if: steps.detect.outputs.relevant == 'true'
+        env:
+          OSV_VERSION: 2.7.0
+        run: |
+          base="https://github.com/google/osv-scanner/releases/download/v${OSV_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLo osv-scanner "$base/osv-scanner_linux_amd64"
+          curl -fsSLo osv-sums.txt "$base/osv-scanner_SHA256SUMS"
+          echo "$(grep ' osv-scanner_linux_amd64$' osv-sums.txt | cut -d' ' -f1)  osv-scanner" | sha256sum -c -
+          chmod +x osv-scanner
+          cd "$GITHUB_WORKSPACE"
+          # Report only (agreed): the dependency versions are fixed by the case requirements (Spring Boot 2.6.3).
+          # Exit code 1 means "vulnerabilities found" and is reported; any other non-zero code is a scanner failure.
+          set +e
+          "$RUNNER_TEMP/osv-scanner" scan source --format markdown --output "$RUNNER_TEMP/osv.md" -L pom.xml
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/osv.md" || true
+          {
+            echo "### Dependency vulnerabilities (report only)"
+            cat "$RUNNER_TEMP/osv.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$code" in
+            0) echo "No known vulnerabilities found" ;;
+            1) echo "::warning title=Dependency vulnerabilities::Known vulnerabilities found in dependencies (report only, see job summary)" ;;
+            *) echo "::error::osv-scanner failed with exit code $code"; exit "$code" ;;
+          esac
+
+      - name: Java tests
+        if: steps.detect.outputs.relevant == 'true'
+        run: mvn -B -ntp test
+
+      - name: Frontend tests
+        if: steps.detect.outputs.relevant == 'true'
+        run: node --test src/test/js/*.test.cjs
+
+      - name: Upload test reports
+        if: failure() && steps.detect.outputs.relevant == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build-and-publish:
+    name: build-and-publish
+    needs: verify
+    if: needs.verify.outputs.relevant == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    # One publisher at a time. `queue: max` keeps every waiting run (the default queue replaces the pending run, which
+    # could drop the newest commit). Queue order is not guaranteed, so `latest` is only ever moved forward (see below).
+    concurrency:
+      group: ghcr-publish
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+      digest: ${{ steps.push.outputs.digest || steps.tag.outputs.digest }}
+      latest: ${{ steps.promote.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0              # all branches and tags: the short tag is checked against the whole history
+          persist-credentials: false
+
+      - name: Image name and short tag
+        id: meta
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          # Commit images are tagged with the 7-character short SHA (as GitHub shows it); the full SHA is kept in the
+          # org.opencontainers.image.revision label and is what the ordering of `latest` is based on.
+          echo "image=${REGISTRY}/${REPO,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          cat > "$RUNNER_TEMP/ghcr.sh" <<'LIB'
+          # image_revision REF: prints the org.opencontainers.image.revision label of REF (empty without the label).
+          # Exit code 0: the image exists, 2: the tag does not exist, 1: the registry could not be read.
+          image_revision() {
+            local out
+            if out=$(docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>&1); then
+              printf '%s' "$out" | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+          if "config" not in d:  # multi-platform index: take the first real platform
+              d = next((v for k, v in d.items() if isinstance(v, dict) and "config" in v and not k.startswith("unknown")), {})
+          print(((d.get("config") or {}).get("Labels") or {}).get("org.opencontainers.image.revision", ""))'
+            elif printf '%s' "$out" | grep -qiE 'not found|manifest unknown'; then
+              return 2
+            else
+              echo "::error::Cannot read $1: $out" >&2
+              return 1
+            fi
+          }
+          # image_digest REF: prints the manifest digest REF points to
+          image_digest() {
+            docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])'
+          }
+          LIB
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check that the short tag identifies only this commit
+        id: tag
+        env:
+          SHA: ${{ github.sha }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          # shellcheck source=/dev/null
+          source "$RUNNER_TEMP/ghcr.sh"
+          # 1. Git: no other commit of the repository may start with the same 7 characters.
+          others=$(git rev-parse --disambiguate="$TAG" \
+            | git cat-file --batch-check='%(objecttype) %(objectname)' \
+            | awk -v sha="$SHA" '$1 == "commit" && $2 != sha { print $2 }' | paste -sd ' ' -)
+          if [ -n "$others" ]; then
+            echo "::error title=Short tag collision::${TAG} is ambiguous: besides ${SHA} it is the prefix of commit(s) ${others}. Nothing was published."
+            exit 1
+          fi
+          # 2. Registry: an existing tag must belong to this very commit; an image of another commit is never overwritten.
+          rev=$(image_revision "${IMAGE}:${TAG}") && rc=0 || rc=$?
+          exists=false
+          digest=""
+          case "$rc" in
+            2) echo "${IMAGE}:${TAG} does not exist yet: it will be built and pushed" ;;
+            0) if [ "$rev" = "$SHA" ]; then
+                 exists=true
+                 digest=$(image_digest "${IMAGE}:${TAG}")
+                 echo "${IMAGE}:${TAG} is already published for ${SHA} (re-run): reused as is (${digest}), not rebuilt"
+               else
+                 echo "::error title=Short tag collision::${IMAGE}:${TAG} already exists for revision '${rev:-<no revision label>}', not for ${SHA}. The existing image is not overwritten; nothing was published."
+                 exit 1
+               fi ;;
+            *) exit 1 ;;
+          esac
+          echo "exists=${exists}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the immutable short SHA tag (existing Dockerfile)
+        id: push
+        if: steps.tag.outputs.exists != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Promote latest (forward only)
+        id: promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          DIGEST: ${{ steps.push.outputs.digest || steps.tag.outputs.digest }}
+        run: |
+          # `latest` moves only to a descendant of the commit it currently points to (the full SHA from the image label
+          # org.opencontainers.image.revision, compared through the Git history, never the short tags), and only for
+          # commits that are on main. An older run that finishes after a newer one therefore keeps its short SHA tag
+          # but never moves `latest` back.
+          # shellcheck source=/dev/null
+          source "$RUNNER_TEMP/ghcr.sh"
+          [ -n "$DIGEST" ] || { echo "::error::No digest for ${IMAGE}:${TAG}"; exit 1; }
+          promote=false
+          compare() { gh api "repos/${REPO}/compare/$1...$2" --jq .status 2>/dev/null || echo unknown; }
+          if [ "$REF" != "refs/heads/main" ]; then
+            reason="run is not for main ($REF)"
+          else
+            head=$(gh api "repos/${REPO}/git/ref/heads/main" --jq .object.sha)
+            on_main=$(compare "$SHA" "$head")             # identical / ahead: SHA is contained in main
+            current=$(image_revision "${IMAGE}:latest") && rc=0 || rc=$?
+            case "$rc" in
+              0) ;;
+              2) current="" ;;                            # no latest tag yet
+              *) exit 1 ;;
+            esac
+            if [ "$on_main" != identical ] && [ "$on_main" != ahead ]; then
+              reason="commit ${SHA} is no longer on main (${on_main})"
+            elif [ -z "$current" ]; then
+              promote=true; reason="latest does not exist yet or has no revision label"
+            elif [ "$current" = "$SHA" ]; then
+              promote=true; reason="latest already points to this commit (re-run)"
+            else
+              rel=$(compare "$current" "$SHA")            # ahead: SHA is newer than the current latest
+              case "$rel" in
+                ahead) promote=true; reason="${SHA} is newer than the current latest ${current}" ;;
+                behind) reason="latest already points to the newer commit ${current}" ;;
+                *) if [ "$SHA" = "$head" ]; then promote=true; reason="history rewritten (${rel}); ${SHA} is the head of main"
+                   else reason="latest ${current} is not an ancestor of ${SHA} (${rel}) and ${SHA} is not the head of main"; fi ;;
+              esac
+            fi
+          fi
+          if [ "$promote" = true ]; then
+            # server-side retag of the already pushed image: no rebuild, same digest
+            docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}@${DIGEST}"
+            now=$(image_digest "${IMAGE}:latest")
+            [ "$now" = "$DIGEST" ] || { echo "::error::latest points to $now after promotion, expected $DIGEST"; exit 1; }
+          else
+            echo "::notice title=latest not moved::${reason}"
+          fi
+          echo "latest=${promote}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Published image"
+            echo "- ${IMAGE}:${TAG} (revision ${SHA}, digest ${DIGEST})"
+            if [ "$promote" = true ]; then echo "- ${IMAGE}:latest -> ${TAG} (${reason})"; else echo "- latest not moved: ${reason}"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: deploy
+    needs: [verify, build-and-publish]
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true && needs.verify.outputs.relevant == 'true' && needs.build-and-publish.outputs.latest == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    environment: production
+    # one deployment at a time; every waiting run is kept (each deployment pulls what the server .env selects)
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+      IMAGE: ${{ needs.build-and-publish.outputs.image }}
+      TAG: ${{ needs.build-and-publish.outputs.tag }}
+    steps:
+      - name: Check deployment settings
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          missing=()
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH GHCR_READ_USER GHCR_READ_TOKEN PRODUCTION_URL; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing deployment settings (repository or 'production' environment secrets / variables): ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            compose.prod.yaml
+            caddy/Caddyfile
+          sparse-checkout-cone-mode: false
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName ${SSH_HOST}
+            Port ${SSH_PORT:-22}
+            User ${SSH_USER}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Check server prerequisites (.env present, Docker Compose v2)
+        run: |
+          dir=$(printf '%q' "$DEPLOY_PATH")
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "test -d $dir && test -f $dir/.env" \
+            || { echo "::error::$DEPLOY_PATH/.env not found on the server. Create it manually (see docs/deployment.md); CI never creates it."; exit 1; }
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod 'docker compose version'
+
+      - name: Upload compose.prod.yaml and caddy/Caddyfile
+        run: |
+          dir=$(printf '%q' "$DEPLOY_PATH")
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "mkdir -p $dir/caddy"
+          scp -q compose.prod.yaml "prod:${DEPLOY_PATH}/.compose.prod.yaml.upload"
+          scp -q caddy/Caddyfile "prod:${DEPLOY_PATH}/caddy/.Caddyfile.upload"
+          # compose file: atomic rename. Caddyfile: rewritten in place (same inode) only when it changed, because
+          # the caddy container bind-mounts the file; the running caddy then reloads it.
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "cd $dir && mv -f .compose.prod.yaml.upload compose.prod.yaml && \
+            if cmp -s caddy/.Caddyfile.upload caddy/Caddyfile; then rm -f caddy/.Caddyfile.upload; echo 'Caddyfile unchanged'; \
+            else cat caddy/.Caddyfile.upload > caddy/Caddyfile && rm -f caddy/.Caddyfile.upload && touch .caddy-reload && echo 'Caddyfile updated'; fi"
+
+      - name: Log in to GHCR on the server
+        env:
+          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          printf '%s' "$GHCR_READ_TOKEN" | ssh prod "docker login ${REGISTRY} -u $(printf '%q' "$GHCR_READ_USER") --password-stdin"
+
+      - name: Pull and update the stack
+        id: pull
+        run: |
+          # The application tag is chosen only by the server .env: HEATNET_IMAGE_TAG=<7-char SHA> pins a version,
+          # absent or empty means `latest` (compose.prod.yaml: ${HEATNET_IMAGE_TAG:-latest}). CI never passes the
+          # variable, and the remote script clears it so that a value from the remote shell cannot override .env.
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "IMAGE=$(printf '%q' "$IMAGE") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/pull.log"
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          unset HEATNET_IMAGE_TAG
+          compose() { docker compose -f compose.prod.yaml "$@"; }
+          compose config --quiet            # validates the file with the server .env, prints nothing
+          # A different project name selects different named volumes. Refuse an implicit migration.
+          project=$(compose config | sed -n 's/^name: //p')
+          [ -n "$project" ] || { echo "::error::Cannot determine the Compose project name"; exit 1; }
+          for container in heatnet-db heatnet-app; do
+            existing=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null || true)
+            if [ -n "$existing" ] && [ "$existing" != "$project" ]; then
+              echo "::error::$container belongs to project $existing, but configuration selects $project. Set COMPOSE_PROJECT_NAME in the server .env to the existing project; volumes were not changed."
+              exit 1
+            fi
+          done
+          ref=$(compose config --images app | awk -v p="${IMAGE}:" 'index($0, p) == 1')
+          if [ -z "$ref" ] || [ "$(printf '%s\n' "$ref" | wc -l)" -ne 1 ]; then
+            echo "::error::The app image in compose.prod.yaml does not resolve to ${IMAGE}:<tag> (got: ${ref:-nothing})"
+            exit 1
+          fi
+          if [ "$ref" = "${IMAGE}:latest" ]; then
+            echo "App image: $ref (HEATNET_IMAGE_TAG is not set in .env: following latest)"
+          else
+            echo "App image: $ref (pinned by HEATNET_IMAGE_TAG in .env)"
+          fi
+          echo "DEPLOY_IMAGE=$ref"
+          compose pull || { echo "::error::docker compose pull failed. Check that $ref exists in GHCR (HEATNET_IMAGE_TAG in .env) and the GHCR credentials"; exit 1; }
+          compose up -d --no-build --remove-orphans
+          if [ -f .caddy-reload ]; then
+            compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+            rm -f .caddy-reload
+          fi
+          REMOTE
+          image=$(sed -n 's/^DEPLOY_IMAGE=//p' "$RUNNER_TEMP/pull.log" | tail -n 1)
+          tag=${image#"${IMAGE}:"}
+          if [ "$tag" = "$image" ] || ! [[ "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Unexpected app image reported by the server: '${image}'"; exit 1
+          fi
+          if [ "$tag" = latest ]; then mode=latest; else mode=pinned; fi
+          { echo "image=${image}"; echo "tag=${tag}"; echo "mode=${mode}"; } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for healthy containers
+        env:
+          EXPECTED: ${{ steps.pull.outputs.image }}
+        run: |
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "EXPECTED=$(printf '%q' "$EXPECTED") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/health.log"
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          unset HEATNET_IMAGE_TAG
+          state() { docker inspect -f "$1" "$2" 2>/dev/null || echo missing; }
+          for i in $(seq 1 60); do
+            db=$(state '{{.State.Health.Status}}' heatnet-db)
+            app=$(state '{{.State.Health.Status}}' heatnet-app)
+            caddy=$(state '{{.State.Running}}' heatnet-caddy)
+            echo "[$i] db=$db app=$app caddy_running=$caddy"
+            if [ "$db" = healthy ] && [ "$app" = healthy ] && [ "$caddy" = true ]; then
+              running=$(docker inspect -f '{{.Config.Image}}' heatnet-app)
+              if [ "$running" != "$EXPECTED" ]; then echo "heatnet-app runs $running, expected $EXPECTED"; exit 1; fi
+              # the container must run the image that the selected tag resolved to in this deployment's pull
+              if [ "$(docker inspect -f '{{.Image}}' heatnet-app)" != "$(docker image inspect -f '{{.Id}}' "$EXPECTED")" ]; then
+                echo "heatnet-app was not recreated from the freshly pulled $EXPECTED"; exit 1
+              fi
+              docker compose -f compose.prod.yaml ps
+              echo "DEPLOYED_REVISION=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' heatnet-app)"
+              exit 0
+            fi
+            if [ "$app" = unhealthy ] || [ "$db" = unhealthy ]; then break; fi
+            sleep 5
+          done
+          echo "Containers did not become healthy"
+          docker compose -f compose.prod.yaml ps
+          docker compose -f compose.prod.yaml logs --tail 100 app
+          exit 1
+          REMOTE
+
+      - name: Check the deployed revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          MODE: ${{ steps.pull.outputs.mode }}
+          DEPLOY_TAG: ${{ steps.pull.outputs.tag }}
+        run: |
+          rev=$(sed -n 's/^DEPLOYED_REVISION=//p' "$RUNNER_TEMP/health.log" | tail -n 1)
+          if ! [[ "$rev" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::The running image has no full commit SHA in org.opencontainers.image.revision (got '${rev}')"; exit 1
+          fi
+          if [ "$MODE" = latest ]; then
+            # `latest` must be this commit or a newer one promoted meanwhile, never an older one
+            if [ "$rev" = "$SHA" ]; then
+              echo "Production runs latest = ${TAG} (${rev}, this commit)"
+            else
+              rel=$(gh api "repos/${REPO}/compare/${SHA}...${rev}" --jq .status 2>/dev/null || echo unknown)
+              if [ "$rel" = ahead ]; then
+                echo "::notice title=Newer revision deployed::latest already points to the newer commit ${rev}"
+              else
+                echo "::error::Production runs latest = ${rev}, which is not this commit ${SHA} or a newer one (${rel})"; exit 1
+              fi
+            fi
+          else
+            # pinned by HEATNET_IMAGE_TAG: the running image must be the pinned one; publishing does not unpin it
+            if [[ "$DEPLOY_TAG" =~ ^[0-9a-f]{7}$ ]] && [ "${rev:0:7}" != "$DEPLOY_TAG" ]; then
+              echo "::error::Tag ${DEPLOY_TAG} runs revision ${rev}: the tag does not match its revision label"; exit 1
+            fi
+            if [ "$rev" = "$SHA" ]; then
+              echo "Production is pinned to ${DEPLOY_TAG} (${rev}), which is this commit"
+            else
+              echo "::warning title=Production is pinned::HEATNET_IMAGE_TAG=${DEPLOY_TAG} in the server .env keeps production on ${rev}. ${IMAGE}:${TAG} was published and latest was moved, but the application was not updated. Remove HEATNET_IMAGE_TAG from .env to follow latest again."
+            fi
+          fi
+          echo "DEPLOYED_REVISION=${rev}" >> "$GITHUB_ENV"
+
+      - name: Check application availability
+        env:
+          DEPLOY_IMAGE: ${{ steps.pull.outputs.image }}
+          MODE: ${{ steps.pull.outputs.mode }}
+        run: |
+          url="${PRODUCTION_URL%/}"
+          body=$(curl -fsS --retry 10 --retry-delay 6 --retry-all-errors --max-time 15 "$url/actuator/health")
+          echo "$url/actuator/health -> $body"
+          printf '%s' "$body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url/")
+          echo "$url/ -> HTTP $code"
+          [ "$code" = 200 ]
+          {
+            echo "### Deployment"
+            echo "- Running: ${DEPLOY_IMAGE} (${MODE}), revision ${DEPLOYED_REVISION}"
+            echo "- Published by this run: ${IMAGE}:${TAG} (revision ${GITHUB_SHA})"
+            echo "- ${url}: health UP, / HTTP 200"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out of GHCR on the server
+        if: always()
+        run: |
+          [ -f ~/.ssh/config ] || exit 0
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "docker logout ${REGISTRY}" || true

@@ -1,0 +1,104 @@
+# Production stack. Same services, networks, volumes and health checks as docker-compose.yml (local build),
+# but the application runs from the published GHCR image instead of being built from the sources.
+#
+# Server directory layout (nothing else from the repository is needed):
+#   compose.prod.yaml    - this file (delivered by CI)
+#   caddy/Caddyfile      - reverse proxy config (delivered by CI, identical to the repository one)
+#   .env                 - created and maintained manually on the server, never touched by CI
+#
+#   docker compose -f compose.prod.yaml pull
+#   docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
+#
+# CI publishes every verified main commit as an immutable ghcr.io/netrunner-0806/lit_2026_heating_main_routing:<7-char SHA>
+# tag (full SHA in the org.opencontainers.image.revision label) and moves `latest` only forward to newer commits.
+# The application runs HEATNET_IMAGE_TAG from the server .env (e.g. HEATNET_IMAGE_TAG=a1b2c3d pins a version);
+# when it is absent or empty, `latest` is used. See docs/deployment.md.
+
+# fixed project name: volume names (heatnet_heatnet-pg, heatnet_heatnet-data, ...) do not depend on the directory
+name: heatnet
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: heatnet-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-heatnet}
+      POSTGRES_USER: ${POSTGRES_USER:-heatnet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
+    volumes:
+      - heatnet-pg:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-heatnet} -d ${POSTGRES_DB:-heatnet}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/netrunner-0806/lit_2026_heating_main_routing:${HEATNET_IMAGE_TAG:-latest}
+    container_name: heatnet-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-heatnet}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-heatnet}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-heatnet}
+      HEATNET_WORKERS: ${HEATNET_WORKERS:-1}
+      HEATNET_MAX_VARIANTS: ${HEATNET_MAX_VARIANTS:-3}
+      # Keep multipart spool and job files on one filesystem so transferTo can rename the upload.
+      HEATNET_TMP_DIR: /app/data/tmp
+      JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx13g -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    volumes:
+      - heatnet-data:/app/data
+      - heatnet-tmp:/app/tmp
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          health=$$(curl -fsS --max-time 4 http://localhost:8080/actuator/health) &&
+          printf '%s' "$$health" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.11.7
+    container_name: heatnet-caddy
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - frontend
+    restart: unless-stopped
+
+# caddy <-> app on "frontend", app <-> db on "backend": caddy has no route to db
+networks:
+  frontend:
+  backend:
+    internal: true
+
+volumes:
+  heatnet-pg:
+  heatnet-data:
+  heatnet-tmp:
+  caddy-data:
+  caddy-config:

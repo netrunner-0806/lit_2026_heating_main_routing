@@ -63,7 +63,7 @@ def main():
              '-w','/work','lct-robustness-builder:baseline','mvn','-o','-B','-ntp',
              '-Dheatnet.corrected.input=/work/target/scale-data/original.geojson','-Dheatnet.replay.seed=12345','test',
              'dependency:build-classpath','-Dmdep.outputFile=target/stress-classpath.txt'],'java-tests.log')
-        run(['node','--test','src/test/js/large-input-ui.test.cjs','src/test/js/resumable-upload.test.cjs'],'ui-tests.log')
+        run(['node','--test']+[str(f.relative_to(ROOT)) for f in sorted((ROOT/'src/test/js').glob('*.test.cjs'))],'ui-tests.log')
         run([sys.executable,'scripts/benchmark-scale.py','--label',a.label,'--snapshot'])
     if a.phase in ['bench','all','acceptance']:
         # Before/after calculations run sequentially with identical quotas and heap. Never overlap measurements.

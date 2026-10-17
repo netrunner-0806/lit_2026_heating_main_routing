@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2.11.4-alpine
+    image: caddy:2.11.7
     container_name: heatnet-caddy
     depends_on:
       app:
