@@ -54,6 +54,7 @@ public final class ObstacleSpace {
     private final List<Obstacle> obstacles;
     private final double[] required;
     private final java.util.concurrent.atomic.AtomicReferenceArray<PreparedGeometry> preparedCheckZones;
+    private final java.util.concurrent.atomic.AtomicReferenceArray<ru.lct.heatnet.geo.ConvexSegmentClip> convexCheckZones;
     private final STRtree index = new STRtree();
     /** Optional rejection certificates, never a substitute for the complete obstacle index. */
     private final STRtree forbiddenInteriors = new STRtree();
@@ -96,6 +97,7 @@ public final class ObstacleSpace {
         this.obstacles = Collections.unmodifiableList(list);
         this.required = new double[list.size()];
         this.preparedCheckZones = new java.util.concurrent.atomic.AtomicReferenceArray<>(list.size());
+        this.convexCheckZones = new java.util.concurrent.atomic.AtomicReferenceArray<>(list.size());
         List<Geometry> forbiddenZones = new ArrayList<>();
         List<Geometry> vertexZones = new ArrayList<>();
         for (Obstacle o : list) {
@@ -398,8 +400,26 @@ public final class ObstacleSpace {
 
     /** Exact distances to the original geometry decide admissibility. Navigation buffers are only candidates. */
     private boolean clearanceOutside(Obstacle o, Coordinate a, Coordinate b, double len, List<double[]> covers) {
-        if (!exactClearance)
+        if (!exactClearance) {
+            ru.lct.heatnet.geo.ConvexSegmentClip clip=convexCheckZones.get(o.index());
+            if(clip==null) synchronized(o) {
+                clip=convexCheckZones.get(o.index());
+                if(clip==null) {
+                    clip=ru.lct.heatnet.geo.ConvexSegmentClip.prepare(prepared(o).getGeometry());
+                    convexCheckZones.set(o.index(),clip);
+                }
+            }
+            double[] interval=clip.interval(a,b,len);
+            if(interval!=null) {
+                if(interval.length==0)return true;
+                // At tolerance boundaries retain the old overlay decision, not a new numerical allowance.
+                boolean ambiguous=Math.abs(interval[1]-interval[0]-COVER_TOL)<1e-7;
+                for(double[] c:covers) for(double end:interval) for(double cover:c)
+                    if(Math.abs(Math.abs(end-cover)-COVER_TOL)<1e-7)ambiguous=true;
+                if(!ambiguous)return covered(Collections.singletonList(interval),covers);
+            }
             return covered(intervals(intersection(prepared(o).getGeometry(),GeometryUtils.line(a,b),o),a,len),covers);
+        }
         List<double[]> sorted = new ArrayList<>(covers);
         sorted.sort(java.util.Comparator.comparingDouble(v -> v[0]));
         double at = 0;
