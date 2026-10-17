@@ -1,6 +1,8 @@
-# CI/CD: verify -> build-and-publish (GHCR) -> optional manual deploy (SSH + Docker Compose).
-# Runs on every push to main; the first step of verify decides whether anything relevant changed. Irrelevant pushes
-# (documentation only) end with a successful verify and skipped publish/deploy instead of being filtered out by `paths`.
+# CI/CD: verify (static checks + frontend tests) -> build-and-publish (GHCR) -> deploy (SSH + Docker Compose).
+# Runs on every push to main and manually (Run workflow). The first step of verify decides whether anything relevant
+# changed: irrelevant pushes (documentation only) end with a successful verify and skipped publish/deploy instead of
+# being filtered out by `paths`. Java tests are intentionally not run here (too expensive for every push).
+# Deployment runs automatically for a push to main and for a manual run with `deploy` checked (the default).
 name: CI/CD
 
 on:
@@ -12,7 +14,7 @@ on:
         description: 'Deploy to production after verification and image publication'
         type: boolean
         required: false
-        default: false
+        default: true
 
 permissions: {}
 
@@ -22,12 +24,14 @@ defaults:
 
 env:
   REGISTRY: ghcr.io
+  # Container package name in the namespace of the repository owner: ghcr.io/<owner>/heatnet
+  IMAGE_NAME: heatnet
 
 jobs:
   verify:
     name: verify
     runs-on: ubuntu-26.04
-    timeout-minutes: 150
+    timeout-minutes: 30
     permissions:
       contents: read
     outputs:
@@ -38,26 +42,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Detect changes relevant to build, tests and deployment
+      - name: Detect changes relevant to the image and deployment
         id: detect
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
-          # Paths that influence the application, its tests (fixtures live in examples/ and ТЗ/), the Docker build
-          # or the deployment. Anything else (README, docs, scripts) does not trigger verify/publish/deploy.
-          RELEVANT='^(src/|pom\.xml$|Dockerfile$|\.dockerignore$|docker-compose\.yml$|compose\.prod\.yaml$|caddy/|\.github/workflows/|examples/|ТЗ/)'
+          # Paths that influence the application image, the checks of this job or the deployment.
+          # Anything else (README, docs, scripts, examples, ТЗ) does not trigger verify/publish/deploy.
+          RELEVANT='^(src/|pom\.xml$|Dockerfile$|\.dockerignore$|docker-compose\.yml$|compose\.prod\.yaml$|caddy/|\.github/workflows/)'
           relevant=true
           reason=""
           if [ "$EVENT" != "push" ]; then
-            reason="manual run ($EVENT): verification and publication run (deployment remains manual)"
+            reason="manual run ($EVENT): verification and publication run"
           elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            reason="first push of the branch: no previous commit to compare, verification and publication run (deployment remains manual)"
+            reason="first push of the branch: no previous commit to compare, verification and publication run"
           elif ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
-            reason="previous commit $BEFORE is not available (force push / missing history): verification and publication run (deployment remains manual)"
+            reason="previous commit $BEFORE is not available (force push / missing history): verification and publication run"
           elif ! changed=$(git -c core.quotePath=false diff --name-only "$BEFORE" "$AFTER"); then
-            reason="git diff failed: verification and publication run (deployment remains manual)"
+            reason="git diff failed: verification and publication run"
           else
             {
               echo "### Changed files ($BEFORE..$AFTER)"
@@ -69,31 +73,82 @@ jobs:
               reason="relevant files changed"
             else
               relevant=false
-              reason="only files irrelevant to build, tests and deployment changed (e.g. documentation): verify, build-and-publish and deploy are skipped"
+              reason="only files irrelevant to the image and deployment changed (e.g. documentation): verify, build-and-publish and deploy are skipped"
             fi
           fi
           echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
           echo "$reason"
           echo "**Pipeline:** $reason" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/setup-java@v6
-        if: steps.detect.outputs.relevant == 'true'
-        with:
-          distribution: temurin
-          java-version: '11'
-          cache: maven
+      # ---- static checks: report problems, never rewrite files (no --fix, no formatters) ----
 
-      - uses: actions/setup-node@v7
+      - name: Workflow lint (actionlint + ShellCheck of run scripts)
         if: steps.detect.outputs.relevant == 'true'
-        with:
-          node-version: '24'
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "actionlint_${ACTIONLINT_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "$tarball" actionlint
+          cd "$GITHUB_WORKSPACE"
+          shellcheck --version | sed -n 2p
+          # actionlint ${ACTIONLINT_VERSION} predates two documented GitHub features used here: the GA runner label
+          # ubuntu-26.04 and `concurrency.queue`. Only these two exact messages are ignored.
+          "$RUNNER_TEMP/actionlint" -no-color \
+            -ignore 'label "ubuntu-26\.04" is unknown' \
+            -ignore 'unexpected key "queue" for "concurrency" section'
 
-      - name: JavaScript syntax check
+      - name: YAML lint (yamllint)
         if: steps.detect.outputs.relevant == 'true'
         run: |
-          files=(src/main/resources/static/*.js src/test/js/*.cjs)
-          for f in "${files[@]}"; do node --check "$f"; done
-          echo "Syntax OK: ${#files[@]} files"
+          # Syntax, duplicate keys, indentation, truthy values; long lines are allowed (comments are wide on purpose).
+          yamllint --version
+          git ls-files -z '*.yml' '*.yaml' | xargs -0 yamllint --strict -f github \
+            -d '{extends: relaxed, rules: {line-length: disable}}'
+
+      - name: Shell scripts (ShellCheck)
+        if: steps.detect.outputs.relevant == 'true'
+        run: |
+          mapfile -d '' scripts < <(git ls-files -z '*.sh')
+          [ ${#scripts[@]} -gt 0 ] || { echo "No shell scripts"; exit 0; }
+          # Errors fail the job; warnings and style notes are reported in the log and the job summary.
+          shellcheck --severity=error "${scripts[@]}"
+          report=$(shellcheck -f gcc "${scripts[@]}" || true)
+          printf '%s\n' "${report:-no findings}"
+          echo "### ShellCheck" >> "$GITHUB_STEP_SUMMARY"
+          echo "${#scripts[@]} script(s): no errors, $(printf '%s' "$report" | grep -c ': warning:\|: note:\|: info:' || true) warning/note(s) (report only)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Docker Compose and Caddyfile configuration
+        if: steps.detect.outputs.relevant == 'true'
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # Read-only: `config --quiet` only parses and interpolates; nothing is pulled, built or started.
+          # No .env exists in the checkout, so the documented defaults are used.
+          unset HEATNET_IMAGE_TAG
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f compose.prod.yaml config --quiet
+          # compose.prod.yaml must run the image this workflow publishes: `latest` without HEATNET_IMAGE_TAG,
+          # the pinned tag with it.
+          expected="${REGISTRY}/${OWNER,,}/${IMAGE_NAME}"
+          app_image() { docker compose -f compose.prod.yaml config --images app | grep -Fx -e "$1"; }
+          app_image "${expected}:latest" \
+            || { echo "::error file=compose.prod.yaml::app image does not resolve to ${expected}:latest"; exit 1; }
+          HEATNET_IMAGE_TAG=a1b2c3d app_image "${expected}:a1b2c3d" \
+            || { echo "::error file=compose.prod.yaml::HEATNET_IMAGE_TAG does not select the app image tag"; exit 1; }
+          HEATNET_IMAGE_TAG='' app_image "${expected}:latest" \
+            || { echo "::error file=compose.prod.yaml::an empty HEATNET_IMAGE_TAG does not fall back to latest"; exit 1; }
+          # Caddyfile delivered to production: adapt and validate with the pinned Caddy image, offline, read-only mount.
+          # (`config --images <service>` also lists dependencies, so the image is read from the JSON model)
+          caddy_image=$(docker compose -f compose.prod.yaml config --format json \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["services"]["caddy"]["image"])')
+          docker run --rm --network none -e DOMAIN=heatnet.example.ru -e ACME_EMAIL=ops@example.ru \
+            -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" "$caddy_image" \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
       - name: Secret scan (gitleaks)
         if: steps.detect.outputs.relevant == 'true'
@@ -119,11 +174,32 @@ jobs:
             "$RUNNER_TEMP/gitleaks" dir --no-banner --redact .
           fi
 
+      - uses: actions/setup-node@v7
+        if: steps.detect.outputs.relevant == 'true'
+        with:
+          node-version: '24'
+
+      - name: JavaScript syntax check
+        if: steps.detect.outputs.relevant == 'true'
+        run: |
+          files=(src/main/resources/static/*.js src/test/js/*.cjs)
+          for f in "${files[@]}"; do node --check "$f"; done
+          echo "Syntax OK: ${#files[@]} files"
+
+      - uses: actions/setup-java@v6
+        if: steps.detect.outputs.relevant == 'true'
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
       - name: Java static check (javac -Xlint:all, report)
         if: steps.detect.outputs.relevant == 'true'
         run: |
           # No linter is configured in pom.xml; compile the main sources with all javac lint categories enabled.
-          # Compilation errors fail the job; lint warnings are reported in the log and the job summary.
+          # Only the dependency:build-classpath goal is invoked (no lifecycle phase, so no tests are compiled or run);
+          # classes go to RUNNER_TEMP, the checkout is not written. Compilation errors fail the job; lint warnings
+          # are reported in the log and the job summary.
           mvn -B -ntp -q dependency:build-classpath -Dmdep.outputFile="$RUNNER_TEMP/classpath.txt"
           find src/main/java -name '*.java' > "$RUNNER_TEMP/sources.txt"
           mkdir -p "$RUNNER_TEMP/lint-classes"
@@ -163,22 +239,22 @@ jobs:
             *) echo "::error::osv-scanner failed with exit code $code"; exit "$code" ;;
           esac
 
-      - name: Java tests
-        if: steps.detect.outputs.relevant == 'true'
-        run: mvn -B -ntp test
+      # ---- tests: frontend only (Java tests are intentionally not run in CI) ----
 
       - name: Frontend tests
         if: steps.detect.outputs.relevant == 'true'
         run: node --test src/test/js/*.test.cjs
 
-      - name: Upload test reports
-        if: failure() && steps.detect.outputs.relevant == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: surefire-reports
-          path: target/surefire-reports/
-          if-no-files-found: ignore
-          retention-days: 14
+      - name: Checks did not modify the checkout
+        if: steps.detect.outputs.relevant == 'true'
+        run: |
+          changes=$(git status --porcelain --untracked-files=all)
+          if [ -n "$changes" ]; then
+            printf '%s\n' "$changes"
+            echo "::error::A check modified or created files in the checkout"
+            exit 1
+          fi
+          echo "Working tree unchanged"
 
   build-and-publish:
     name: build-and-publish
@@ -209,16 +285,19 @@ jobs:
       - name: Image name and short tag
         id: meta
         env:
-          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
           SHA: ${{ github.sha }}
         run: |
+          # The package lives in the namespace of the repository owner (GHCR names must be lower case); the
+          # org.opencontainers.image.source label below links it to this repository.
           # Commit images are tagged with the 7-character short SHA (as GitHub shows it); the full SHA is kept in the
           # org.opencontainers.image.revision label and is what the ordering of `latest` is based on.
-          echo "image=${REGISTRY}/${REPO,,}" >> "$GITHUB_OUTPUT"
+          echo "image=${REGISTRY}/${OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
           echo "tag=${SHA:0:7}" >> "$GITHUB_OUTPUT"
           cat > "$RUNNER_TEMP/ghcr.sh" <<'LIB'
           # image_revision REF: prints the org.opencontainers.image.revision label of REF (empty without the label).
-          # Exit code 0: the image exists, 2: the tag does not exist, 1: the registry could not be read.
+          # Exit code 0: the image exists, 2: the tag (or, before the first publication, the package) does not exist,
+          # 1: the registry could not be read (for example access denied).
           image_revision() {
             local out
             if out=$(docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>&1); then
@@ -228,7 +307,7 @@ jobs:
           if "config" not in d:  # multi-platform index: take the first real platform
               d = next((v for k, v in d.items() if isinstance(v, dict) and "config" in v and not k.startswith("unknown")), {})
           print(((d.get("config") or {}).get("Labels") or {}).get("org.opencontainers.image.revision", ""))'
-            elif printf '%s' "$out" | grep -qiE 'not found|manifest unknown'; then
+            elif printf '%s' "$out" | grep -qiE 'not found|manifest unknown|name unknown'; then
               return 2
             else
               echo "::error::Cannot read $1: $out" >&2
@@ -367,7 +446,9 @@ jobs:
   deploy:
     name: deploy
     needs: [verify, build-and-publish]
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true && needs.verify.outputs.relevant == 'true' && needs.build-and-publish.outputs.latest == 'true' && github.ref == 'refs/heads/main'
+    # Automatic for a push to main; for a manual run of main only with `deploy` checked (default). Only a run that
+    # moved `latest` deploys: an older run that finished after a newer one leaves deployment to the newer run.
+    if: github.ref == 'refs/heads/main' && needs.verify.outputs.relevant == 'true' && needs.build-and-publish.outputs.latest == 'true' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy == true))
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     environment: production
@@ -388,6 +469,7 @@ jobs:
       TAG: ${{ needs.build-and-publish.outputs.tag }}
     steps:
       - name: Check deployment settings
+        id: settings
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
@@ -395,11 +477,22 @@ jobs:
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         run: |
           missing=()
-          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH GHCR_READ_USER GHCR_READ_TOKEN PRODUCTION_URL; do
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH PRODUCTION_URL; do
             [ -n "${!name}" ] || missing+=("$name")
           done
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing deployment settings (repository or 'production' environment secrets / variables): ${missing[*]}"
+            exit 1
+          fi
+          # GHCR credentials are optional: a public package is pulled anonymously, a private one needs both.
+          if [ -n "$GHCR_READ_USER" ] && [ -n "$GHCR_READ_TOKEN" ]; then
+            echo "ghcr_login=true" >> "$GITHUB_OUTPUT"
+            echo "GHCR: logging in on the server with GHCR_READ_USER / GHCR_READ_TOKEN"
+          elif [ -z "$GHCR_READ_USER" ] && [ -z "$GHCR_READ_TOKEN" ]; then
+            echo "ghcr_login=false" >> "$GITHUB_OUTPUT"
+            echo "GHCR: no credentials set, the image is pulled anonymously (the package must be public)"
+          else
+            echo "::error::Set both GHCR_READ_USER and GHCR_READ_TOKEN (private package) or neither (public package)"
             exit 1
           fi
 
@@ -458,6 +551,7 @@ jobs:
             else cat caddy/.Caddyfile.upload > caddy/Caddyfile && rm -f caddy/.Caddyfile.upload && touch .caddy-reload && echo 'Caddyfile updated'; fi"
 
       - name: Log in to GHCR on the server
+        if: steps.settings.outputs.ghcr_login == 'true'
         env:
           GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
@@ -499,7 +593,7 @@ jobs:
             echo "App image: $ref (pinned by HEATNET_IMAGE_TAG in .env)"
           fi
           echo "DEPLOY_IMAGE=$ref"
-          compose pull || { echo "::error::docker compose pull failed. Check that $ref exists in GHCR (HEATNET_IMAGE_TAG in .env) and the GHCR credentials"; exit 1; }
+          compose pull || { echo "::error::docker compose pull failed. Check that $ref exists in GHCR (HEATNET_IMAGE_TAG in .env) and that the package is public or GHCR_READ_USER / GHCR_READ_TOKEN are set"; exit 1; }
           compose up -d --no-build --remove-orphans
           if [ -f .caddy-reload ]; then
             compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
@@ -606,7 +700,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Log out of GHCR on the server
-        if: always()
+        if: always() && steps.settings.outputs.ghcr_login == 'true'
         run: |
           [ -f ~/.ssh/config ] || exit 0
           # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)

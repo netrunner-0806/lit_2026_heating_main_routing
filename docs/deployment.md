@@ -8,24 +8,47 @@
 
 Pipeline запускается на каждый push в `main` и вручную (Actions → CI/CD → Run workflow). Стадии:
 
-1. **verify** — определяет, затронуты ли файлы приложения, сборки или деплоя (изменения только
-   документации, например `docs/`, дальше не идут), затем проверки и тесты.
-2. **build-and-publish** — собирает образ по существующему `Dockerfile` и публикует его в GHCR:
-   - `ghcr.io/netrunner-0806/lit_2026_heating_main_routing:<короткий SHA>` — 7 символов, как GitHub показывает
+1. **verify** — сначала определяет, затронуты ли файлы образа или деплоя: `src/`, `pom.xml`, `Dockerfile`,
+   `.dockerignore`, `docker-compose.yml`, `compose.prod.yaml`, `caddy/`, `.github/workflows/`. Push, в котором
+   изменилось только остальное (`README.md`, `docs/`, `scripts/`, `examples/`, `ТЗ/`), завершает verify
+   успешно, а публикацию и деплой пропускает. Ручной запуск проверяет всё всегда. Затем по порядку:
+   - статические проверки, которые только сообщают об ошибках и ничего не исправляют:
+     - `actionlint` для workflow, вместе с ShellCheck для его `run`-скриптов;
+     - `yamllint` для всех `*.yml` / `*.yaml`;
+     - ShellCheck для `scripts/*.sh`: ошибки валят job, предупреждения выводятся в отчёт;
+     - `docker compose config --quiet` для обоих Compose-файлов, плюс проверка, что `compose.prod.yaml`
+       выбирает публикуемый образ и правильно реагирует на `HEATNET_IMAGE_TAG`;
+     - `caddy validate` для `caddy/Caddyfile`;
+     - поиск секретов (gitleaks);
+     - `node --check` для JS;
+     - компиляция Java-исходников с `javac -Xlint:all`: без тестов, предупреждения только в отчёт;
+     - osv-scanner: известные уязвимости зависимостей, только отчёт;
+   - фронтенд-тесты `node --test src/test/js/*.test.cjs`;
+   - контроль, что проверки не изменили рабочее дерево.
+
+   **Java-тесты в CI не запускаются** (`mvn test` / `mvn verify` отсутствуют): это намеренное решение
+   из-за их стоимости. Запускайте их локально (см. `CLAUDE.md` / README, раздел «Тестирование»).
+2. **build-and-publish** — собирает образ по существующему `Dockerfile` и публикует его в GHCR в пакет
+   `heatnet` владельца репозитория:
+   - `ghcr.io/netrunner-0806/heatnet:<короткий SHA>` — 7 символов, как GitHub показывает
      короткий хеш коммита (например `a1b2c3d`). Тег неизменяемый: повторный запуск того же коммита
      переиспользует опубликованный образ, а образ другого коммита с тем же тегом не перезаписывается;
-   - `ghcr.io/netrunner-0806/lit_2026_heating_main_routing:latest` — переносится на новый образ, только если коммит
+   - `ghcr.io/netrunner-0806/heatnet:latest` — переносится на новый образ, только если коммит
      новее того, на который `latest` уже указывает (сравнение по полному SHA и истории Git). Запуск
      для более старого коммита, завершившийся позже, `latest` назад не откатывает.
 
    Полный SHA коммита хранится в метке образа `org.opencontainers.image.revision`, короткий —
-   в `org.opencontainers.image.version`.
-3. **deploy** — выполняется только при ручном запуске `workflow_dispatch` для `main` с выбранным
-   параметром **deploy**, если этот запуск продвинул `latest`. По умолчанию параметр выключен;
-   обычный push проверяет и публикует образ, но не подключается к production. По SSH копирует на сервер
-   `compose.prod.yaml` и `caddy/Caddyfile`, выполняет `docker compose pull` и
-   `docker compose up -d --no-build --remove-orphans`, проверяет health контейнеров, запущенный образ
-   и HTTP-доступность. На сервере ничего не собирается.
+   в `org.opencontainers.image.version`, адрес репозитория — в `org.opencontainers.image.source`.
+3. **deploy** — выполняется **автоматически после каждого push в `main`**, прошедшего verify и публикацию,
+   и при ручном запуске для `main` с включённым параметром **deploy** (по умолчанию включён). В обоих случаях
+   деплой идёт, только если этот запуск продвинул `latest`: более старый запуск, завершившийся после более
+   нового, деплой пропускает — его выполнит более новый. Ручной запуск с выключенным **deploy** только
+   проверяет и публикует. По SSH копирует на сервер `compose.prod.yaml` и `caddy/Caddyfile`, выполняет
+   `docker compose -f compose.prod.yaml pull` и `docker compose -f compose.prod.yaml up -d --no-build --remove-orphans`,
+   проверяет health контейнеров, запущенный образ и HTTP-доступность. На сервере ничего не собирается.
+
+Пока secrets и variables из раздела 10 не созданы, job deploy после каждого push завершается ошибкой
+`Missing deployment settings: ...` (до подключения к серверу). Образ при этом уже опубликован.
 
 Какой тег приложения запускать, решает **только серверный `.env`** (переменная `HEATNET_IMAGE_TAG`,
 см. раздел 7). CI эту переменную не передаёт и `.env` не создаёт, не читает в лог, не перезаписывает
@@ -232,13 +255,13 @@ ACME_EMAIL=ops@example.ru
 В `compose.prod.yaml`:
 
 ```yaml
-image: ghcr.io/netrunner-0806/lit_2026_heating_main_routing:${HEATNET_IMAGE_TAG:-latest}
+image: ghcr.io/netrunner-0806/heatnet:${HEATNET_IMAGE_TAG:-latest}
 ```
 
 ### Режим 1. Автоматически `latest`
 
 В `.env` нет строки `HEATNET_IMAGE_TAG` (или она пустая: `HEATNET_IMAGE_TAG=`). Каждый успешный
-деплой скачивает текущий `latest` и пересоздаёт `app`, если образ изменился.
+деплой (автоматически после push в `main`) скачивает текущий `latest` и пересоздаёт `app`, если образ изменился.
 
 ### Режим 2. Закрепление на конкретной версии
 
@@ -246,7 +269,7 @@ image: ghcr.io/netrunner-0806/lit_2026_heating_main_routing:${HEATNET_IMAGE_TAG:
 HEATNET_IMAGE_TAG=a1b2c3d
 ```
 
-Production запускает `ghcr.io/netrunner-0806/lit_2026_heating_main_routing:a1b2c3d` независимо от новых публикаций.
+Production запускает `ghcr.io/netrunner-0806/heatnet:a1b2c3d` независимо от новых публикаций.
 Pipeline продолжает публиковать новые образы и двигать `latest`, а deploy на сервере по-прежнему обновляет
 `compose.prod.yaml`/Caddyfile и запускает `pull`/`up`, но приложение остаётся на закреплённом теге.
 В сводке запуска появится предупреждение `Production is pinned`.
@@ -260,8 +283,46 @@ Pipeline продолжает публиковать новые образы и 
 одноимённую переменную окружения удалённой оболочки, чтобы она не перекрыла `.env`.
 Для ручных команд на сервере не экспортируйте `HEATNET_IMAGE_TAG` в профиле оболочки по той же причине.
 
-## 8. Доступ к GHCR для скачивания приватного образа
+### Переход со старого имени образа
 
+Раньше образ публиковался как `ghcr.io/netrunner-0806/lit_2026_heating_main_routing`; теперь — `ghcr.io/netrunner-0806/heatnet`.
+Теги старого пакета в новый не переносятся. Если в серверном `.env` закреплён тег (`HEATNET_IMAGE_TAG=...`),
+до первого деплоя нового образа уберите строку или замените значение на тег, уже опубликованный в пакете `heatnet`,
+иначе шаг `Pull and update the stack` остановится на ошибке `docker compose pull failed`. Тома, контейнеры и
+имя Compose-проекта (`heatnet`) от смены имени образа не меняются: при деплое `app` пересоздаётся из нового образа.
+Старый пакет workflow не трогает; удалить его можно вручную на странице пакета, когда он больше не нужен для отката.
+
+## 8. Пакет в GHCR: публичный доступ (рекомендуется) или токен на чтение
+
+Пакет `heatnet` создаётся первым успешным запуском `build-and-publish` в пространстве владельца репозитория
+(`netrunner-0806`) и автоматически связывается с репозиторием (метка `org.opencontainers.image.source`, публикация
+из workflow этого репозитория): он появляется в блоке **Packages** на странице репозитория. Новый пакет GHCR
+по умолчанию **приватный** — даже у публичного репозитория.
+
+### 8.1. Публичный пакет (выбранный вариант)
+
+Сервер скачивает публичный образ без входа в реестр, поэтому `GHCR_READ_USER` и `GHCR_READ_TOKEN` не нужны:
+не создавайте их (или удалите), и deploy выполнит `pull` анонимно.
+
+Сделать пакет публичным можно только после его первой публикации и только с правами администратора пакета
+(для пакета пользователя — его владелец `netrunner-0806`):
+
+1. Профиль `netrunner-0806` → вкладка **Packages** → `heatnet` (или страница репозитория → Packages → `heatnet`).
+2. **Package settings** (шестерёнка справа).
+3. Внизу, в **Danger Zone** → **Change visibility** → **Public**.
+4. Введите имя пакета `heatnet` и подтвердите **I understand the consequences, change package visibility**.
+
+**Это необратимо:** по документации GitHub публичный пакет нельзя снова сделать приватным. В образе только
+собранное приложение из публичного репозитория (`Dockerfile` копирует `pom.xml` и `src/`); серверный `.env`
+и секреты в образ не попадают.
+
+Порядок первого запуска: первый push публикует образ, пока пакет ещё приватный, поэтому deploy этого запуска
+без токена упадёт на `docker compose pull failed`. Переключите пакет в Public и перезапустите упавший job
+(Actions → запуск → **Re-run failed jobs**) или запустите workflow вручную.
+
+### 8.2. Приватный пакет: токен на чтение
+
+Если пакет остаётся приватным, задайте **оба** секрета; если задан только один, deploy остановится с ошибкой.
 GitHub Packages принимает для `docker login` только **personal access token (classic)**; fine-grained токены
 для GHCR не поддерживаются. Для скачивания достаточно scope `read:packages`.
 
@@ -274,12 +335,14 @@ Classic-токен с `read:packages` даёт чтение всех пакет�
 создайте отдельную служебную учётную запись GitHub, выдайте ей доступ на чтение только к этому пакету
 и выпустите токен от её имени.
 
-Workflow логинится на сервере перед `pull` (токен передаётся через stdin, в логи не попадает) и всегда
-выполняет `docker logout ghcr.io` после деплоя. Постоянно хранить учётные данные на сервере не нужно;
-для ручного `pull` логиньтесь временно (раздел 12).
+С заданными секретами workflow логинится на сервере перед `pull` (токен передаётся через stdin, в логи
+не попадает) и всегда выполняет `docker logout ghcr.io` после деплоя. Постоянно хранить учётные данные
+на сервере не нужно; для ручного `pull` логиньтесь временно (раздел 12).
+
+### 8.3. Публикация
 
 Публикация из Actions идёт через встроенный `GITHUB_TOKEN` (`packages: write`), создавать для неё ничего
-не нужно. Если пакет `lit_2026_heating_main_routing` уже существовал до этого workflow и не связан с репозиторием,
+не нужно. Если пакет `heatnet` уже существовал до этого workflow и не связан с репозиторием,
 `GITHUB_TOKEN` не сможет в него писать: на странице пакета (Package settings → Manage Actions access)
 добавьте репозиторий с ролью Write.
 
@@ -304,18 +367,21 @@ Workflow логинится на сервере перед `pull` (токен п
 
 Точные имена из workflow:
 
-| Имя | Тип | Что это | Откуда взять / как сформировать | Обязательна для деплоя |
-|---|---|---|---|---|
-| `SSH_HOST` | Secret | адрес сервера | IP или DNS-имя сервера; то же имя, что использовалось в `ssh-keyscan` | да |
-| `SSH_PORT` | Secret | порт SSH | порт `sshd` на сервере | нет (по умолчанию `22`) |
-| `SSH_USER` | Secret | пользователь для деплоя | `deploy` из раздела 3 | да |
-| `SSH_PRIVATE_KEY` | Secret | приватный ключ для входа | полное содержимое файла `heatnet_deploy` из раздела 4.1, включая строки `-----BEGIN/END OPENSSH PRIVATE KEY-----` | да |
-| `SSH_KNOWN_HOSTS` | Secret | ключ хоста сервера | содержимое `known_hosts_prod` после сверки отпечатка (раздел 4.3) | да |
-| `DEPLOY_PATH` | Secret | каталог проекта на сервере | абсолютный путь из раздела 5, например `/opt/heatnet` | да |
-| `GHCR_READ_USER` | Secret | логин для `docker login ghcr.io` на сервере | логин владельца токена | да |
-| `GHCR_READ_TOKEN` | Secret | токен для скачивания образа | classic PAT только с `read:packages` (раздел 8) | да |
-| `PRODUCTION_URL` | Variable | публичный адрес для HTTP-проверок | `https://` + `DOMAIN`, без завершающего `/` | да |
-| `GITHUB_TOKEN` | создаётся автоматически | публикация в GHCR, GitHub API | ничего создавать не нужно; права заданы в workflow (`packages: write` только у build-and-publish) | — |
+| Имя | Тип | Что это | Откуда взять / как сформировать | Обязателен | Где добавить (раздел 10.2) |
+|---|---|---|---|---|---|
+| `SSH_HOST` | Secret | адрес сервера | IP или DNS-имя сервера; то же имя, что использовалось в `ssh-keyscan` | да | Environment secrets `production` или Repository secrets |
+| `SSH_PORT` | Secret | порт SSH | порт `sshd` на сервере | нет (по умолчанию `22`) | там же |
+| `SSH_USER` | Secret | пользователь для деплоя | `deploy` из раздела 3 | да | там же |
+| `SSH_PRIVATE_KEY` | Secret | приватный ключ для входа | полное содержимое файла `heatnet_deploy` из раздела 4.1, включая строки `-----BEGIN/END OPENSSH PRIVATE KEY-----` | да | там же |
+| `SSH_KNOWN_HOSTS` | Secret | ключ хоста сервера | содержимое `known_hosts_prod` после сверки отпечатка (раздел 4.3) | да | там же |
+| `DEPLOY_PATH` | Secret | каталог проекта на сервере | абсолютный путь из раздела 5, например `/opt/heatnet` | да | там же |
+| `GHCR_READ_USER` | Secret | логин для `docker login ghcr.io` на сервере | логин владельца токена (раздел 8.2) | нет: только для приватного пакета, вместе с `GHCR_READ_TOKEN` | там же |
+| `GHCR_READ_TOKEN` | Secret | токен для скачивания образа | classic PAT только с `read:packages` (раздел 8.2) | нет: только для приватного пакета, вместе с `GHCR_READ_USER` | там же |
+| `PRODUCTION_URL` | Variable | публичный адрес для HTTP-проверок | `https://` + `DOMAIN`, без завершающего `/` | да | Environment variables `production` или Repository variables |
+| `GITHUB_TOKEN` | создаётся автоматически | публикация в GHCR, GitHub API | ничего создавать не нужно; права заданы в workflow (`packages: write` только у build-and-publish) | — | — |
+
+Имя образа (`IMAGE_NAME: heatnet`) и владелец (`github.repository_owner`) заданы в самом workflow — отдельных
+secrets/variables для них нет.
 
 `verify` и `build-and-publish` никаких пользовательских секретов не используют. Если обязательной
 записи не хватает, deploy сразу падает с сообщением `Missing deployment settings: ...` и перечнем имён.
@@ -326,22 +392,33 @@ Job `deploy` объявляет `environment: production`. Workflow читает
 работают с любого уровня: из окружения `production`, если они там заданы, иначе из репозитория.
 Если одно имя задано на обоих уровнях, используется значение окружения — не дублируйте.
 
-Ограничения тарифов GitHub для **приватного** репозитория (по документации
+Создавать secrets, variables и environments может только пользователь с правами **администратора**
+репозитория (владелец `netrunner-0806` или выданная им роль Admin); права Write для этого недостаточно.
+Окружение `production` создаётся автоматически при первом запуске job'а `deploy`, но настроить его
+заранее удобнее вручную: Settings → Environments → New environment → `production`.
+
+Ограничения тарифов GitHub (по документации
 [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)):
 
-- environment secrets — только GitHub Pro, Team или Enterprise;
-- environment variables и ограничение веток деплоя — GitHub Pro или Team (и Enterprise);
-- required reviewers и wait timer на Free, Pro и Team доступны только для публичных репозиториев.
+| Возможность | Публичный репозиторий | Приватный репозиторий |
+|---|---|---|
+| Environment secrets | любой тариф, включая Free | GitHub Pro, Team или Enterprise |
+| Environment variables, Deployment branches and tags | любой тариф, включая Free | GitHub Pro или Team (и Enterprise) |
+| Required reviewers, wait timer | любой тариф, включая Free | на Free, Pro и Team недоступны |
 
-Поэтому:
+Репозиторий `netrunner-0806/lit_2026_heating_main_routing` сейчас **публичный**, поэтому рекомендуемый вариант
+доступен на Free:
 
-- **GitHub Free, приватный репозиторий:** всё в Settings → Secrets and variables → Actions:
-  восемь секретов — во вкладке Secrets → **Repository secrets**, `PRODUCTION_URL` — во вкладке
-  Variables → **Repository variables**. В Settings → Environments ничего настраивать не нужно.
-- **GitHub Pro / Team:** можно так же на уровне репозитория. Вариант строже: Settings → Environments →
-  `production` → Deployment branches and tags → Selected branches → `main`; восемь секретов — в
-  **Environment secrets**, `PRODUCTION_URL` — в **Environment variables**. Тогда SSH- и GHCR-секреты
-  доступны только job'у `deploy` и только из `main`.
+1. Settings → Environments → `production` → **Deployment branches and tags** → Selected branches and tags →
+   добавить правило `main`.
+2. В том же окружении: секреты `SSH_*` и `DEPLOY_PATH` (для приватного пакета ещё `GHCR_READ_*`) — в **Environment secrets**, `PRODUCTION_URL` — в **Environment variables**.
+   Тогда SSH- и GHCR-секреты доступны только job'у `deploy` и только из `main`.
+3. Required reviewers не включайте: деплой согласован как автоматический, а с reviewers каждый push будет
+   ждать ручного подтверждения.
+
+Упрощённый вариант (обязателен, если репозиторий станет приватным на GitHub Free): всё в Settings →
+Secrets and variables → Actions — секреты `SSH_*` и `DEPLOY_PATH` (для приватного пакета ещё `GHCR_READ_*`) во вкладке Secrets → **Repository secrets**,
+`PRODUCTION_URL` — во вкладке Variables → **Repository variables**.
 
 ### 10.3. После настройки секретов
 
@@ -367,11 +444,19 @@ ssh -i ./heatnet_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o Us
 
 ### 11.3. Доступ к GHCR с сервера
 
-Под `deploy` на сервере (токен вводится в ответ на запрос пароля и в истории команд не остаётся):
+Публичный пакет (раздел 8.1), под `deploy` на сервере — без входа в реестр:
+
+```bash
+docker pull ghcr.io/netrunner-0806/heatnet:latest
+```
+
+Ответ `denied` / `unauthorized` значит, что пакет ещё приватный; до первой публикации — `not found`.
+
+Приватный пакет (раздел 8.2) — с токеном (вводится в ответ на запрос пароля и в истории команд не остаётся):
 
 ```bash
 docker login ghcr.io -u <GHCR_READ_USER>
-docker pull ghcr.io/netrunner-0806/lit_2026_heating_main_routing:latest
+docker pull ghcr.io/netrunner-0806/heatnet:latest
 docker logout ghcr.io
 ```
 
@@ -394,9 +479,13 @@ docker compose -f compose.prod.yaml config --images
 
 ### 11.5. Запуск pipeline и логи
 
-- Push в `main` с изменениями приложения, сборки или деплоя выполняет проверки и публикацию образа.
-- Для развёртывания: Actions → **CI/CD** → **Run workflow** → `main`, явно включить **deploy**.
-  Без этого параметра ручной запуск также ограничивается проверками и публикацией.
+- Push в `main` с изменениями приложения, сборки или деплоя выполняет проверки, публикацию образа и деплой.
+- Ручной запуск: Actions → **CI/CD** → **Run workflow** → Branch `main` → параметр **deploy** (по умолчанию
+  включён) → **Run workflow**. С выключенным **deploy** запуск ограничивается проверками и публикацией.
+  Ручной запуск для другой ветки проверяет код и публикует образ с её коротким SHA, но `latest` не двигает
+  и не деплоит.
+- Из терминала: `gh workflow run ci-cd.yml --ref main` (с деплоем) или
+  `gh workflow run ci-cd.yml --ref main -f deploy=false` (без деплоя).
 - Логи: вкладка Actions → запуск → job (`verify`, `build-and-publish`, `deploy`) → шаг. В Summary запуска —
   опубликованный тег, решение по `latest`, запущенный образ и полный SHA.
 - Из терминала (GitHub CLI):
@@ -440,7 +529,7 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
 ## 12. Откат и возврат к `latest`
 
-Опубликованные теги видны на странице пакета (профиль или репозиторий → Packages → `lit_2026_heating_main_routing`)
+Опубликованные теги видны на странице пакета (профиль `netrunner-0806` или страница репозитория → Packages → `heatnet`)
 и в Summary запусков (`Published image`).
 
 **Откат на ранее опубликованный тег:**
@@ -458,10 +547,10 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
    ```bash
    cd /opt/heatnet
-   docker login ghcr.io -u <GHCR_READ_USER>
+   docker login ghcr.io -u <GHCR_READ_USER>     # только для приватного пакета
    docker compose -f compose.prod.yaml pull app
    docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
-   docker logout ghcr.io
+   docker logout ghcr.io                        # только для приватного пакета
    ```
 
 4. Проверьте по разделам 11.6–11.7.
@@ -476,12 +565,19 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
 | Симптом (шаг workflow) | Причина | Что сделать |
 |---|---|---|
+| verify падает на `actionlint`, `yamllint`, `ShellCheck`, `Docker Compose and Caddyfile configuration` | ошибка в workflow, YAML, shell-скрипте, Compose-файле или Caddyfile; линтеры ничего не исправляют сами | открыть шаг, исправить указанную строку; локально — `docker compose -f compose.prod.yaml config --quiet`, `node --test src/test/js/*.test.cjs` |
+| `app image does not resolve to ghcr.io/<owner>/heatnet:latest` (verify) | имя образа в `compose.prod.yaml` не совпадает с `IMAGE_NAME` и владельцем репозитория в workflow | привести `image:` к `ghcr.io/<owner>/heatnet:${HEATNET_IMAGE_TAG:-latest}` |
+| `Checks did not modify the checkout` падает | какая-то проверка создала или изменила файлы | список файлов есть в логе шага; проверка не должна писать в рабочее дерево |
+| deploy в статусе Skipped | push изменил только документацию; ручной запуск с выключенным **deploy** или не для `main`; этот запуск не продвинул `latest` (более новый уже опубликован и деплоит сам) | причина видна в Summary (`Pipeline:` в verify, `latest not moved` в build-and-publish) |
+| `denied` / `unauthorized` при push в GHCR (build-and-publish) | пакет `heatnet` уже существует и не связан с репозиторием, либо у `GITHUB_TOKEN` нет прав на него | Package settings → Manage Actions access → добавить репозиторий с ролью Write (раздел 8) |
 | `Missing deployment settings: ...` (Check deployment settings) | не создан секрет или переменная, либо создан не на том уровне | создать записи с точными именами (раздел 10) |
 | `Permission denied (publickey)` | публичный ключ не в `authorized_keys`, неверные права на `~/.ssh`, неверный `SSH_USER` или ключ в секрете обрезан | раздел 4.2; права `700` на `.ssh` и `600` на `authorized_keys`; ключ копировать целиком |
 | `Connection timed out` / `Connection refused` | неверный `SSH_HOST`/`SSH_PORT`, порт закрыт firewall'ом или провайдером | проверить адрес, порт и правила firewall |
 | `Host key verification failed` | `SSH_KNOWN_HOSTS` не соответствует серверу, имени или порту из `SSH_HOST`/`SSH_PORT` | повторить раздел 4.3 со сверкой отпечатка; проверку не отключать |
 | `.env not found on the server` | файла нет в `DEPLOY_PATH` или путь в секрете другой | создать `.env` вручную (раздел 6) |
-| `unauthorized` / `denied` при `docker login` или `pull` | неверный `GHCR_READ_USER`, токен истёк, не classic или без `read:packages`, у владельца нет доступа к пакету | выпустить новый classic PAT с `read:packages` и обновить секреты |
+| `docker compose pull failed` / `denied` без `GHCR_READ_*` | пакет `heatnet` ещё приватный (сразу после первой публикации это так) | сделать пакет публичным (раздел 8.1) и перезапустить job, либо задать оба секрета (8.2) |
+| `Set both GHCR_READ_USER and GHCR_READ_TOKEN ... or neither` | задан только один из двух GHCR-секретов | удалить оба (публичный пакет) или задать оба (приватный) |
+| `unauthorized` / `denied` при `docker login` или `pull` с токеном | неверный `GHCR_READ_USER`, токен истёк, не classic или без `read:packages`, у владельца нет доступа к пакету | выпустить новый classic PAT с `read:packages` и обновить секреты |
 | `docker compose pull failed. Check that ...:<tag> exists` | в `HEATNET_IMAGE_TAG` опечатка или тег не опубликован | сверить тег со списком версий пакета или убрать переменную, чтобы вернуться к `latest` |
 | `The app image in compose.prod.yaml does not resolve to ...` | имя образа в `compose.prod.yaml` не совпадает с репозиторием | имя образа должно быть `ghcr.io/<owner>/<repo>` в нижнем регистре |
 | `Short tag collision` (build-and-publish) | другой коммит начинается с тех же 7 символов или тег в GHCR принадлежит другому коммиту | публикация остановлена, ничего не перезаписано; сделайте новый коммит (у него будет другой SHA) |

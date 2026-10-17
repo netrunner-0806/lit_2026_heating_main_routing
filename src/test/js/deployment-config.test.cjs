@@ -8,33 +8,39 @@ const { spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '../../..');
 const workflow = fs.readFileSync(path.join(root, '.github/workflows/ci-cd.yml'), 'utf8');
 
-test('publication never deploys on push or without an explicit manual production request', () => {
+test('deployment runs for a verified main commit that moved latest, on push or an explicit manual request', () => {
   const gate = workflow.match(/^  deploy:\n[\s\S]*?^    if: (.+)$/m)[1];
   const evaluate = (overrides = {}) => {
     const values = {
-      'github.event_name': 'workflow_dispatch', 'github.ref': 'refs/heads/main',
-      'inputs.deploy': true, 'needs.verify.outputs.relevant': 'true',
+      'github.event_name': 'push', 'github.ref': 'refs/heads/main',
+      'inputs.deploy': undefined, 'needs.verify.outputs.relevant': 'true',
       'needs.build-and-publish.outputs.latest': 'true', ...overrides,
     };
     let expression = gate;
     for (const [key, value] of Object.entries(values)) expression = expression.split(key).join(JSON.stringify(value ?? null));
     return vm.runInNewContext(expression, {}, { timeout: 100 });
   };
-  assert.equal(evaluate(), true, 'explicit verified main deployment remains available');
-  assert.equal(evaluate({ 'github.event_name': 'push' }), false);
-  assert.equal(evaluate({ 'inputs.deploy': false }), false);
-  assert.equal(evaluate({ 'inputs.deploy': undefined }), false);
+  assert.equal(evaluate(), true, 'a verified push to main deploys automatically');
+  assert.equal(evaluate({ 'github.event_name': 'workflow_dispatch', 'inputs.deploy': true }), true, 'manual run with deploy');
+  assert.equal(evaluate({ 'github.event_name': 'workflow_dispatch', 'inputs.deploy': false }), false, 'manual run without deploy');
+  assert.equal(evaluate({ 'github.event_name': 'workflow_dispatch' }), false);
+  assert.equal(evaluate({ 'github.event_name': 'pull_request' }), false);
   assert.equal(evaluate({ 'github.ref': 'refs/heads/feature' }), false);
-  assert.equal(evaluate({ 'needs.build-and-publish.outputs.latest': 'false' }), false);
-  assert.match(workflow, /deploy:\n\s+description:[^\n]+\n\s+type: boolean\n\s+required: false\n\s+default: false/);
+  assert.equal(evaluate({ 'github.event_name': 'workflow_dispatch', 'inputs.deploy': true, 'github.ref': 'refs/heads/feature' }), false);
+  assert.equal(evaluate({ 'needs.verify.outputs.relevant': 'false' }), false);
+  assert.equal(evaluate({ 'needs.build-and-publish.outputs.latest': 'false' }), false, 'an older run never deploys');
+  assert.match(workflow, /^  push:\n    branches: \[main\]\n  workflow_dispatch:\n/m);
+  assert.match(workflow, /deploy:\n\s+description:[^\n]+\n\s+type: boolean\n\s+required: false\n\s+default: true/);
 });
 
-test('production compose consumes the image published by the primary repository', () => {
+test('production compose consumes the heatnet image published by this repository', () => {
   const compose = fs.readFileSync(path.join(root, 'compose.prod.yaml'), 'utf8');
-  assert.match(compose, /image: ghcr\.io\/netrunner-0806\/lit_2026_heating_main_routing:\$\{HEATNET_IMAGE_TAG:-latest\}/);
+  assert.match(compose, /image: ghcr\.io\/netrunner-0806\/heatnet:\$\{HEATNET_IMAGE_TAG:-latest\}/);
   assert(!compose.includes('lct_finale_private'), 'must not deploy the upstream registry image');
-  assert.match(workflow, /REPO: \$\{\{ github\.repository \}\}/);
-  assert.match(workflow, /image=\$\{REGISTRY\}\/\$\{REPO,,\}/);
+  assert(!compose.includes('lit_2026_heating_main_routing:'), 'must not deploy the previous package name');
+  assert.match(workflow, /^  IMAGE_NAME: heatnet$/m);
+  assert.match(workflow, /OWNER: \$\{\{ github\.repository_owner \}\}/);
+  assert.match(workflow, /image=\$\{REGISTRY\}\/\$\{OWNER,,\}\/\$\{IMAGE_NAME\}/);
 });
 
 test('deployment refuses a different existing Compose project before changing volumes', () => {

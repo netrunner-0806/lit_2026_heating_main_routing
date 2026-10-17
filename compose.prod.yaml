@@ -9,8 +9,8 @@
 #   docker compose -f compose.prod.yaml pull
 #   docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
 #
-# CI publishes every verified main commit as an immutable ghcr.io/netrunner-0806/lit_2026_heating_main_routing:<7-char SHA>
-# tag (full SHA in the org.opencontainers.image.revision label) and moves `latest` only forward to newer commits.
+# CI publishes every verified main commit as an immutable ghcr.io/netrunner-0806/heatnet:<7-char SHA> tag
+# (full SHA in the org.opencontainers.image.revision label) and moves `latest` only forward to newer commits.
 # The application runs HEATNET_IMAGE_TAG from the server .env (e.g. HEATNET_IMAGE_TAG=a1b2c3d pins a version);
 # when it is absent or empty, `latest` is used. See docs/deployment.md.
 
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: ghcr.io/netrunner-0806/lit_2026_heating_main_routing:${HEATNET_IMAGE_TAG:-latest}
+    image: ghcr.io/netrunner-0806/heatnet:${HEATNET_IMAGE_TAG:-latest}
     container_name: heatnet-app
     depends_on:
       db:
