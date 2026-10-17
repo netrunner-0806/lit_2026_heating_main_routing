@@ -11,11 +11,12 @@ Pipeline запускается на каждый push в `main` и вручну
 1. **verify** — сначала определяет, затронуты ли файлы образа или деплоя: `src/`, `pom.xml`, `Dockerfile`,
    `.dockerignore`, `docker-compose.yml`, `compose.prod.yaml`, `caddy/`, `.github/workflows/`. Push, в котором
    изменилось только остальное (`README.md`, `docs/`, `scripts/`, `examples/`, `ТЗ/`), завершает verify
-   успешно, а публикацию и деплой пропускает. Ручной запуск проверяет всё всегда. Затем по порядку:
+   успешно, а публикацию и деплой пропускает. Ручной запуск, первый push ветки и push, для которого
+   предыдущий коммит недоступен (например, после force push), проверяются полностью. Затем по порядку:
    - статические проверки, которые только сообщают об ошибках и ничего не исправляют:
      - `actionlint` для workflow, вместе с ShellCheck для его `run`-скриптов;
      - `yamllint` для всех `*.yml` / `*.yaml`;
-     - ShellCheck для `scripts/*.sh`: ошибки валят job, предупреждения выводятся в отчёт;
+     - ShellCheck для всех отслеживаемых `*.sh` (сейчас это `scripts/`): ошибки валят job, предупреждения выводятся в отчёт;
      - `docker compose config --quiet` для обоих Compose-файлов, плюс проверка, что `compose.prod.yaml`
        выбирает публикуемый образ и правильно реагирует на `HEATNET_IMAGE_TAG`;
      - `caddy validate` для `caddy/Caddyfile`;
@@ -27,15 +28,16 @@ Pipeline запускается на каждый push в `main` и вручну
    - контроль, что проверки не изменили рабочее дерево.
 
    **Java-тесты в CI не запускаются** (`mvn test` / `mvn verify` отсутствуют): это намеренное решение
-   из-за их стоимости. Запускайте их локально (см. `CLAUDE.md` / README, раздел «Тестирование»).
+   из-за их стоимости. Запускайте их локально (README, раздел «Тестирование»).
 2. **build-and-publish** — собирает образ по существующему `Dockerfile` и публикует его в GHCR в пакет
    `heatnet` владельца репозитория:
    - `ghcr.io/netrunner-0806/heatnet:<короткий SHA>` — 7 символов, как GitHub показывает
      короткий хеш коммита (например `a1b2c3d`). Тег неизменяемый: повторный запуск того же коммита
      переиспользует опубликованный образ, а образ другого коммита с тем же тегом не перезаписывается;
-   - `ghcr.io/netrunner-0806/heatnet:latest` — переносится на новый образ, только если коммит
-     новее того, на который `latest` уже указывает (сравнение по полному SHA и истории Git). Запуск
-     для более старого коммита, завершившийся позже, `latest` назад не откатывает.
+   - `ghcr.io/netrunner-0806/heatnet:latest` — переносится на новый образ, только если коммит находится
+     в `main` и новее того, на который `latest` уже указывает (сравнение по полному SHA и истории Git).
+     Запуск для более старого коммита, завершившийся позже, `latest` назад не откатывает. После переписанной
+     истории `main` (force push) `latest` получает только коммит, который является текущей вершиной `main`.
 
    Полный SHA коммита хранится в метке образа `org.opencontainers.image.revision`, короткий —
    в `org.opencontainers.image.version`, адрес репозитория — в `org.opencontainers.image.source`.
@@ -43,9 +45,12 @@ Pipeline запускается на каждый push в `main` и вручну
    и при ручном запуске для `main` с включённым параметром **deploy** (по умолчанию включён). В обоих случаях
    деплой идёт, только если этот запуск продвинул `latest`: более старый запуск, завершившийся после более
    нового, деплой пропускает — его выполнит более новый. Ручной запуск с выключенным **deploy** только
-   проверяет и публикует. По SSH копирует на сервер `compose.prod.yaml` и `caddy/Caddyfile`, выполняет
+   проверяет и публикует (и при этом двигает `latest`, который подхватит следующий деплой). По SSH копирует на сервер `compose.prod.yaml` и `caddy/Caddyfile`, выполняет
    `docker compose -f compose.prod.yaml pull` и `docker compose -f compose.prod.yaml up -d --no-build --remove-orphans`,
    проверяет health контейнеров, запущенный образ и HTTP-доступность. На сервере ничего не собирается.
+
+Публикации и деплои выполняются строго по одному (группы concurrency `ghcr-publish` и `production-deploy`):
+следующий запуск ждёт завершения предыдущего, ожидающие запуски (до 100 в очереди) не отменяются и не вытесняют друг друга.
 
 Пока secrets и variables из раздела 10 не созданы, job deploy после каждого push завершается ошибкой
 `Missing deployment settings: ...` (до подключения к серверу). Образ при этом уже опубликован.
@@ -56,13 +61,15 @@ Pipeline запускается на каждый push в `main` и вручну
 
 ## 1. Требования к серверу
 
-- 64-битный Linux, на который официально ставится Docker Engine (далее команды для Ubuntu 24.04 / 26.04 LTS).
-- Ресурсы: значения по умолчанию рассчитаны на 8 CPU / 16 ГБ RAM (`JAVA_OPTS` с `-Xmx13g`,
-  см. `.env.example`). На сервере с меньшим объёмом памяти уменьшите `-Xmx` в `JAVA_OPTS`.
-- Docker Engine и плагин Docker Compose v2 (команда `docker compose`). Workflow вызывает именно
-  `docker compose`, отдельный `docker-compose` v1 на сервере не используется.
-- Публичный IPv4 (и при желании IPv6), доменное имя, доступ по SSH.
-- Свободное место на диске для образов и томов (база данных, файлы заданий в `heatnet-data`).
+Версии ОС, Docker Compose и объём памяти задаются организаторами кейса — см. README, раздел
+«Требования к окружению» (таблица «Требования кейса / целевая среда»). Значения по умолчанию в
+`.env.prod.example` (`JAVA_OPTS` с `-Xmx13g`) рассчитаны на 16 ГБ RAM.
+
+Кроме этого, для деплоя нужны:
+
+- Docker Engine с Docker Compose (раздел 2);
+- публичный IPv4 (и при желании IPv6), доменное имя, доступ по SSH;
+- свободное место на диске для образов и томов (база данных, файлы заданий в `heatnet-data`).
 
 ## 2. Установка Docker Engine и Compose v2
 
@@ -108,6 +115,11 @@ sudo usermod -aG docker deploy
 Членство в группе `docker` нужно, чтобы выполнять `docker compose` без `sudo`.
 **Важно:** группа `docker` фактически равна root-доступу к серверу, поэтому ключ этого пользователя
 выдаётся только GitHub Actions и хранится только в GitHub Secrets. `sudo` пользователю `deploy` не нужен.
+
+Имя пользователя попадает в секрет `SSH_USER`, а GitHub скрывает значения секретов во всех логах.
+С именем `deploy` это слово заменяется на `***` везде, в том числе внутри «deployment» (`***ment`) —
+на работу это не влияет, но читать логи неудобно. Если это мешает, выберите менее распространённое имя
+(например, `heatnet-deploy`) и используйте его вместо `deploy` во всех командах ниже.
 
 Проверка (после повторного входа пользователя группа применяется):
 
@@ -188,20 +200,11 @@ sudo install -d -m 750 -o deploy -g deploy /opt/heatnet
 `heatnet_caddy-data` (сертификаты), `heatnet_caddy-config`.
 **Никогда не выполняйте `docker compose down -v`** — это удалит базу и сертификаты.
 
-При переходе с существующего `docker-compose.yml` сначала проверьте имя проекта:
-
-```bash
-docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' heatnet-app heatnet-db
-```
-
-Если оно отличается от `heatnet`, задайте **это существующее имя** в серверном `.env` как
-`COMPOSE_PROJECT_NAME`. Оно имеет приоритет над `name: heatnet` и сохраняет выбор прежних томов.
-Workflow прерывает развёртывание до `pull/up`, если обнаруживает несовпадение; автоматической
-миграции, переименования или удаления томов нет.
-
 ## 6. Файл `.env`
 
-Создаётся вручную пользователем `deploy`, права только для владельца:
+Создаётся вручную пользователем `deploy`, права только для владельца. За основу возьмите
+`.env.prod.example` из репозитория (CI этот файл на сервер не копирует): создайте пустой `.env`,
+вставьте в него содержимое примера и заполните значения.
 
 ```bash
 sudo -iu deploy
@@ -214,7 +217,7 @@ nano .env
 
 | Переменная | Куда идёт | Обязательность | Значение по умолчанию | Пример формата |
 |---|---|---|---|---|
-| `COMPOSE_PROJECT_NAME` | Compose, префикс существующих томов и сетей | при переходе с другого имени проекта | `heatnet` из `name` | имя из `docker inspect`, см. раздел 5 |
+| `COMPOSE_PROJECT_NAME` | Compose, префикс томов и сетей | обычно не нужна; только чтобы продолжить работу с уже существующим проектом другого имени (раздел 13, ошибка `belongs to project`) | `heatnet` из `name` | `COMPOSE_PROJECT_NAME=<имя существующего проекта>` |
 | `POSTGRES_PASSWORD` | `db` (пароль при создании БД), `app` (`SPRING_DATASOURCE_PASSWORD`) | **задать обязательно** (умолчание `heatnet` небезопасно) | `heatnet` | `POSTGRES_PASSWORD=<случайная строка>` |
 | `POSTGRES_USER` | `db`, `app` (`SPRING_DATASOURCE_USERNAME`), healthcheck `db` | необязательна | `heatnet` | `POSTGRES_USER=heatnet` |
 | `POSTGRES_DB` | `db`, `app` (`SPRING_DATASOURCE_URL`), healthcheck `db` | необязательна | `heatnet` | `POSTGRES_DB=heatnet` |
@@ -236,19 +239,7 @@ nano .env
   Прочие переменные из `application.yml` (например `HEATNET_IMPROVE`) `compose.prod.yaml` в контейнер
   не передаёт, поэтому в `.env` они ни на что не влияют.
 
-Пример `.env` (значения условные):
-
-```dotenv
-POSTGRES_DB=heatnet
-POSTGRES_USER=heatnet
-POSTGRES_PASSWORD=<сгенерированный пароль>
-HEATNET_WORKERS=1
-HEATNET_MAX_VARIANTS=3
-JAVA_OPTS='-Xms1g -Xmx13g -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError'
-DOMAIN=heatnet.example.ru
-ACME_EMAIL=ops@example.ru
-# HEATNET_IMAGE_TAG не задан: production следует за latest
-```
+Пример со всеми переменными и комментариями — `.env.prod.example`.
 
 ## 7. Выбор версии: `latest` или конкретный тег
 
@@ -283,31 +274,21 @@ Pipeline продолжает публиковать новые образы и 
 одноимённую переменную окружения удалённой оболочки, чтобы она не перекрыла `.env`.
 Для ручных команд на сервере не экспортируйте `HEATNET_IMAGE_TAG` в профиле оболочки по той же причине.
 
-### Переход со старого имени образа
+## 8. Пакет в GHCR: публичный доступ или токен на чтение
 
-Раньше образ публиковался как `ghcr.io/netrunner-0806/lit_2026_heating_main_routing`; теперь — `ghcr.io/netrunner-0806/heatnet`.
-Теги старого пакета в новый не переносятся. Если в серверном `.env` закреплён тег (`HEATNET_IMAGE_TAG=...`),
-до первого деплоя нового образа уберите строку или замените значение на тег, уже опубликованный в пакете `heatnet`,
-иначе шаг `Pull and update the stack` остановится на ошибке `docker compose pull failed`. Тома, контейнеры и
-имя Compose-проекта (`heatnet`) от смены имени образа не меняются: при деплое `app` пересоздаётся из нового образа.
-Старый пакет workflow не трогает; удалить его можно вручную на странице пакета, когда он больше не нужен для отката.
+Пакет `heatnet` создан первым успешным запуском `build-and-publish` в пространстве владельца репозитория
+(`netrunner-0806`) и связан с репозиторием (метка `org.opencontainers.image.source`, публикация из workflow
+этого репозитория). Новый пакет GHCR по умолчанию **приватный**.
 
-## 8. Пакет в GHCR: публичный доступ (рекомендуется) или токен на чтение
+### 8.1. Публичный пакет (текущий вариант)
 
-Пакет `heatnet` создаётся первым успешным запуском `build-and-publish` в пространстве владельца репозитория
-(`netrunner-0806`) и автоматически связывается с репозиторием (метка `org.opencontainers.image.source`, публикация
-из workflow этого репозитория): он появляется в блоке **Packages** на странице репозитория. Новый пакет GHCR
-по умолчанию **приватный** — даже у публичного репозитория.
+Пакет `ghcr.io/netrunner-0806/heatnet` **публичный**. Сервер скачивает образ без входа в реестр, поэтому
+`GHCR_READ_USER` и `GHCR_READ_TOKEN` не нужны: не создавайте их (или удалите), и deploy выполнит `pull` анонимно.
 
-### 8.1. Публичный пакет (выбранный вариант)
+Если пакет придётся создавать заново (например, под другим владельцем), публичным его можно сделать только
+после первой публикации и только с правами администратора пакета (для пакета пользователя — его владелец):
 
-Сервер скачивает публичный образ без входа в реестр, поэтому `GHCR_READ_USER` и `GHCR_READ_TOKEN` не нужны:
-не создавайте их (или удалите), и deploy выполнит `pull` анонимно.
-
-Сделать пакет публичным можно только после его первой публикации и только с правами администратора пакета
-(для пакета пользователя — его владелец `netrunner-0806`):
-
-1. Профиль `netrunner-0806` → вкладка **Packages** → `heatnet` (или страница репозитория → Packages → `heatnet`).
+1. Профиль владельца → вкладка **Packages** → `heatnet`.
 2. **Package settings** (шестерёнка справа).
 3. Внизу, в **Danger Zone** → **Change visibility** → **Public**.
 4. Введите имя пакета `heatnet` и подтвердите **I understand the consequences, change package visibility**.
@@ -316,9 +297,9 @@ Pipeline продолжает публиковать новые образы и 
 собранное приложение из публичного репозитория (`Dockerfile` копирует `pom.xml` и `src/`); серверный `.env`
 и секреты в образ не попадают.
 
-Порядок первого запуска: первый push публикует образ, пока пакет ещё приватный, поэтому deploy этого запуска
-без токена упадёт на `docker compose pull failed`. Переключите пакет в Public и перезапустите упавший job
-(Actions → запуск → **Re-run failed jobs**) или запустите workflow вручную.
+Для нового пакета порядок такой: первый запуск публикует образ, пока пакет ещё приватный, поэтому deploy
+этого запуска без токена упадёт на `docker compose pull failed`. Переключите пакет в Public и перезапустите
+упавший job (Actions → запуск → **Re-run failed jobs**) или запустите workflow вручную.
 
 ### 8.2. Приватный пакет: токен на чтение
 
@@ -394,8 +375,8 @@ Job `deploy` объявляет `environment: production`. Workflow читает
 
 Создавать secrets, variables и environments может только пользователь с правами **администратора**
 репозитория (владелец `netrunner-0806` или выданная им роль Admin); права Write для этого недостаточно.
-Окружение `production` создаётся автоматически при первом запуске job'а `deploy`, но настроить его
-заранее удобнее вручную: Settings → Environments → New environment → `production`.
+Окружение `production` настраивается в Settings → Environments (New environment → `production`, если его
+ещё нет в списке).
 
 Ограничения тарифов GitHub (по документации
 [Deployments and environments](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)):
@@ -430,7 +411,7 @@ Secrets and variables → Actions — секреты `SSH_*` и `DEPLOY_PATH` (�
 
 На сервере должны быть: Docker и Compose v2 (раздел 2), пользователь `deploy` в группе `docker` (3),
 публичный ключ в `authorized_keys` (4.2), каталог `DEPLOY_PATH` (5), `.env` (6), DNS-запись и открытые
-порты (9). В GitHub — все записи из раздела 10.1.
+порты (9). В GitHub — все обязательные записи из раздела 10.1.
 
 ### 11.2. Доступ по SSH тем же ключом и `known_hosts`, что у Actions
 
@@ -529,7 +510,7 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
 ## 12. Откат и возврат к `latest`
 
-Опубликованные теги видны на странице пакета (профиль `netrunner-0806` или страница репозитория → Packages → `heatnet`)
+Опубликованные теги видны на странице пакета (профиль `netrunner-0806` → Packages → `heatnet`)
 и в Summary запусков (`Published image`).
 
 **Откат на ранее опубликованный тег:**
@@ -537,7 +518,7 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 1. (Рекомендуется) резервная копия БД — операция только читает базу:
 
    ```bash
-   docker exec heatnet-db pg_dump -U heatnet heatnet > ~/heatnet-$(date +%F-%H%M).sql
+   docker exec heatnet-db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > ~/heatnet-$(date +%F-%H%M).sql
    ```
 
    Схема обновляется Hibernate (`ddl-auto: update`) только добавлением; старая версия обычно работает
@@ -555,8 +536,9 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
 4. Проверьте по разделам 11.6–11.7.
 
-Вместо шага 3 можно запустить workflow вручную: deploy применит закреплённый тег и проверит его, но перед
-этим пройдут тесты и сборка.
+Вместо шага 3 можно запустить workflow вручную для `main`: deploy применит закреплённый тег и проверит его.
+Перед этим выполнятся проверки verify (включая фронтенд-тесты); образ уже опубликованного коммита
+не пересобирается, а используется повторно.
 
 **Возврат к `latest`:** удалите `HEATNET_IMAGE_TAG` из `.env` (или сделайте значение пустым) и выполните
 те же команды шага 3 — будет запущен текущий `latest`.
@@ -575,16 +557,17 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 | `Connection timed out` / `Connection refused` | неверный `SSH_HOST`/`SSH_PORT`, порт закрыт firewall'ом или провайдером | проверить адрес, порт и правила firewall |
 | `Host key verification failed` | `SSH_KNOWN_HOSTS` не соответствует серверу, имени или порту из `SSH_HOST`/`SSH_PORT` | повторить раздел 4.3 со сверкой отпечатка; проверку не отключать |
 | `.env not found on the server` | файла нет в `DEPLOY_PATH` или путь в секрете другой | создать `.env` вручную (раздел 6) |
+| `heatnet-db belongs to project ..., but configuration selects heatnet` | на сервере есть контейнеры `heatnet-*` другого Compose-проекта (запущенные раньше из другого каталога или с `-p`); деплой остановлен до `pull`, тома не тронуты | удалить старый проект (контейнеры, тома, сети с меткой `com.docker.compose.project=<имя>`) или, чтобы сохранить его данные, задать в `.env` `COMPOSE_PROJECT_NAME=<имя>` |
 | `docker compose pull failed` / `denied` без `GHCR_READ_*` | пакет `heatnet` ещё приватный (сразу после первой публикации это так) | сделать пакет публичным (раздел 8.1) и перезапустить job, либо задать оба секрета (8.2) |
 | `Set both GHCR_READ_USER and GHCR_READ_TOKEN ... or neither` | задан только один из двух GHCR-секретов | удалить оба (публичный пакет) или задать оба (приватный) |
 | `unauthorized` / `denied` при `docker login` или `pull` с токеном | неверный `GHCR_READ_USER`, токен истёк, не classic или без `read:packages`, у владельца нет доступа к пакету | выпустить новый classic PAT с `read:packages` и обновить секреты |
 | `docker compose pull failed. Check that ...:<tag> exists` | в `HEATNET_IMAGE_TAG` опечатка или тег не опубликован | сверить тег со списком версий пакета или убрать переменную, чтобы вернуться к `latest` |
-| `The app image in compose.prod.yaml does not resolve to ...` | имя образа в `compose.prod.yaml` не совпадает с репозиторием | имя образа должно быть `ghcr.io/<owner>/<repo>` в нижнем регистре |
+| `The app image in compose.prod.yaml does not resolve to ...` | имя образа в `compose.prod.yaml` не совпадает с публикуемым | имя образа должно быть `ghcr.io/<owner>/heatnet:${HEATNET_IMAGE_TAG:-latest}`, владелец в нижнем регистре |
 | `Short tag collision` (build-and-publish) | другой коммит начинается с тех же 7 символов или тег в GHCR принадлежит другому коммиту | публикация остановлена, ничего не перезаписано; сделайте новый коммит (у него будет другой SHA) |
 | `Containers did not become healthy` | приложение не стартует: нет связи с БД, неверный пароль БД, нехватка памяти | смотреть вывод `logs app` в шаге; проверить `POSTGRES_*` и `JAVA_OPTS` |
 | `heatnet-app runs ..., expected ...` / `was not recreated from the freshly pulled` | контейнер не пересоздан из нового образа | на сервере `docker compose -f compose.prod.yaml up -d --no-build --remove-orphans`, затем разобраться по логам |
 | `Production is pinned` (предупреждение) | в `.env` задан `HEATNET_IMAGE_TAG` | это не ошибка; чтобы следовать `latest`, уберите переменную (раздел 7) |
-| `curl` падает в Check application availability | DNS ещё не указывает на сервер, сертификат не выпущен, закрыты 80/443, `DOMAIN` не совпадает с `PRODUCTION_URL` | `docker compose -f compose.prod.yaml logs caddy`; проверить DNS и порты (раздел 9) |
+| `curl` падает в Check application availability | DNS ещё не указывает на сервер, сертификат не выпущен, закрыты 80/443, `DOMAIN` не совпадает с `PRODUCTION_URL` | `docker compose -f compose.prod.yaml logs caddy`; проверить DNS и порты (раздел 9). Одна ошибка `curl: (35) TLS connect error` с последующим успехом — норма при первом запуске на новом томе Caddy: проверка повторяет запрос, пока выпускается сертификат |
 
 ## Ссылки
 

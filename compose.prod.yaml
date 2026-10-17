@@ -5,12 +5,14 @@
 #   compose.prod.yaml    - this file (delivered by CI)
 #   caddy/Caddyfile      - reverse proxy config (delivered by CI, identical to the repository one)
 #   .env                 - created and maintained manually on the server, never touched by CI
+#                          (template: .env.prod.example)
 #
 #   docker compose -f compose.prod.yaml pull
 #   docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
 #
-# CI publishes every verified main commit as an immutable ghcr.io/netrunner-0806/heatnet:<7-char SHA> tag
-# (full SHA in the org.opencontainers.image.revision label) and moves `latest` only forward to newer commits.
+# CI publishes every verified commit it runs for as an immutable ghcr.io/netrunner-0806/heatnet:<7-char SHA> tag
+# (full SHA in the org.opencontainers.image.revision label; manual runs of other branches publish only that tag)
+# and moves `latest` only forward to newer commits of main.
 # The application runs HEATNET_IMAGE_TAG from the server .env (e.g. HEATNET_IMAGE_TAG=a1b2c3d pins a version);
 # when it is absent or empty, `latest` is used. See docs/deployment.md.
 

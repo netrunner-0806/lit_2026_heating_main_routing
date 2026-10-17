@@ -33,6 +33,7 @@ venv/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.pem
 *.key
 *.p12
