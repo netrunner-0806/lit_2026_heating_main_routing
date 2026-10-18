@@ -17,14 +17,18 @@ public final class DynamicObstacles {
         public final Coordinate a, b;
         public final Envelope env;
         public final Object owner;
+        private final int ordinal;
 
-        Seg(Coordinate a, Coordinate b, Object owner) {
+        Seg(Coordinate a, Coordinate b, Object owner, int ordinal) {
             this.a = a; this.b = b; this.owner = owner;
+            this.ordinal = ordinal;
             this.env = new Envelope(a, b);
         }
     }
 
     private final List<Seg> segs = new ArrayList<>();
+    private org.locationtech.jts.index.strtree.STRtree index;
+    private boolean mutableViewExposed;
     /** Hard rule: new lines must not intersect/overlap outside a common node (numerical tolerance only). */
     private final double hardDistance;
     /** Soft preference: routes closer than this to another new line pay a proximity penalty. */
@@ -40,22 +44,37 @@ public final class DynamicObstacles {
     public double hardDistance() { return hardDistance; }
     public double softDistance() { return softDistance; }
 
-    public void add(Coordinate a, Coordinate b, Object owner) { segs.add(new Seg(a, b, owner)); }
+    public void add(Coordinate a, Coordinate b, Object owner) { segs.add(new Seg(a, b, owner, segs.size())); index=null; }
 
     public void addPolyline(List<Coordinate> coords, Object owner) {
         for (int i = 1; i < coords.size(); i++) add(coords.get(i - 1), coords.get(i), owner);
     }
 
-    public void clear() { segs.clear(); }
+    public void clear() { segs.clear(); index=null; }
 
     public boolean isEmpty() { return segs.isEmpty(); }
 
-    public List<Seg> segments() { return segs; }
+    /** Preserve the legacy mutable view; callers that request it opt out of indexed queries. */
+    public List<Seg> segments() { mutableViewExposed=true;index=null;return segs; }
 
     public DynamicObstacles copy() {
         DynamicObstacles d = new DynamicObstacles(hardDistance, softDistance);
         d.segs.addAll(segs);
+        d.mutableViewExposed=mutableViewExposed;
         return d;
+    }
+
+    /** Index lifetime is one topology state. Stable ordinal order preserves floating-point penalty summation. */
+    private List<Seg> candidates(Envelope envelope) {
+        if(segs.size()<32||mutableViewExposed)return segs;
+        if(index==null) {
+            org.locationtech.jts.index.strtree.STRtree built=new org.locationtech.jts.index.strtree.STRtree();
+            for(Seg s:segs)built.insert(s.env,s);
+            built.build();index=built;
+        }
+        @SuppressWarnings("unchecked") List<Seg> result=index.query(envelope);
+        result.sort(java.util.Comparator.comparingInt(s->s.ordinal));
+        return result;
     }
 
     /**
@@ -84,7 +103,7 @@ public final class DynamicObstacles {
         double penalty = 0;
         Envelope env = new Envelope(a, b);
         env.expandBy(reach);
-        for (Seg s : segs) {
+        for (Seg s : candidates(env)) {
             if (!s.env.intersects(env)) continue;
             List<double[]> exIv = new ArrayList<>();
             if (exempt != null) {
@@ -118,7 +137,7 @@ public final class DynamicObstacles {
         List<Seg> out = new ArrayList<>();
         Envelope env = new Envelope(c);
         env.expandBy(dist);
-        for (Seg s : segs) {
+        for (Seg s : candidates(env)) {
             if (!s.env.intersects(env)) continue;
             if (new LineSegment(s.a, s.b).distance(c) <= dist) out.add(s);
         }
