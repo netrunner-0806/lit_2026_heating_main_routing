@@ -137,7 +137,7 @@ public final class GeoJsonStreamReader {
         if (sources.isEmpty()) diag.warn("NO_SOURCE", "Input contains no 'source' feature (not needed for the 2D calculation)");
         diag.info("INPUT_SUMMARY", String.format(java.util.Locale.ROOT, "features=%d, source=%d, heat_network=%d, heat_chamber=%d, oks_connection_point=%d, restriction=%d",
                 featureCount, sources.size(), lines.size(), chambers.size(), points.size(), restrictions.size()));
-        return new InputModel(sources, lines, chambers, points, restrictions, diag, featureCount);
+        return new InputModel(sources, lines, chambers, points, restrictions, diag, featureCount, seenIds);
     }
 
     private void handleFeature(JsonNode feature, int idx, Diagnostics diag, List<SourcePoint> sources, List<ExistingNetworkLine> lines,
@@ -148,6 +148,10 @@ public final class GeoJsonStreamReader {
         String objectTypeCode = props.path("object_type").asText(null);
         ObjectType type = ObjectType.fromCode(objectTypeCode);
         JsonId id = JsonId.fromJson(props.get("id"));
+        if (id != null) {
+            if (seenIds.add(id)) budget.charge(96 + 2L * id.text().length(), "id at feature #" + idx);
+            else diag.error("DUPLICATE_ID", "Duplicate id " + id, idx, id);
+        }
         if (type == null) {
             String key = objectTypeCode == null ? "<missing>" : objectTypeCode;
             if (!unknownTypes.containsKey(key)) budget.charge(512 + 4L * key.length(), "unknown object type at feature #" + idx);
@@ -160,8 +164,6 @@ public final class GeoJsonStreamReader {
             diag.warn("MISSING_ID", "Feature of type " + type.code() + " has no 'id'; skipped", idx, null);
             return;
         }
-        if (seenIds.add(id)) budget.charge(96 + 2L * id.text().length(), "id at feature #" + idx);
-        else diag.error("DUPLICATE_ID", "Duplicate id " + id + " (type " + type.code() + ")", idx, id);
 
         JsonNode geomNode = feature.get("geometry");
         if (geomNode == null || geomNode.isNull()) {

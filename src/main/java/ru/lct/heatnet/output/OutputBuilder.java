@@ -32,6 +32,19 @@ public final class OutputBuilder {
 
     private final CrsTransformer crs = CrsTransformer.get();
 
+    private final java.util.Set<JsonId> inputIds;
+    public OutputBuilder() { inputIds = java.util.Collections.emptySet(); }
+    public OutputBuilder(ru.lct.heatnet.domain.InputModel input) { inputIds = input.inputIds(); }
+
+    /** Reserve without copying a city-sized input registry for each candidate. */
+    private String uniqueId(String preferred, java.util.Set<JsonId> used, VariantResult variant) {
+        String candidate = preferred;
+        int suffix = 1;
+        while (inputIds.contains(JsonId.ofString(candidate)) || variant.inputIds().contains(JsonId.ofString(candidate))
+                || !used.add(JsonId.ofString(candidate))) candidate = preferred + "_" + suffix++;
+        return candidate;
+    }
+
     /** Node registry: metric coordinate key -> (id, wgs84). */
     private static final class NodeRef {
         final JsonId id;
@@ -50,6 +63,13 @@ public final class OutputBuilder {
         NewNetwork net = variant.network();
         List<OutputFeature> out = new ArrayList<>();
         Map<String, NodeRef> nodes = new HashMap<>();
+        java.util.Set<JsonId> used = new java.util.HashSet<>();
+        // Also protect callers constructing a variant directly, without a SolverContext.
+        for (NetNode n : net.nodes()) {
+            if (n.connectionPoint() != null) used.add(n.connectionPoint().id());
+            if (n.existingChamber() != null) used.add(n.existingChamber().id());
+            if (n.existingLine() != null) used.add(n.existingLine().id());
+        }
         int chamberSeq = 0, tnSeq = 0, netSeq = 0;
         List<OutputFeature> chambers = new ArrayList<>();
         List<OutputFeature> tns = new ArrayList<>();
@@ -64,7 +84,7 @@ public final class OutputBuilder {
                     nodes.put(key(n.coord()), new NodeRef(n.existingChamber().id(), n.existingChamber().wgs84()));
                     break;
                 default: {
-                    JsonId id = JsonId.ofString(vid + "_chamber_" + (++chamberSeq));
+                    JsonId id = JsonId.ofString(uniqueId(vid + "_chamber_" + (++chamberSeq), used, variant));
                     double[] wgs = round(crs.toWgs84(n.coord().x, n.coord().y));
                     nodes.put(key(n.coord()), new NodeRef(id, wgs));
                     chambers.add(OutputFeature.point(wgs)
@@ -86,7 +106,7 @@ public final class OutputBuilder {
                 Coordinate first = cs.get(0), last = cs.get(cs.size() - 1);
                 NodeRef start = nodes.get(key(first));
                 if (start == null) {
-                    JsonId id = JsonId.ofString(vid + "_tn_" + (++tnSeq));
+                    JsonId id = JsonId.ofString(uniqueId(vid + "_tn_" + (++tnSeq), used, variant));
                     double[] wgs = round(crs.toWgs84(first.x, first.y));
                     start = new NodeRef(id, wgs);
                     nodes.put(key(first), start);
@@ -94,7 +114,7 @@ public final class OutputBuilder {
                 }
                 NodeRef end = nodes.get(key(last));
                 if (end == null) {
-                    JsonId id = JsonId.ofString(vid + "_tn_" + (++tnSeq));
+                    JsonId id = JsonId.ofString(uniqueId(vid + "_tn_" + (++tnSeq), used, variant));
                     double[] wgs = round(crs.toWgs84(last.x, last.y));
                     end = new NodeRef(id, wgs);
                     nodes.put(key(last), end);
@@ -108,7 +128,7 @@ public final class OutputBuilder {
                 for (ru.lct.heatnet.restrictions.Obstacle o : piece.crossed()) crossed.add(o.describe());
                 boolean depth = piece.hasDepth();
                 lines.add(OutputFeature.line(coords)
-                        .prop("id", vid + "_net_" + (++netSeq))
+                        .prop("id", uniqueId(vid + "_net_" + (++netSeq), used, variant))
                         .prop("object_type", "heat_network")
                         .prop("variant_id", vid)
                         .prop("start_node_id", start.id.toJavaValue())
@@ -135,7 +155,7 @@ public final class OutputBuilder {
         List<Object> unconnectedIds = new ArrayList<>();
         for (ConnectionPoint cp : variant.unconnected().keySet()) unconnectedIds.add(cp.id().toJavaValue());
         OutputFeature summary = OutputFeature.noGeometry()
-                .prop("id", vid + "_summary")
+                .prop("id", uniqueId(vid + "_summary", used, variant))
                 .prop("object_type", "variant_summary")
                 .prop("variant_id", vid)
                 .prop("rank", variant.rank())

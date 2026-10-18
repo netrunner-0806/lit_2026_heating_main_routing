@@ -31,6 +31,10 @@ public final class VariantResult {
         this.notes = Collections.unmodifiableList(new ArrayList<>(notes));
     }
 
+    private java.util.Set<ru.lct.heatnet.domain.JsonId> inputIds = Collections.emptySet();
+    public java.util.Set<ru.lct.heatnet.domain.JsonId> inputIds() { return inputIds; }
+    void reserveInputIds(java.util.Set<ru.lct.heatnet.domain.JsonId> ids) { inputIds = ids; }
+
     public String strategy() { return strategy; }
     public NewNetwork network() { return network; }
     public Map<ConnectionPoint, String> unconnected() { return unconnected; }

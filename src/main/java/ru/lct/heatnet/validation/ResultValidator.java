@@ -76,7 +76,7 @@ public final class ResultValidator {
             if (type == null || !OUTPUT_TYPES.contains(type)) { rep.error("BAD_OBJECT_TYPE", "object_type '" + type + "' is not allowed in the output", vid, fid); continue; }
             if (fid == null) { rep.error("MISSING_ID", "feature without id", vid, null); continue; }
             if (vid == null) { rep.error("MISSING_VARIANT_ID", "feature without variant_id", null, fid); continue; }
-            if (!seenIds.add(idOf(f.prop("id")))) rep.error("DUPLICATE_ID", "duplicate id in output file", vid, fid);
+            if (!seenIds.add(idOf(f.prop("id"))) || input.inputIds().contains(idOf(f.prop("id")))) rep.error("DUPLICATE_ID", "output id duplicates an input or output object", vid, fid);
             validateAttributeTypes(f,rep,vid,fid);
             VariantModel vm = variants.computeIfAbsent(vid, VariantModel::new);
             switch (type) {

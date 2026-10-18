@@ -81,10 +81,20 @@ public class JobRunner {
             progress(e, "Validating");
             long tv = System.currentTimeMillis();
             List<OutputFeature> features = new ArrayList<>();
-            OutputBuilder builder = new OutputBuilder();
+            OutputBuilder builder = new OutputBuilder(input);
             for (VariantResult v : result.variants()) features.addAll(builder.build(v));
-            ValidationReport report = new ResultValidator(input).validate(features);
+            ValidationReport report = validateResult(input, features);
             long validationMs = System.currentTimeMillis() - tv;
+            e.setValidationJson(mapper.writeValueAsString(validation(report)));
+            if (result.variants().isEmpty()) {
+                fail(e, "No valid variant could be built: " + describe(result.diagnostics()), result.diagnostics(), t0);
+                return;
+            }
+            if (!report.isValid()) {
+                result.diagnostics().error("FINAL_VALIDATION_FAILED", "Mandatory output validation failed: " + report.getErrorCount() + " error(s)");
+                fail(e, "Final validation failed; no result published", result.diagnostics(), t0);
+                return;
+            }
             Path out = Paths.get(e.getInputPath()).resolveSibling("result.geojson");
             new GeoJsonResultWriter().write(out, features);
             e.setResultPath(out.toString());
@@ -101,14 +111,8 @@ public class JobRunner {
             metrics.put("total_time_ms", e.getElapsedMs());
             e.setMetricsJson(mapper.writeValueAsString(metrics));
             e.setFinishedAt(Instant.now());
-            if (result.variants().isEmpty()) {
-                e.setStatus(JobEntity.Status.FAILED);
-                e.setError("No valid variant could be built: " + describe(result.diagnostics()));
-                e.setProgress("failed");
-            } else {
-                e.setStatus(JobEntity.Status.DONE);
-                e.setProgress("Done: " + result.variants().size() + " variant(s), validation " + (report.isValid() ? "passed" : "FAILED"));
-            }
+            e.setStatus(JobEntity.Status.DONE);
+            e.setProgress("Done: " + result.variants().size() + " variant(s), validation passed");
             repo.save(e);
             log.info("job {} finished in {} ms: {} variants, validation valid={}", id, e.getElapsedMs(), result.variants().size(), report.isValid());
         } catch (InputParseException ex) {
@@ -120,6 +124,10 @@ public class JobRunner {
             log.error("job {} failed", id, ex);
             fail(e, "Processing failed: " + ex, null, t0);
         }
+    }
+
+    ValidationReport validateResult(InputModel input, List<OutputFeature> features) {
+        return new ResultValidator(input).validate(features);
     }
 
     private void progress(JobEntity e, String msg) {
@@ -173,8 +181,9 @@ public class JobRunner {
             d.rootCount = v.metrics().rootCount;
             d.attachmentPoints = v.metrics().attachmentPoints;
             d.diffVsBest = v.diffVsBest();
-            boolean depth = false;
-            for (ru.lct.heatnet.topology.NetLink l : v.network().links()) if (l.profile() != null) depth = true;
+            d.technicalNodeCount = (int) new OutputBuilder().build(v).stream()
+                    .filter(f -> "technical_node".equals(f.objectType())).count();
+            boolean depth = v.depthMode();
             d.mode = depth ? "depth" : "planar";
             int special = 0;
             for (ru.lct.heatnet.topology.NetLink l : v.network().links()) special += l.passages().size();

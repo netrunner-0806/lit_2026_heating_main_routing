@@ -24,6 +24,27 @@ public final class InputModel {
         this.featureCount = featureCount;
     }
 
+    private java.util.Set<JsonId> inputIds;
+
+    /** Includes IDs of ignored features too; the parser transfers its already budgeted registry. */
+    public InputModel(List<SourcePoint> sources, List<ExistingNetworkLine> lines, List<ExistingChamber> chambers,
+                      List<ConnectionPoint> points, List<Restriction> restrictions, Diagnostics diagnostics,
+                      int featureCount, java.util.Set<JsonId> ids) {
+        this(sources, lines, chambers, points, restrictions, diagnostics, featureCount);
+        this.inputIds = Collections.unmodifiableSet(ids);
+    }
+
+    public synchronized java.util.Set<JsonId> inputIds() {
+        if (inputIds == null) {
+            java.util.Set<JsonId> ids = new java.util.HashSet<>();
+            sources.forEach(v -> ids.add(v.id())); networkLines.forEach(v -> ids.add(v.id()));
+            chambers.forEach(v -> ids.add(v.id())); connectionPoints.forEach(v -> ids.add(v.id()));
+            restrictions.forEach(v -> ids.add(v.id()));
+            inputIds = Collections.unmodifiableSet(ids);
+        }
+        return inputIds;
+    }
+
     public List<SourcePoint> sources() { return sources; }
     public List<ExistingNetworkLine> networkLines() { return networkLines; }
     public List<ExistingChamber> chambers() { return chambers; }

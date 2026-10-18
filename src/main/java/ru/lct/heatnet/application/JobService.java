@@ -52,6 +52,7 @@ public class JobService {
      * Neither DB failure nor queue rejection deletes the verified upload. */
     public JobEntity submitCompleted(String id, String filename, long size, Path verifiedInput,
                                      ParseOptions.UnknownRestrictionPolicy policy, int maxVariants, String mode) throws IOException {
+        maxVariants = variantCount(maxVariants);
         JobEntity e = repo.findById(id).orElse(null);
         if (e != null && e.getStatus() != JobEntity.Status.QUEUED
                 && !"upload-queue-retry".equals(e.getProgress())) return e;
@@ -98,8 +99,15 @@ public class JobService {
         Path srcInput = Paths.get(src.getInputPath());
         if (!Files.exists(srcInput)) throw new ru.lct.heatnet.api.ConflictException("input of job " + sourceId + " is no longer available");
         return persistAndQueue(src.getOriginalFilename(), Files.size(srcInput),
-                ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), src.getMaxVariants(), normalized,
+                ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), Math.max(1, Math.min(ru.lct.heatnet.config.Constants.MAX_VARIANTS, src.getMaxVariants())), normalized,
                 partial -> Files.copy(srcInput, partial));
+    }
+
+    private int variantCount(Integer requested) {
+        int maximum = ru.lct.heatnet.config.Constants.MAX_VARIANTS;
+        if (requested != null && (requested < 1 || requested > maximum))
+            throw new IllegalArgumentException("maxVariants must be 1.." + maximum);
+        return requested == null ? Math.max(1, Math.min(maximum, props.getMaxVariants())) : requested;
     }
 
     @FunctionalInterface
@@ -107,6 +115,7 @@ public class JobService {
 
     private JobEntity persistAndQueue(String originalFilename, long size, ParseOptions.UnknownRestrictionPolicy policy,
                                      Integer maxVariants, String mode, UploadWriter writer) throws IOException {
+        int count = variantCount(maxVariants);
         String id = UUID.randomUUID().toString();
         Path dir = storageDir().resolve(id);
         Path input = dir.resolve("input.geojson");
@@ -120,7 +129,7 @@ public class JobService {
         e.setInputPath(input.toString());
         e.setMode(mode);
         e.setUnknownRestrictionPolicy((policy == null ? ParseOptions.UnknownRestrictionPolicy.IGNORE : policy).name());
-        e.setMaxVariants(maxVariants == null || maxVariants < 1 ? props.getMaxVariants() : Math.min(maxVariants, ru.lct.heatnet.config.Constants.MAX_VARIANTS));
+        e.setMaxVariants(count);
         e.setProgress("Saving upload");
         try {
             // Commit the record first: a crash during persistence leaves a recoverable job, not an orphan file.

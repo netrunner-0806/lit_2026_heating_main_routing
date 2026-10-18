@@ -11,9 +11,9 @@ import java.util.List;
 /** Adapter: validates a candidate variant by rendering it to output features and running the result validator. */
 public final class SolverVariantValidator implements HeatnetSolver.VariantValidator {
     private final ResultValidator validator;
-    private final OutputBuilder builder = new OutputBuilder();
+    private final OutputBuilder builder;
 
-    public SolverVariantValidator(InputModel input) { this.validator = new ResultValidator(input); }
+    public SolverVariantValidator(InputModel input) { this.validator = new ResultValidator(input); this.builder = new OutputBuilder(input); }
 
     @Override
     public List<String> validate(VariantResult variant) {

@@ -75,7 +75,7 @@ public final class HeatnetSolver {
             if (progress != null) progress.accept("strategy " + s.name());
             try {
                 VariantResult vr = strategyRunner.apply(ctx, s);
-                if (vr != null) { vr.setDepthMode(config.depthMode); candidates.add(vr); }
+                if (vr != null) { vr.setDepthMode(config.depthMode); vr.reserveInputIds(input.inputIds()); candidates.add(vr); }
             } catch (RuntimeException ex) {
                 log.warn("strategy {} failed: {}", s, ex.toString(), ex);
                 // A failed computation is not evidence that consumers have no geometric path.
@@ -105,7 +105,7 @@ public final class HeatnetSolver {
                     Strategy strategy = strategies.stream().filter(s -> s.name().equals(vr.strategy())).findFirst().orElseThrow();
                     VariantResult retry = strategyRunner.apply(ctx,strategy);
                     if (retry != null) {
-                        retry.setDepthMode(config.depthMode);retry.setVariantId(vr.variantId());retry.setRank(0);
+                        retry.reserveInputIds(input.inputIds());retry.setDepthMode(config.depthMode);retry.setVariantId(vr.variantId());retry.setRank(0);
                         List<String> retryErrors = validateCandidate(retry, diag);
                         if (retryErrors.isEmpty()) { checked.add(retry);diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
                         errors=retryErrors;
@@ -129,7 +129,7 @@ public final class HeatnetSolver {
                 continue;
             }
             valid.add(vr);
-            if (valid.size() >= config.maxVariants) break;
+            if (valid.size() >= Math.max(1, Math.min(ru.lct.heatnet.config.Constants.MAX_VARIANTS, config.maxVariants))) break;
         }
         for (int i = 0; i < valid.size(); i++) {
             valid.get(i).setVariantId("v" + (i + 1));

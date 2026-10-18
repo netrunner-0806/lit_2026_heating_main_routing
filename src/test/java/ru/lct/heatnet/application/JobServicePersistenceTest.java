@@ -131,6 +131,31 @@ class JobServicePersistenceTest {
         assertCleaned();
     }
 
+    @Test void malformedVariantParameterReturnsHttp400() throws Exception {
+        var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(new ru.lct.heatnet.api.JobController(service))
+                .setControllerAdvice(new ru.lct.heatnet.api.ApiExceptionHandler()).build();
+        for(String value:new String[]{"0","-1","4","abc","1.5","999999999999"}) {
+            var file=new org.springframework.mock.web.MockMultipartFile("file","test.geojson","application/geo+json",new byte[]{1});
+            mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/jobs")
+                    .file(file).param("maxVariants",value)).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+        }
+        verifyNoInteractions(repo);
+    }
+
+    @Test void invalidVariantCountsRejectedBeforePersistence() {
+        for (int count : new int[]{-1,0,4,Integer.MAX_VALUE})
+            assertThrows(IllegalArgumentException.class, () -> service.submit(upload(), null, count, "PLANAR"));
+        verifyNoInteractions(repo);
+    }
+
+    @Test void configuredDefaultCannotExceedThree() throws Exception {
+        HeatnetProperties props=new HeatnetProperties();props.setMaxVariants(100);props.setStorageDir(root.toString());
+        JobService configured=new JobService(repo,mock(JobRunner.class),props,executor);
+        MultipartFile file=upload();
+        doAnswer(a->{Files.write(((File)a.getArgument(0)).toPath(),new byte[4]);return null;}).when(file).transferTo(any(File.class));
+        assertEquals(3,configured.submit(file,null,null,"PLANAR").getMaxVariants());
+    }
+
     @Test void invalidModeCreatesNeitherRecordNorFile() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> service.submit(upload(), null, 3, "invalid"));
         verify(repo, never()).saveAndFlush(any());

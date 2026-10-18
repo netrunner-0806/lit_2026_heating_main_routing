@@ -229,6 +229,12 @@ public final class NavGraph {
         }
     }
 
+    /** Charge bounded fallback checks to the same class budget; never reset it for a retry. */
+    public void reserveFallbackChecks(long count) {
+        if (count < 0) throw new IllegalArgumentException("negative checks");
+        reserveVisibilityChecks(count);
+    }
+
     private void reserveVisibilityChecks(long count) {
         if (visibilityChecks.addAndGet(count) > maxVisibilityChecks)
             throw new ComplexityLimitException("Navigation visibility exceeds " + maxVisibilityChecks + " pair checks per clearance class; nodes=" + size() + ", dynamic insertions=" + dynamicInsertions

@@ -81,6 +81,14 @@ public final class ObstacleSpace {
 
     /** Approximate checks are only candidate generation; callers must independently validate actual DU. */
     public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred, Envelope navigationRegion, boolean exactClearance) {
+        this(input, cls, deferred, navigationRegion, exactClearance, cls.representativeDu());
+    }
+
+    /** Exact-DU candidate generation; the whole tentative network must still pass independent validation. */
+    public ObstacleSpace(InputModel input, ClearanceClass cls, boolean deferred, Envelope navigationRegion,
+                         boolean exactClearance, int routingDu) {
+        if (ClearanceClass.forDu(routingDu) != cls) throw new IllegalArgumentException("DU outside clearance class");
+        ru.lct.heatnet.config.DiameterTable.requireDu(routingDu);
         this.exactClearance=exactClearance;
         this.navigationRegion=navigationRegion==null?null:new Envelope(navigationRegion);
         this.deferred = deferred || navigationRegion!=null;
@@ -100,7 +108,7 @@ public final class ObstacleSpace {
         List<Geometry> vertexZones = new ArrayList<>();
         for (Obstacle o : list) {
             try {
-            double d = o.requiredAxisDistance(cls);
+            double d = o.requiredAxisDistance(routingDu);
             required[o.index()] = d;
             Envelope navigation = new Envelope(o.geometry().getEnvelopeInternal());
             navigation.expandBy(d * VERTEX_ZONE_FACTOR + VERTEX_ZONE_MARGIN);

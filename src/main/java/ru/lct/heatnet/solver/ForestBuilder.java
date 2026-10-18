@@ -264,6 +264,16 @@ public final class ForestBuilder {
                 reason = ex.getMessage();
             }
         }
+        if (best == null && allowAdaptive && !reason.startsWith("COMPLEXITY_LIMIT")
+                && !rejectionCounts.containsKey("COMPLEXITY_LIMIT")) {
+            try {
+                best = exactDuDirectFallback(cp, r);
+                if (best != null) {
+                    notes.add("connection point " + cp.id() + ": connected by exact-DU direct fallback");
+                    adaptivelyConnected.add(cp.id());
+                }
+            } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) { reason = ex.getMessage(); }
+        }
         if (best == null) {
             failedAttachmentUpgrades.put(cp.id(), new LinkedHashMap<>(attemptedClassUpgrades));
             String proven = new ApproachPlanner(r.space).provenTerminalConflict(cp);
@@ -282,6 +292,70 @@ public final class ForestBuilder {
         failedAttachmentUpgrades.remove(cp.id());
         commit(best);
         return true;
+    }
+
+    /**
+     * A bounded last resort for DU50/65 terminals hidden by the DU400 navigation envelope.
+     * Tries straight approaches to existing tie-ins and exact projections, without a second graph.
+     * All candidates go through the normal hydraulic/depth calculation and full independent validator.
+     * Longer/bent narrow corridors may still exhaust search; this is not a completeness claim.
+     */
+    private Attempt exactDuDirectFallback(ConnectionPoint cp, SolverContext.ClassResources r) {
+        int du = DiameterTable.minByFlow(cp.flowTph()).orElse(DiameterTable.largest()).du();
+        if (du > 65 || r.cls != ClearanceClass.SMALL) return null;
+        ctx.countFallback();
+        checkingAdaptiveCandidate = true;
+        var space = new ru.lct.heatnet.restrictions.ObstacleSpace(ctx.input(), r.cls, true, null, true, du);
+        // Reserve a conservative upper bound for exit sampling before any geometric checks.
+        r.graph.reserveFallbackChecks(4097);
+        List<Approach> approaches = new ApproachPlanner(space).planExpanded(cp);
+        if (approaches.isEmpty()) return null;
+        List<TieInCandidate> ties = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (TieInCandidate t : r.tieIns) addExactTie(ties, seen, t);
+        // Class clearance can exclude the tie-in itself, so recover chambers/projections as well.
+        for (var ch : ctx.input().chambers()) {
+            int degree = ctx.netIndex().existingAdjacency(ch);
+            if (degree < Constants.MAX_CHAMBER_DEGREE)
+                addExactTie(ties, seen, new TieInCandidate(TieInCandidate.Kind.EXISTING_CHAMBER, ch.coordinate(), ch, null, degree));
+        }
+        for (var line : ctx.input().networkLines()) {
+            Coordinate p = ru.lct.heatnet.geo.GeometryUtils.nearestPoint(line.line(), cp.coordinate());
+            if (!ctx.netIndex().usableChambersNear(p).isEmpty()) continue;
+            var adjacent = ctx.netIndex().linesNear(p, ru.lct.heatnet.geo.GeometryTolerance.ON_LINE_M);
+            var largest = adjacent.stream().max(Comparator.comparingInt(ru.lct.heatnet.domain.ExistingNetworkLine::diameter)
+                    .thenComparing(ru.lct.heatnet.domain.ExistingNetworkLine::id)).orElse(line);
+            int degree = ctx.netIndex().existingAdjacencyAt(p);
+            if (degree < Constants.MAX_CHAMBER_DEGREE)
+                addExactTie(ties, seen, new TieInCandidate(TieInCandidate.Kind.NEW_CHAMBER_ON_LINE, p, null, largest, degree));
+        }
+        int evaluated = 0;
+        for (Approach ap : approaches) for (TieInCandidate t : ties) {
+            if (++evaluated > cfg.maxCandidateEvaluations)
+                throw new ru.lct.heatnet.routing.ComplexityLimitException("exact-DU fallback candidate budget");
+            r.graph.reserveFallbackChecks(1);
+            Coordinate a = ap.freePoint(), b = t.point();
+            if (a.distance(b) < 0.01) continue;
+            if (ap.hasFinalSegment() && ru.lct.heatnet.geo.GeometryUtils.turnAngleDeg(ap.target(), a, b) > Constants.MAX_TURN_ANGLE_DEG + 1e-6) continue;
+            if (space.insideForbidden(b)) continue;
+            Exemptions ex = new Exemptions().disc(b, r.tieInDiscRadius, o -> o.isExistingNetwork());
+            var check = space.check(a, b, ex);
+            if (!check.valid()) continue;
+            Object[] disc = new Object[]{b, 2.0 * dyn.softDistance(), null};
+            if (!dyn.allows(a, b, Collections.singletonList(disc))) continue;
+            ctx.countCandidate();
+            Attempt found = tryAttach(ap, new Route(java.util.Arrays.asList(a, b), Collections.singletonList(check)), Target.tieIn(t), disc);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void addExactTie(List<TieInCandidate> ties, java.util.Set<String> seen, TieInCandidate t) {
+        String key = Double.toHexString(t.point().x) + ":" + Double.toHexString(t.point().y);
+        if (!seen.add(key)) return;
+        if (ties.size() >= cfg.maxCandidateEvaluations)
+            throw new ru.lct.heatnet.routing.ComplexityLimitException("exact-DU fallback tie-in budget");
+        ties.add(t);
     }
 
     /** Diameter and depth decisions of the final network (recorded once per variant). */
