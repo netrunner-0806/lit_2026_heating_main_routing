@@ -155,6 +155,43 @@ jobs:
             -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" "$caddy_image" \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
+      - name: Docker Compose 1.29.2 compatibility (version required by the case)
+        if: steps.detect.outputs.relevant == 'true'
+        env:
+          COMPOSE_V1_VERSION: 1.29.2
+          # SHA-256 of the official docker-compose-Linux-x86_64 asset of release 1.29.2
+          COMPOSE_V1_SHA256: f3f10cf3dbb8107e9ba2ea5f23c1d2159ff7321d16f0a23051d68d8e2547b323
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # The case requires docker-compose 1.29.2 (Compose V1): validate both files with that exact release.
+          # Read-only: `config` only parses and interpolates; nothing is pulled, built or started.
+          curl -fsSLo "$RUNNER_TEMP/docker-compose" \
+            "https://github.com/docker/compose/releases/download/${COMPOSE_V1_VERSION}/docker-compose-Linux-x86_64"
+          echo "${COMPOSE_V1_SHA256}  $RUNNER_TEMP/docker-compose" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/docker-compose"
+          v1() { "$RUNNER_TEMP/docker-compose" "$@"; }
+          v1 version
+          unset HEATNET_IMAGE_TAG COMPOSE_PROJECT_NAME
+          v1 -f docker-compose.yml config --quiet
+          v1 -p heatnet -f compose.prod.yaml config --quiet
+          # The deploy workflow reads services.app.image from the `config` output (1.29.2 has no `config --images`);
+          # the same parsing must resolve the published image from docker-compose 1.29.2 output.
+          expected="${REGISTRY}/${OWNER,,}/${IMAGE_NAME}"
+          v1_app_image() {
+            v1 -p heatnet -f compose.prod.yaml config | awk -v p="${expected}:" '
+              /^[^[:space:]]/ { in_services = ($0 ~ /^services:/); service = ""; next }
+              in_services && match($0, /^ +/) {
+                if (!indent || RLENGTH <= indent) { indent = RLENGTH; service = $1; sub(/:$/, "", service); next }
+                if (service == "app" && $1 == "image:") { v = $2; gsub(/["\047]/, "", v); if (index(v, p) == 1) print v }
+              }'
+          }
+          [ "$(v1_app_image)" = "${expected}:latest" ] \
+            || { echo "::error file=compose.prod.yaml::docker-compose ${COMPOSE_V1_VERSION}: app image does not resolve to ${expected}:latest"; exit 1; }
+          [ "$(HEATNET_IMAGE_TAG=a1b2c3d v1_app_image)" = "${expected}:a1b2c3d" ] \
+            || { echo "::error file=compose.prod.yaml::docker-compose ${COMPOSE_V1_VERSION}: HEATNET_IMAGE_TAG does not select the app image tag"; exit 1; }
+          [ "$(HEATNET_IMAGE_TAG='' v1_app_image)" = "${expected}:latest" ] \
+            || { echo "::error file=compose.prod.yaml::docker-compose ${COMPOSE_V1_VERSION}: an empty HEATNET_IMAGE_TAG does not fall back to latest"; exit 1; }
+
       - name: Secret scan (gitleaks)
         if: steps.detect.outputs.relevant == 'true'
         env:

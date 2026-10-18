@@ -112,14 +112,15 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      - name: Check server prerequisites (.env present, Docker Compose v2)
+      - name: Check server prerequisites (.env present, Docker Compose)
         run: |
           dir=$(printf '%q' "$DEPLOY_PATH")
           # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
           ssh prod "test -d $dir && test -f $dir/.env" \
             || { echo "::error::$DEPLOY_PATH/.env not found on the server. Create it manually (see docs/deployment.md); CI never creates it."; exit 1; }
           # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
-          ssh prod 'docker compose version'
+          # report both implementations; the deployment step uses docker-compose 1.29.2 when it is installed
+          ssh prod 'docker-compose version 2>/dev/null || echo "docker-compose (V1) is not installed"; docker compose version 2>/dev/null || echo "Docker Compose V2 is not installed"'
 
       - name: Upload compose.prod.yaml and caddy/Caddyfile
         run: |
@@ -154,12 +155,35 @@ jobs:
           ssh prod "IMAGE=$(printf '%q' "$IMAGE") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/pull.log"
           set -euo pipefail
           cd "$DEPLOY_PATH"
-          unset HEATNET_IMAGE_TAG
-          compose() { docker compose -f compose.prod.yaml "$@"; }
+          unset HEATNET_IMAGE_TAG COMPOSE_PROJECT_NAME
+          # Project name (it selects the named volumes): COMPOSE_PROJECT_NAME from the server .env, otherwise heatnet.
+          # Passed with -p because docker-compose 1.29.2 knows no top-level `name:`; normalized as Compose does.
+          project=""
+          if [ -f .env ]; then
+            project=$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?COMPOSE_PROJECT_NAME[[:space:]]*=[[:space:]]*//p' .env \
+              | tail -n 1 | sed -E 's/[[:space:]]+#.*$//; s/^["'\'']//; s/["'\''][[:space:]]*$//')
+          fi
+          project=$(printf '%s' "${project:-heatnet}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')
+          [ -n "$project" ] || { echo "::error::Cannot determine the Compose project name"; exit 1; }
+          echo "DEPLOY_PROJECT=$project"
+          # The case requires docker-compose 1.29.2 (Compose V1): use it when the server has it, else Compose V2.
+          # 1.29.2 (docker-py 5.0.0) otherwise negotiates the newest daemon API; it is pinned to 1.44, the newest API
+          # that still returns the legacy image fields 1.29.2 knows (the daemon accepts 1.40 and newer).
+          if command -v docker-compose >/dev/null 2>&1 && [ "$(docker-compose version --short 2>/dev/null)" = 1.29.2 ]; then
+            compose_kind=v1
+          elif docker compose version >/dev/null 2>&1; then
+            compose_kind=v2
+            echo "::warning::docker-compose 1.29.2 is not installed on the server; deploying with Docker Compose V2"
+          else
+            echo "::error::Neither docker-compose 1.29.2 nor Docker Compose V2 is available on the server"; exit 1
+          fi
+          echo "DEPLOY_COMPOSE=$compose_kind"
+          compose() {
+            if [ "$compose_kind" = v1 ]; then COMPOSE_API_VERSION=1.44 docker-compose -p "$project" -f compose.prod.yaml "$@"
+            else docker compose -p "$project" -f compose.prod.yaml "$@"; fi
+          }
           compose config --quiet            # validates the file with the server .env, prints nothing
           # A different project name selects different named volumes. Refuse an implicit migration.
-          project=$(compose config | sed -n 's/^name: //p')
-          [ -n "$project" ] || { echo "::error::Cannot determine the Compose project name"; exit 1; }
           for container in heatnet-db heatnet-app; do
             existing=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null || true)
             if [ -n "$existing" ] && [ "$existing" != "$project" ]; then
@@ -167,7 +191,14 @@ jobs:
               exit 1
             fi
           done
-          ref=$(compose config --images app | awk -v p="${IMAGE}:" 'index($0, p) == 1')
+          # `config --images` does not exist in docker-compose 1.29.2: read services.app.image from the resolved
+          # configuration instead (indentation-agnostic, so the V1 and V2 output layouts both work).
+          ref=$(compose config | awk -v p="${IMAGE}:" '
+            /^[^[:space:]]/ { in_services = ($0 ~ /^services:/); service = ""; next }
+            in_services && match($0, /^ +/) {
+              if (!indent || RLENGTH <= indent) { indent = RLENGTH; service = $1; sub(/:$/, "", service); next }
+              if (service == "app" && $1 == "image:") { v = $2; gsub(/["\047]/, "", v); if (index(v, p) == 1) print v }
+            }')
           if [ -z "$ref" ] || [ "$(printf '%s\n' "$ref" | wc -l)" -ne 1 ]; then
             echo "::error::The app image in compose.prod.yaml does not resolve to ${IMAGE}:<tag> (got: ${ref:-nothing})"
             exit 1
@@ -179,7 +210,12 @@ jobs:
           fi
           echo "DEPLOY_IMAGE=$ref"
           compose pull || { echo "::error::docker compose pull failed. Check that $ref exists in GHCR (HEATNET_IMAGE_TAG in .env) and that the package is public or GHCR_READ_USER / GHCR_READ_TOKEN are set"; exit 1; }
-          compose up -d --no-build --remove-orphans
+          # When docker-compose 1.29.2 recreates a container it reads the ContainerConfig of the previous container's
+          # image (service.py, get_container_data_volumes), after the old container is already stopped. Current daemons
+          # return it as null (and omit it from API 1.45 on), so the update would fail mid-way. --renew-anon-volumes
+          # skips that read; it only affects anonymous volumes, and all data of the stack is in named volumes.
+          if [ "$compose_kind" = v1 ]; then compose up -d --no-build --remove-orphans --renew-anon-volumes
+          else compose up -d --no-build --remove-orphans; fi
           if [ -f .caddy-reload ]; then
             compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
             rm -f .caddy-reload
@@ -191,17 +227,28 @@ jobs:
             echo "::error::Unexpected app image reported by the server: '${image}'"; exit 1
           fi
           if [ "$tag" = latest ]; then mode=latest; else mode=pinned; fi
-          { echo "image=${image}"; echo "tag=${tag}"; echo "mode=${mode}"; } >> "$GITHUB_OUTPUT"
+          project=$(sed -n 's/^DEPLOY_PROJECT=//p' "$RUNNER_TEMP/pull.log" | tail -n 1)
+          [[ "$project" =~ ^[a-z0-9_-]+$ ]] || { echo "::error::Unexpected Compose project reported by the server: '${project}'"; exit 1; }
+          compose_kind=$(sed -n 's/^DEPLOY_COMPOSE=//p' "$RUNNER_TEMP/pull.log" | tail -n 1)
+          [[ "$compose_kind" =~ ^v[12]$ ]] || { echo "::error::Unexpected Compose implementation reported by the server: '${compose_kind}'"; exit 1; }
+          { echo "image=${image}"; echo "tag=${tag}"; echo "mode=${mode}"; echo "project=${project}"; echo "compose=${compose_kind}"; } >> "$GITHUB_OUTPUT"
 
       - name: Wait for healthy containers
         env:
           EXPECTED: ${{ steps.pull.outputs.image }}
+          PROJECT: ${{ steps.pull.outputs.project }}
+          COMPOSE_KIND: ${{ steps.pull.outputs.compose }}
         run: |
           # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
-          ssh prod "EXPECTED=$(printf '%q' "$EXPECTED") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/health.log"
+          ssh prod "EXPECTED=$(printf '%q' "$EXPECTED") PROJECT=$(printf '%q' "$PROJECT") COMPOSE_KIND=$(printf '%q' "$COMPOSE_KIND") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/health.log"
           set -euo pipefail
           cd "$DEPLOY_PATH"
-          unset HEATNET_IMAGE_TAG
+          unset HEATNET_IMAGE_TAG COMPOSE_PROJECT_NAME
+          # same Compose implementation and project as the deployment step
+          compose() {
+            if [ "$COMPOSE_KIND" = v1 ]; then COMPOSE_API_VERSION=1.44 docker-compose -p "$PROJECT" -f compose.prod.yaml "$@"
+            else docker compose -p "$PROJECT" -f compose.prod.yaml "$@"; fi
+          }
           state() { docker inspect -f "$1" "$2" 2>/dev/null || echo missing; }
           for i in $(seq 1 60); do
             db=$(state '{{.State.Health.Status}}' heatnet-db)
@@ -215,7 +262,7 @@ jobs:
               if [ "$(docker inspect -f '{{.Image}}' heatnet-app)" != "$(docker image inspect -f '{{.Id}}' "$EXPECTED")" ]; then
                 echo "heatnet-app was not recreated from the freshly pulled $EXPECTED"; exit 1
               fi
-              docker compose -f compose.prod.yaml ps
+              compose ps
               echo "DEPLOYED_REVISION=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' heatnet-app)"
               exit 0
             fi
@@ -223,8 +270,8 @@ jobs:
             sleep 5
           done
           echo "Containers did not become healthy"
-          docker compose -f compose.prod.yaml ps
-          docker compose -f compose.prod.yaml logs --tail 100 app
+          compose ps
+          compose logs --tail 100 app
           exit 1
           REMOTE
 

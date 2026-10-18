@@ -16,8 +16,9 @@
 # The application runs HEATNET_IMAGE_TAG from the server .env (e.g. HEATNET_IMAGE_TAG=a1b2c3d pins a version);
 # when it is absent or empty, `latest` is used. See docs/deployment.md.
 
-# fixed project name: volume names (heatnet_heatnet-pg, heatnet_heatnet-data, ...) do not depend on the directory
-name: heatnet
+# No top-level `name:`: the docker-compose 1.29.2 schema rejects it. The project name (and with it the volume names
+# heatnet_heatnet-pg, heatnet_heatnet-data, ...) is passed explicitly with `-p`: COMPOSE_PROJECT_NAME from the server
+# .env, otherwise `heatnet` (see the deploy workflow).
 
 services:
   db:

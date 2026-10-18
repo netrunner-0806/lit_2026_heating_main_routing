@@ -49,14 +49,16 @@ test('production compose consumes the heatnet image published by this repository
 
 test('deployment refuses a different existing Compose project before changing volumes', () => {
   const step = deployWorkflow.split('      - name: Pull and update the stack\n')[1].split('      - name: Wait for healthy containers\n')[0];
-  const remote = step.split("<<'REMOTE' | tee \"$RUNNER_TEMP/pull.log\"\n")[1].split('          ref=$(compose config --images app')[0];
+  const remote = step.split("<<'REMOTE' | tee \"$RUNNER_TEMP/pull.log\"\n")[1].split('          ref=$(compose config | awk')[0];
   assert(remote.includes('for container in heatnet-db heatnet-app'));
-  // Execute the actual preflight shell with a fake Docker CLI; no daemon, server or volumes are touched.
+  // Execute the actual preflight shell with a fake Docker CLI and a fake docker-compose 1.29.2 (the implementation
+  // the case requires); no daemon, server or volumes are touched.
   const fake = `docker() {
     if [ "$1" = inspect ]; then printf '%s\\n' "$EXISTING_PROJECT";
-    elif [ "$1" = compose ]; then
-      case "$*" in *--quiet*) return 0;; *config*) echo 'name: heatnet';; *) return 99;; esac
     else return 99; fi
+  }
+  docker-compose() {
+    case "$*" in "version --short") echo 1.29.2;; *--quiet*) return 0;; *) return 99;; esac
   }
   `;
   for (const [existing, expected] of [['heatnet', 0], ['', 0], ['original-project', 1]]) {
