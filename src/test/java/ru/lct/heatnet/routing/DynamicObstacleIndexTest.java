@@ -6,6 +6,40 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DynamicObstacleIndexTest {
+    @Test void sharedMutableEnvelopesAfterCopyCannotLeaveStaleBoundsInEitherOwner() {
+        DynamicObstacles d=new DynamicObstacles(.05,2.5);
+        for(int i=0;i<40;i++)d.add(new Coordinate(i,100),new Coordinate(i,101),i);
+        Coordinate a=new Coordinate(-1,0),b=new Coordinate(1,0);
+        assertTrue(d.allows(a,b,null)); // prepare bounds before copying
+        DynamicObstacles copy=d.copy();
+        assertTrue(copy.allows(a,b,null));
+        DynamicObstacles.Seg seg=copy.segments().get(0);
+        seg.a.setCoordinate(new Coordinate(0,-1));seg.b.setCoordinate(new Coordinate(0,1));
+        seg.env.init(seg.a,seg.b);
+        assertFalse(d.allows(a,b,null));assertFalse(copy.allows(a,b,null));
+        seg.env.init(100,101,100,101); // same intentionally mutable legacy envelope in both lists
+        assertTrue(d.allows(a,b,null));assertTrue(copy.allows(a,b,null));
+    }
+    @Test void longSegmentsTouchingBoundsAndExemptionsAreNeverDropped() {
+        DynamicObstacles indexed=new DynamicObstacles(.05,2.5);
+        LinearDynamicObstaclesOracle linear=new LinearDynamicObstaclesOracle(.05,2.5);
+        for(int i=0;i<96;i++) {
+            Coordinate a=new Coordinate(i*100,100),b=new Coordinate(i*100+1,100);
+            indexed.add(a,b,i);linear.add(a,b,i);
+        }
+        Coordinate a=new Coordinate(-1000,0),b=new Coordinate(1000,0);
+        indexed.add(a,b,"long");linear.add(a,b,"long");
+        for(double y:new double[]{0,.049,.05,.051,2.499,2.5,2.501}) {
+            Coordinate c=new Coordinate(-1,y),d=new Coordinate(1,y);
+            for(List<Object[]> ex:Arrays.<List<Object[]>>asList(null,
+                    Collections.singletonList(new Object[]{new Coordinate(0,y),.5,"long"}))) {
+                assertEquals(linear.allows(c,d,ex),indexed.allows(c,d,ex));
+                assertEquals(Double.doubleToLongBits(linear.proximityPenalty(c,d,ex)),
+                        Double.doubleToLongBits(indexed.proximityPenalty(c,d,ex)));
+            }
+        }
+        assertFalse(indexed.allows(new Coordinate(0,-1),new Coordinate(0,1),null));
+    }
     @Test void indexedDecisionsAndPenaltyBitsMatchTheFrozenLinearScan() {
         Random r=new Random(20261018);DynamicObstacles indexed=new DynamicObstacles(.05,2.5);
         LinearDynamicObstaclesOracle linear=new LinearDynamicObstaclesOracle(.05,2.5);

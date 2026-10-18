@@ -17,17 +17,16 @@ public final class DynamicObstacles {
         public final Coordinate a, b;
         public final Envelope env;
         public final Object owner;
-        private final int ordinal;
 
-        Seg(Coordinate a, Coordinate b, Object owner, int ordinal) {
+        Seg(Coordinate a, Coordinate b, Object owner) {
             this.a = a; this.b = b; this.owner = owner;
-            this.ordinal = ordinal;
             this.env = new Envelope(a, b);
         }
     }
 
     private final List<Seg> segs = new ArrayList<>();
-    private org.locationtech.jts.index.strtree.STRtree index;
+    private static final int BLOCK_SIZE = 16;
+    private Envelope[] blockBounds;
     private boolean mutableViewExposed;
     /** Hard rule: new lines must not intersect/overlap outside a common node (numerical tolerance only). */
     private final double hardDistance;
@@ -44,37 +43,58 @@ public final class DynamicObstacles {
     public double hardDistance() { return hardDistance; }
     public double softDistance() { return softDistance; }
 
-    public void add(Coordinate a, Coordinate b, Object owner) { segs.add(new Seg(a, b, owner, segs.size())); index=null; }
+    public void add(Coordinate a, Coordinate b, Object owner) { segs.add(new Seg(a, b, owner)); blockBounds=null; }
 
     public void addPolyline(List<Coordinate> coords, Object owner) {
         for (int i = 1; i < coords.size(); i++) add(coords.get(i - 1), coords.get(i), owner);
     }
 
-    public void clear() { segs.clear(); index=null; }
+    public void clear() { segs.clear(); blockBounds=null; }
 
     public boolean isEmpty() { return segs.isEmpty(); }
 
     /** Preserve the legacy mutable view; callers that request it opt out of indexed queries. */
-    public List<Seg> segments() { mutableViewExposed=true;index=null;return segs; }
+    public List<Seg> segments() { mutableViewExposed=true;blockBounds=null;return segs; }
 
     public DynamicObstacles copy() {
         DynamicObstacles d = new DynamicObstacles(hardDistance, softDistance);
         d.segs.addAll(segs);
-        d.mutableViewExposed=mutableViewExposed;
+        // A shallow copy shares mutable Seg envelopes. Either list may later expose them;
+        // retain legacy aliasing but never cache bounds across those independent owners.
+        mutableViewExposed = true;
+        blockBounds = null;
+        d.mutableViewExposed = true;
         return d;
     }
 
-    /** Index lifetime is one topology state. Stable ordinal order preserves floating-point penalty summation. */
-    private List<Seg> candidates(Envelope envelope) {
-        if(segs.size()<32||mutableViewExposed)return segs;
-        if(index==null) {
-            org.locationtech.jts.index.strtree.STRtree built=new org.locationtech.jts.index.strtree.STRtree();
-            for(Seg s:segs)built.insert(s.env,s);
-            built.build();index=built;
+    /** Conservative bounds for consecutive groups, in the original insertion order.
+     * This avoids materialising and sorting query results and keeps hard-check early exits.
+     * The bounds are discarded on every mutation; no graph or topology is cached.
+     */
+    private void prepareBounds() {
+        if (blockBounds != null || mutableViewExposed || segs.size() < BLOCK_SIZE * 2) return;
+        Envelope[] bounds = new Envelope[(segs.size() + BLOCK_SIZE - 1) / BLOCK_SIZE];
+        for (int i = 0; i < segs.size(); i++) {
+            int block = i / BLOCK_SIZE;
+            if (bounds[block] == null) bounds[block] = new Envelope();
+            bounds[block].expandToInclude(segs.get(i).env);
         }
-        @SuppressWarnings("unchecked") List<Seg> result=index.query(envelope);
-        result.sort(java.util.Comparator.comparingInt(s->s.ordinal));
-        return result;
+        blockBounds = bounds;
+    }
+
+    /** The exact original envelope predicate still selects each returned segment. */
+    private int nextCandidate(int start, Envelope envelope) {
+        for (int i = start; i < segs.size();) {
+            if (blockBounds != null && i % BLOCK_SIZE == 0
+                    && !blockBounds[i / BLOCK_SIZE].intersects(envelope)) {
+                i += BLOCK_SIZE;
+            } else if (segs.get(i).env.intersects(envelope)) {
+                return i;
+            } else {
+                i++;
+            }
+        }
+        return segs.size();
     }
 
     /**
@@ -103,8 +123,9 @@ public final class DynamicObstacles {
         double penalty = 0;
         Envelope env = new Envelope(a, b);
         env.expandBy(reach);
-        for (Seg s : candidates(env)) {
-            if (!s.env.intersects(env)) continue;
+        prepareBounds();
+        for (int i = nextCandidate(0, env); i < segs.size(); i = nextCandidate(i + 1, env)) {
+            Seg s = segs.get(i);
             List<double[]> exIv = new ArrayList<>();
             if (exempt != null) {
                 for (Object[] e : exempt) {
@@ -137,8 +158,9 @@ public final class DynamicObstacles {
         List<Seg> out = new ArrayList<>();
         Envelope env = new Envelope(c);
         env.expandBy(dist);
-        for (Seg s : candidates(env)) {
-            if (!s.env.intersects(env)) continue;
+        prepareBounds();
+        for (int i = nextCandidate(0, env); i < segs.size(); i = nextCandidate(i + 1, env)) {
+            Seg s = segs.get(i);
             if (new LineSegment(s.a, s.b).distance(c) <= dist) out.add(s);
         }
         return out;

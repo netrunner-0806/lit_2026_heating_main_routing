@@ -1,4 +1,4 @@
-// Frozen pre-experiment linear scan: differential oracle, independent of the new spatial selection.
+// Frozen linear scan from c155a15: differential oracle independent of the new spatial selection.
 package ru.lct.heatnet.routing;
 
 import org.locationtech.jts.geom.Coordinate;
