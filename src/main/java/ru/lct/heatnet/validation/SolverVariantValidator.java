@@ -17,6 +17,11 @@ public final class SolverVariantValidator implements HeatnetSolver.VariantValida
 
     @Override
     public List<String> validate(VariantResult variant) {
+        return validateIssues(variant).stream().map(Object::toString).collect(java.util.stream.Collectors.toList());
+    }
+
+    @Override
+    public List<ValidationIssue> validateIssues(VariantResult variant) {
         String saved = variant.variantId();
         int savedRank = variant.rank();
         variant.setVariantId(saved == null ? "candidate" : saved);
@@ -24,7 +29,7 @@ public final class SolverVariantValidator implements HeatnetSolver.VariantValida
         try {
             List<OutputFeature> features = builder.build(variant);
             ValidationReport rep = validator.validate(features);
-            return rep.errorsOf(variant.variantId());
+            return rep.issuesOf(variant.variantId()).stream().filter(i -> i.getSeverity() == ValidationIssue.Severity.ERROR).collect(java.util.stream.Collectors.toList());
         } finally {
             variant.setVariantId(saved);
             variant.setRank(savedRank);

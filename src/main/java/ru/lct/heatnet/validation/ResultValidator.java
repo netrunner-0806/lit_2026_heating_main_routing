@@ -237,7 +237,8 @@ public final class ResultValidator {
                     break;
                 case EXISTING_CHAMBER: {
                     n.existingAdjacency = netIndex.existingAdjacency(n.chamber);
-                    n.root = true;
+                    n.root = n.existingAdjacency > 0;
+                    if (!n.root) rep.error("ISOLATED_CHAMBER", "existing chamber " + n.id + " has no incident existing heat network line", vid, n.id.text());
                     if (n.existingAdjacency + n.degree() > Constants.MAX_CHAMBER_DEGREE)
                         rep.error("CHAMBER_DEGREE", "existing chamber " + n.id + " would have " + (n.existingAdjacency + n.degree()) + " adjacent sections (> 4)", vid, n.id.text());
                     break;
@@ -254,7 +255,7 @@ public final class ResultValidator {
                         for (ExistingChamber ch : netIndex.chambersNear(n.coord, Constants.EXISTING_CHAMBER_SNAP_DISTANCE_M + ru.lct.heatnet.geo.GeometryTolerance.COORDINATE_EQUALITY_M)) {
                             Node existing = vm.nodes.get(ch.id());
                             int newAdjacent = existing == null ? 0 : existing.degree();
-                            if (netIndex.existingAdjacency(ch) + newAdjacent + n.degree() <= Constants.MAX_CHAMBER_DEGREE)
+                            if (netIndex.existingAdjacency(ch) > 0 && netIndex.existingAdjacency(ch) + newAdjacent + n.degree() <= Constants.MAX_CHAMBER_DEGREE)
                                 rep.error("EXISTING_CHAMBER_WITHIN_10M", "new chamber " + n.id + " is " + String.format(java.util.Locale.ROOT, "%.1f", ch.coordinate().distance(n.coord)) + " m from existing chamber " + ch.id() + " which could be used", vid, n.id.text());
                         }
                     } else if (n.degree() < 3) {

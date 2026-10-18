@@ -76,11 +76,10 @@ public final class SolverContext {
          */
         private List<TieInCandidate> buildTieIns() {
             List<TieInCandidate> out = new ArrayList<>();
-            org.locationtech.jts.index.strtree.STRtree accepted = new org.locationtech.jts.index.strtree.STRtree();
             List<Coordinate> acceptedPts = new ArrayList<>();
             for (ExistingChamber ch : input.chambers()) {
                 int adj = netIndex.existingAdjacency(ch);
-                if (adj + 1 > Constants.MAX_CHAMBER_DEGREE) continue;
+                if (adj == 0 || adj + 1 > Constants.MAX_CHAMBER_DEGREE) continue;
                 if (space.insideForbidden(ch.coordinate())) continue;
                 out.add(new TieInCandidate(TieInCandidate.Kind.EXISTING_CHAMBER, ch.coordinate(), ch, null, adj));
                 acceptedPts.add(ch.coordinate());
@@ -115,7 +114,7 @@ public final class SolverContext {
                     for (Coordinate a : acceptedPts) if (a.distance(t) < config.tieInDedupe) { dup = true; break; }
                     if (dup) continue;
                     int adj = netIndex.existingAdjacencyAt(t);
-                    if (adj + 1 > Constants.MAX_CHAMBER_DEGREE) continue;
+                    if (adj == 0 || adj + 1 > Constants.MAX_CHAMBER_DEGREE) continue;
                     out.add(new TieInCandidate(TieInCandidate.Kind.NEW_CHAMBER_ON_LINE, t, null,
                             netIndex.linesNear(t, ru.lct.heatnet.geo.GeometryTolerance.ON_LINE_M).stream()
                                     .max(java.util.Comparator.comparingInt(ExistingNetworkLine::diameter)
@@ -126,7 +125,7 @@ public final class SolverContext {
             }
             log.info("class {}: tie-in candidates by source: chambers={}, {}", cls, out.size() - sourceStats.values().stream().mapToInt(Integer::intValue).sum(), sourceStats);
             for (TieInCandidate c : out) {
-                Exemptions ex = new Exemptions().disc(c.point(), tieInDiscRadius, o -> o.isExistingNetwork());
+                Exemptions ex = new Exemptions().disc(c.point(), tieInDiscRadius, netIndex.tieInObstacles(c.point()));
                 c.setVertex(graph.addVertex(c.point(), ex, c.kind() == TieInCandidate.Kind.EXISTING_CHAMBER ? config.terminalRadius : config.tieInRadius, null));
             }
             return Collections.unmodifiableList(out);
@@ -158,6 +157,7 @@ public final class SolverContext {
     private final ExistingNetworkIndex netIndex;
     private final SolverConfig config;
     private final Map<ClearanceClass, ClassResources> resources = new EnumMap<>(ClearanceClass.class);
+    private final Map<List<Object>, ru.lct.heatnet.routing.ComplexityLimitException> resourceFailures = new HashMap<>();
     private Map<JsonId, Double> separateDistance;
     private final java.util.concurrent.atomic.AtomicInteger candidatesEvaluated = new java.util.concurrent.atomic.AtomicInteger();
     private long graphBuildMs;
@@ -243,7 +243,22 @@ public final class SolverContext {
     public SolverConfig config() { return config; }
 
     public synchronized ClassResources resources(ClearanceClass cls) {
-        return resources.computeIfAbsent(cls, ClassResources::new);
+        ClassResources existing = resources.get(cls);
+        if (existing != null) return existing;
+        // Only immutable input + identical construction parameters share a deterministic budget failure.
+        List<Object> key = java.util.Arrays.asList(cls, exactClearance, config.staticRadius, config.helperGridSpacing,
+                config.localGraphMinimumObstacles, config.localGraphMargin, config.terminalRadius,
+                config.tieInStep, config.tieInRadius, config.tieInDedupe, config.tieInProjectionDistance,
+                config.tieInCorridorOffset, config.separationExtra);
+        if (resourceFailures.containsKey(key)) throw resourceFailures.get(key);
+        try {
+            ClassResources built = new ClassResources(cls);
+            resources.put(cls, built);
+            return built;
+        } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {
+            resourceFailures.put(key, ex);
+            throw ex;
+        }
     }
 
     /** Effective route length of the best separate tie-in per connection point (for ordering), +inf if none. */

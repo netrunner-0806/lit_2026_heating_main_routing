@@ -132,7 +132,7 @@ public class JobRunner {
 
     private void progress(JobEntity e, String msg) {
         e.setProgress(msg);
-        try { repo.save(e); } catch (RuntimeException ignore) { }
+        try { repo.save(e); } catch (RuntimeException ex) { log.warn("Could not persist progress for job {}", e.getId(), ex); }
     }
 
     private void fail(JobEntity e, String message, Diagnostics diag, long t0) {
@@ -142,11 +142,15 @@ public class JobRunner {
         e.setElapsedMs(System.currentTimeMillis() - t0);
         e.setFinishedAt(Instant.now());
         if (diag != null) {
-            try { e.setDiagnosticsJson(mapper.writeValueAsString(diagnostics(diag))); } catch (Exception ignore) { }
+            try { e.setDiagnosticsJson(mapper.writeValueAsString(diagnostics(diag))); } catch (Exception ex) { log.warn("Could not serialize failure diagnostics for job {}", e.getId(), ex); }
         }
         // Resource/processing failures must remain diagnosable and explicitly rerunnable.
         // Only an explicit job deletion removes its persisted input.
-        repo.save(e);
+        try { repo.save(e); }
+        catch (RuntimeException ex) {
+            log.error("Could not persist FAILED state for job {}; input retained; startup recovery will reconcile the record", e.getId(), ex);
+            throw ex;
+        }
     }
 
     private static String describe(Diagnostics d) {
@@ -234,6 +238,8 @@ public class JobRunner {
             e.put("rank", v.rank());
             e.put("strategy", v.strategy());
             e.put("decisions", v.trace() == null ? java.util.Collections.emptyList() : v.trace().decisions());
+            e.put("truncated", v.trace() != null && v.trace().dropped() > 0);
+            e.put("droppedDecisions", v.trace() == null ? 0 : v.trace().dropped());
             out.add(e);
         }
         return out;

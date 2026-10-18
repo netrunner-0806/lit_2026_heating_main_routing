@@ -29,16 +29,30 @@ public final class OutputFeatureReader {
     public List<OutputFeature> read(InputStream in) throws IOException {
         List<OutputFeature> out = new ArrayList<>();
         try (JsonParser p = FACTORY.createParser(in)) {
-            if (p.nextToken() != JsonToken.START_OBJECT) throw new IOException("not a JSON object");
+            if (p.nextToken() != JsonToken.START_OBJECT) throw new IllegalArgumentException("Result must be a GeoJSON object");
+            boolean featuresSeen = false;
             while (p.nextToken() == JsonToken.FIELD_NAME) {
                 String f = p.getCurrentName();
                 p.nextToken();
                 if ("features".equals(f)) {
-                    while (p.nextToken() == JsonToken.START_OBJECT) out.add(convert(MAPPER.readTree(p)));
-                } else {
-                    p.skipChildren();
-                }
+                    if (featuresSeen || p.currentToken() != JsonToken.START_ARRAY)
+                        throw new IllegalArgumentException("Result features must be one array");
+                    featuresSeen = true;
+                    while (p.nextToken() != JsonToken.END_ARRAY) {
+                        if (p.currentToken() != JsonToken.START_OBJECT)
+                            throw new IllegalArgumentException("Result feature #" + out.size() + " must be an object");
+                        try { out.add(convert(MAPPER.readTree(p))); }
+                        catch (ru.lct.heatnet.routing.ComplexityLimitException ex) { throw ex; }
+                        catch (IllegalArgumentException ex) {
+                            throw new IllegalArgumentException("Result feature #" + out.size() + ": " + ex.getMessage(), ex);
+                        }
+                    }
+                } else p.skipChildren();
             }
+            if (!featuresSeen || p.currentToken() != JsonToken.END_OBJECT || p.nextToken() != null)
+                throw new IllegalArgumentException("Result must contain a features array and one complete JSON object");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalArgumentException("Malformed result JSON", ex);
         }
         return out;
     }
@@ -68,21 +82,30 @@ public final class OutputFeatureReader {
         } else {
             String type = geom.path("type").asText("");
             JsonNode c = geom.get("coordinates");
-            if ("Point".equals(type)) of = OutputFeature.point(new double[]{c.get(0).asDouble(), c.get(1).asDouble()});
+            if ("Point".equals(type)) of = OutputFeature.point(coordinate(c));
             else if ("LineString".equals(type)) {
+                if (c == null || !c.isArray() || c.size() < 2) throw new IllegalArgumentException("LineString requires at least two coordinates");
                 List<double[]> cs = new ArrayList<>();
-                for (JsonNode n : c) cs.add(new double[]{n.get(0).asDouble(), n.get(1).asDouble()});
+                for (JsonNode n : c) cs.add(coordinate(n));
                 of = OutputFeature.line(cs);
             } else {
-                of = OutputFeature.noGeometry().prop("_unsupported_geometry", type);
+                throw new IllegalArgumentException("Result geometry must be Point, LineString or null");
             }
         }
         JsonNode props = feature.path("properties");
+        if (!props.isObject()) throw new IllegalArgumentException("Feature properties must be an object");
         for (Iterator<Map.Entry<String, JsonNode>> it = props.fields(); it.hasNext(); ) {
             Map.Entry<String, JsonNode> e = it.next();
             of.prop(e.getKey(), toJava(e.getValue()));
         }
         return of;
+    }
+
+    private static double[] coordinate(JsonNode c) {
+        if (c == null || !c.isArray() || c.size() != 2 || !c.get(0).isNumber() || !c.get(1).isNumber()
+                || !Double.isFinite(c.get(0).doubleValue()) || !Double.isFinite(c.get(1).doubleValue()))
+            throw new IllegalArgumentException("Coordinate must contain two finite numbers (longitude, latitude)");
+        return new double[]{c.get(0).doubleValue(), c.get(1).doubleValue()};
     }
 
     private static Object toJava(JsonNode n) {

@@ -271,7 +271,9 @@ final class SpatialValidator {
         List<double[]> sections = new ArrayList<>();   // [from, to] along the chain
         List<double[]> covers = new ArrayList<>();     // intervals where alongside clearance is not checked
         int du = c.lines.get(0).du;
-        if (parentIsRoot && o.existingNetwork) covers.add(new double[]{L - rule.tieInExemptRadiusM(du, maxExistingHalfWidth), L + 1});
+        boolean terminatesOnObject = parentIsRoot && o.existingNetwork
+                && o.geom.distance(GeometryUtils.point(c.parentEnd.coord)) <= ru.lct.heatnet.solver.ExistingNetworkIndex.NODE_TOL_M;
+        if (terminatesOnObject) covers.add(new double[]{L - rule.tieInExemptRadiusM(du, maxExistingHalfWidth), L + 1});
         for (int k = 0; k < inter.getNumGeometries(); k++) {
             Geometry g = inter.getGeometryN(k);
             if (g.isEmpty()) continue;
@@ -279,7 +281,7 @@ final class SpatialValidator {
             Coordinate at;
             if (g instanceof Point) {
                 double t = lil.project(g.getCoordinate());
-                if (o.existingNetwork && parentIsRoot && L - t < Constants.TERMINATION_TOL_M) continue; // termination at the tie-in
+                if (terminatesOnObject && L - t < Constants.TERMINATION_TOL_M) continue; // termination at the tie-in
                 if (o.geom instanceof org.locationtech.jts.geom.Polygonal) continue;           // touching a polygon boundary
                 from = t - ext; to = t + ext; at = g.getCoordinate();
             } else {

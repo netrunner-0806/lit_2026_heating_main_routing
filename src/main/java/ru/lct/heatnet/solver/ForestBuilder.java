@@ -316,7 +316,7 @@ public final class ForestBuilder {
         // Class clearance can exclude the tie-in itself, so recover chambers/projections as well.
         for (var ch : ctx.input().chambers()) {
             int degree = ctx.netIndex().existingAdjacency(ch);
-            if (degree < Constants.MAX_CHAMBER_DEGREE)
+            if (degree > 0 && degree < Constants.MAX_CHAMBER_DEGREE)
                 addExactTie(ties, seen, new TieInCandidate(TieInCandidate.Kind.EXISTING_CHAMBER, ch.coordinate(), ch, null, degree));
         }
         for (var line : ctx.input().networkLines()) {
@@ -326,7 +326,7 @@ public final class ForestBuilder {
             var largest = adjacent.stream().max(Comparator.comparingInt(ru.lct.heatnet.domain.ExistingNetworkLine::diameter)
                     .thenComparing(ru.lct.heatnet.domain.ExistingNetworkLine::id)).orElse(line);
             int degree = ctx.netIndex().existingAdjacencyAt(p);
-            if (degree < Constants.MAX_CHAMBER_DEGREE)
+            if (degree > 0 && degree < Constants.MAX_CHAMBER_DEGREE)
                 addExactTie(ties, seen, new TieInCandidate(TieInCandidate.Kind.NEW_CHAMBER_ON_LINE, p, null, largest, degree));
         }
         int evaluated = 0;
@@ -338,7 +338,7 @@ public final class ForestBuilder {
             if (a.distance(b) < 0.01) continue;
             if (ap.hasFinalSegment() && ru.lct.heatnet.geo.GeometryUtils.turnAngleDeg(ap.target(), a, b) > Constants.MAX_TURN_ANGLE_DEG + 1e-6) continue;
             if (space.insideForbidden(b)) continue;
-            Exemptions ex = new Exemptions().disc(b, r.tieInDiscRadius, o -> o.isExistingNetwork());
+            Exemptions ex = new Exemptions().disc(b, r.tieInDiscRadius, ctx.netIndex().tieInObstacles(b));
             var check = space.check(a, b, ex);
             if (!check.valid()) continue;
             Object[] disc = new Object[]{b, 2.0 * dyn.softDistance(), null};
@@ -858,6 +858,8 @@ public final class ForestBuilder {
             if (leaf == null) continue;
             ctx.countTopologyCopy();
             NewNetwork backup = net.copy();
+            CalculationTrace.Checkpoint traceBefore = trace.checkpoint();
+            java.util.Set<String> notesBefore = new java.util.LinkedHashSet<>(notes);
             double before = CostCalculator.summarize(net, Collections.emptyList()).score();
             net.removeLeaf(leaf);
             rebuildDynamic();
@@ -866,6 +868,8 @@ public final class ForestBuilder {
             double after = ok ? CostCalculator.summarize(net, Collections.emptyList()).score() : Double.POSITIVE_INFINITY;
             if (!ok || after >= before - 1e-9) {
                 net = backup;
+                trace.rollback(traceBefore);
+                notes.clear(); notes.addAll(notesBefore);
                 unconnected.remove(cp);
                 rebuildDynamic();
             } else {

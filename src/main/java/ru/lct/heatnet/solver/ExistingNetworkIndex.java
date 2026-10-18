@@ -68,8 +68,15 @@ public final class ExistingNetworkIndex {
     public List<ExistingChamber> usableChambersNear(Coordinate p) {
         List<ExistingChamber> out = new ArrayList<>();
         for (ExistingChamber c : chambersNear(p, Constants.EXISTING_CHAMBER_SNAP_DISTANCE_M))
-            if (existingAdjacency(c) + 1 <= Constants.MAX_CHAMBER_DEGREE) out.add(c);
+            if (existingAdjacency(c) > 0 && existingAdjacency(c) + 1 <= Constants.MAX_CHAMBER_DEGREE) out.add(c);
         return out;
+    }
+
+    /** Only lines incident to this network node may use the termination clearance exception. */
+    public java.util.function.Predicate<ru.lct.heatnet.restrictions.Obstacle> tieInObstacles(Coordinate p) {
+        java.util.Set<ru.lct.heatnet.domain.JsonId> ids = new java.util.HashSet<>();
+        for (ExistingNetworkLine line : linesNear(p, NODE_TOL_M)) ids.add(line.id());
+        return o -> o.isExistingNetwork() && ids.contains(o.id());
     }
 
     public List<ExistingNetworkLine> linesNear(Coordinate p, double dist) {

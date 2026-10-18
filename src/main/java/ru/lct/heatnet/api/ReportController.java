@@ -61,14 +61,32 @@ public class ReportController {
             StringBuilder sb = new StringBuilder("variant_id;id;start_node_id;end_node_id;flow_tph;diameter;length_m;laying_method;k_spec;depth_start;depth_end;k_depth;cost_rub;crossed_restrictions\n");
             for (OutputFeature f : fs) {
                 if (!"heat_network".equals(f.objectType())) continue;
-                sb.append(f.prop("variant_id")).append(';').append(f.prop("id")).append(';').append(f.prop("start_node_id")).append(';').append(f.prop("end_node_id")).append(';')
-                        .append(f.prop("flow_tph")).append(';').append(f.prop("diameter")).append(';').append(f.prop("length")).append(';').append(f.prop("laying_method")).append(';')
-                        .append(f.prop("k_spec")).append(';').append(f.prop("depth_start")).append(';').append(f.prop("depth_end")).append(';').append(f.prop("k_depth")).append(';')
-                        .append(f.prop("cost")).append(';').append(String.valueOf(f.prop("crossed_restrictions")).replace(';', ',')).append('\n');
+                String[] columns = {"variant_id", "id", "start_node_id", "end_node_id", "flow_tph", "diameter", "length",
+                        "laying_method", "k_spec", "depth_start", "depth_end", "k_depth", "cost", "crossed_restrictions"};
+                for (int i = 0; i < columns.length; i++) {
+                    if (i > 0) sb.append(';');
+                    sb.append(csvCell(f.prop(columns[i])));
+                }
+                sb.append('\n');
             }
             return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"report-" + id + ".csv\"")
                     .contentType(MediaType.parseMediaType("text/csv; charset=utf-8")).body(sb.toString());
         }
+    }
+
+    /** Quote CSV syntax and neutralize spreadsheet formulas in text only (numeric cells remain numeric). */
+    private static String csvCell(Object value) {
+        String text = String.valueOf(value);
+        if (!(value instanceof Number)) {
+            int first = 0;
+            while (first < text.length() && (Character.isWhitespace(text.charAt(first))
+                    || Character.isSpaceChar(text.charAt(first)) || Character.isISOControl(text.charAt(first))
+                    || text.charAt(first) == '\uFEFF')) first++;
+            if (first < text.length() && "=+-@".indexOf(text.charAt(first)) >= 0) text = "'" + text;
+        }
+        if (text.indexOf(';') >= 0 || text.indexOf('"') >= 0 || text.indexOf('\n') >= 0 || text.indexOf('\r') >= 0)
+            text = "\"" + text.replace("\"", "\"\"") + "\"";
+        return text;
     }
 
     private List<OutputFeature> readResult(JobEntity e) throws IOException {

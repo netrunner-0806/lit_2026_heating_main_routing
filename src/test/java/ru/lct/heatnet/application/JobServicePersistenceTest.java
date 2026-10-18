@@ -162,6 +162,39 @@ class JobServicePersistenceTest {
         assertCleaned();
     }
 
+    @Test void rerunSharesImmutableInputAndSourceDeletionDoesNotLoseIt() throws Exception {
+        Path original = Files.write(root.resolve("original.geojson"), new byte[]{1,2,3,4});
+        JobEntity source = new JobEntity(); source.setId("source"); source.setInputPath(original.toString());
+        source.setUnknownRestrictionPolicy("IGNORE"); source.setMaxVariants(3);
+        when(repo.findById("source")).thenReturn(Optional.of(source));
+        var rerun = service.rerun("source", "DEPTH");
+        Path retained = Path.of(rerun.getInputPath());
+        assertTrue(Files.isSameFile(original, retained), "rerun must not duplicate a multi-GB immutable input");
+        Files.delete(original);
+        assertArrayEquals(new byte[]{1,2,3,4}, Files.readAllBytes(retained));
+    }
+
+    @Test void insufficientStorageRejectsBeforeTransferringOrEnqueueing() throws Exception {
+        MultipartFile file = upload(); when(file.getSize()).thenReturn(Long.MAX_VALUE);
+        var ex = assertThrows(ru.lct.heatnet.api.UploadException.class, () -> service.submit(file,null,3,"PLANAR"));
+        assertEquals(507,ex.status());
+        verify(file,never()).transferTo(any(File.class));verify(executor,never()).execute(any(Runnable.class));
+        assertTrue(records.isEmpty());
+    }
+
+    @Test void saturatedQueueRejectsBeforeTransfer() throws Exception {
+        var pool=new ThreadPoolTaskExecutor();pool.setCorePoolSize(1);pool.setMaxPoolSize(1);pool.setQueueCapacity(1);pool.initialize();
+        var release=new java.util.concurrent.CountDownLatch(1);var started=new java.util.concurrent.CountDownLatch(1);
+        try {
+            pool.execute(()->{started.countDown();try{release.await();}catch(InterruptedException ex){Thread.currentThread().interrupt();}});
+            assertTrue(started.await(2,java.util.concurrent.TimeUnit.SECONDS));pool.execute(()->{});
+            var props=new HeatnetProperties();props.setStorageDir(root.resolve("jobs").toString());
+            var full=new JobService(repo,mock(JobRunner.class),props,pool);var file=upload();
+            assertThrows(TaskRejectedException.class,()->full.submit(file,null,3,"PLANAR"));
+            verify(file,never()).transferTo(any(File.class));assertTrue(records.isEmpty());
+        } finally { release.countDown();pool.shutdown(); }
+    }
+
     @Test void rerunFailureDoesNotDeleteSourceInput() throws Exception {
         Path original = Files.write(root.resolve("original.geojson"), new byte[4]);
         JobEntity source = new JobEntity();

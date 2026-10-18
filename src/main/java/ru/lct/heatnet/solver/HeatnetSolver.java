@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import ru.lct.heatnet.validation.ValidationIssue;
 import java.util.function.Function;
 
 /**
@@ -36,6 +37,13 @@ public final class HeatnetSolver {
     /** External validator: returns a list of error texts (empty = valid). */
     public interface VariantValidator {
         List<String> validate(VariantResult variant);
+        /** Structured errors control recovery; legacy text-only validators cannot request a geometry retry. */
+        default List<ValidationIssue> validateIssues(VariantResult variant) {
+            List<ValidationIssue> issues = new ArrayList<>();
+            for (String message : validate(variant)) issues.add(new ValidationIssue(ValidationIssue.Severity.ERROR,
+                    "EXTERNAL_VALIDATION", message, variant.variantId(), null));
+            return issues;
+        }
     }
 
     private final SolverConfig config;
@@ -70,6 +78,10 @@ public final class HeatnetSolver {
         long t0 = System.currentTimeMillis();
         Diagnostics diag = input.diagnostics();
         SolverContext ctx = new SolverContext(input, config, validator == null);
+        for (var chamber : input.chambers()) {
+            if (ctx.netIndex().existingAdjacency(chamber) == 0)
+                diag.warn("ISOLATED_CHAMBER", "Existing chamber " + chamber.id() + " has no incident existing heat network line and cannot be a source");
+        }
         List<VariantResult> candidates = new ArrayList<>();
         for (Strategy s : strategies) {
             if (progress != null) progress.accept("strategy " + s.name());
@@ -97,16 +109,16 @@ public final class HeatnetSolver {
             vr.setVariantId("candidate-" + vr.strategy());
             vr.setRank(0);
             long tv = System.currentTimeMillis();
-            List<String> errors = validateCandidate(vr, diag);
+            List<ValidationIssue> errors = validateCandidate(vr, diag);
             validationMs += System.currentTimeMillis() - tv;
-            if (errors.stream().anyMatch(e -> e.contains("[CLEARANCE]"))) {
+            if (errors.stream().anyMatch(e -> "CLEARANCE".equals(e.getCode()) || "OWN_OKS_CLEARANCE".equals(e.getCode()))) {
                 try {
                     ctx.requireExactClearance();
                     Strategy strategy = strategies.stream().filter(s -> s.name().equals(vr.strategy())).findFirst().orElseThrow();
                     VariantResult retry = strategyRunner.apply(ctx,strategy);
                     if (retry != null) {
                         retry.reserveInputIds(input.inputIds());retry.setDepthMode(config.depthMode);retry.setVariantId(vr.variantId());retry.setRank(0);
-                        List<String> retryErrors = validateCandidate(retry, diag);
+                        List<ValidationIssue> retryErrors = validateCandidate(retry, diag);
                         if (retryErrors.isEmpty()) { checked.add(retry);diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
                         errors=retryErrors;
                     }
@@ -117,7 +129,7 @@ public final class HeatnetSolver {
             }
             if (!errors.isEmpty()) {
                 log.warn("variant {} rejected by validator: {}", vr.strategy(), errors);
-                diag.warn("VARIANT_REJECTED", "Variant from strategy " + vr.strategy() + " rejected by the validator: " + String.join("; ", errors));
+                diag.warn("VARIANT_REJECTED", "Variant from strategy " + vr.strategy() + " rejected by the validator: " + errors.stream().map(Object::toString).collect(java.util.stream.Collectors.joining("; ")));
                 continue;
             }
             checked.add(vr);
@@ -135,7 +147,7 @@ public final class HeatnetSolver {
             valid.get(i).setVariantId("v" + (i + 1));
             valid.get(i).setRank(i + 1);
             if (valid.get(i).trace() != null)
-                valid.get(i).trace().add("VARIANT_RANKED", "v" + (i + 1), "rank " + (i + 1), "S = 0.7 * calculated_cost / 25 000 000 + 0.3 * new_network_length / 100; lower is better",
+                valid.get(i).trace().addFinal("VARIANT_RANKED", "v" + (i + 1), "rank " + (i + 1), "S = 0.7 * calculated_cost / 25 000 000 + 0.3 * new_network_length / 100; lower is better",
                         CalculationTrace.inputs("score", Math.round(valid.get(i).summary().score() * 10000) / 10000.0, "calculated_cost", Math.round(valid.get(i).summary().calculatedCost()),
                                 "new_network_length_m", Math.round(valid.get(i).summary().newLength() * 10) / 10.0, "strategy", valid.get(i).strategy(), "candidates_total", candidates.size()), null);
         }
@@ -153,16 +165,16 @@ public final class HeatnetSolver {
         return new SolveResult(valid, diag, ms, metrics);
     }
 
-    private List<String> validateCandidate(VariantResult candidate, Diagnostics diag) {
+    private List<ValidationIssue> validateCandidate(VariantResult candidate, Diagnostics diag) {
         if (validator == null) return Collections.emptyList();
-        try { return validator.validate(candidate); }
+        try { return validator.validateIssues(candidate).stream().filter(i -> i.getSeverity() == ValidationIssue.Severity.ERROR).collect(java.util.stream.Collectors.toList()); }
         catch (RuntimeException ex) {
             String code = ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT"
                     : ex instanceof ru.lct.heatnet.geo.GeometryProcessingException || ex instanceof org.locationtech.jts.geom.TopologyException
                     ? "INTERNAL_GEOMETRY_PROCESSING_FAILURE" : "INTERNAL_ERROR";
             log.warn("validation of strategy {} failed", candidate.strategy(), ex);
             diag.error(code, "Validation of strategy " + candidate.strategy() + " failed: " + ex.getMessage());
-            return Collections.singletonList("[" + code + "] candidate validation did not complete");
+            return Collections.singletonList(new ValidationIssue(ValidationIssue.Severity.ERROR, code, "candidate validation did not complete", candidate.variantId(), null));
         }
     }
 
@@ -217,7 +229,7 @@ public final class HeatnetSolver {
         for (int i = 1; i < cs.size(); i++) {
             Exemptions ex = new Exemptions();
             if (i == 1 && l.ownPolygonIndex() >= 0) ex.ignore(Collections.singleton(l.ownPolygonIndex()));
-            if (i == cs.size() - 1 && l.parent().isRoot()) ex.disc(l.parent().coord(), r.tieInDiscRadius, o -> o.isExistingNetwork());
+            if (i == cs.size() - 1 && l.parent().isRoot()) ex.disc(l.parent().coord(), r.tieInDiscRadius, ctx.netIndex().tieInObstacles(l.parent().coord()));
             SegmentCheck sc = r.space.check(cs.get(i - 1), cs.get(i), ex);
             if (!sc.valid()) return false;
         }

@@ -107,7 +107,9 @@ public class UploadService {
         if (request.chunkSize < MIN_CHUNK || request.chunkSize > MAX_CHUNK) throw new UploadException(400, "chunkSize must be 8..32 MiB");
         if (request.maxVariants < 1 || request.maxVariants > 3) throw new UploadException(400, "maxVariants must be 1..3");
         String mode = JobService.normalizeMode(request.mode);
-        String policy = ParseOptions.UnknownRestrictionPolicy.valueOf(request.unknownRestrictionPolicy == null ? "IGNORE" : request.unknownRestrictionPolicy).name();
+        String policy;
+        try { policy = ParseOptions.UnknownRestrictionPolicy.valueOf(request.unknownRestrictionPolicy == null ? "IGNORE" : request.unknownRestrictionPolicy).name(); }
+        catch (IllegalArgumentException ex) { throw new UploadException(400, "unknownRestrictionPolicy must be IGNORE or FORBIDDEN"); }
         if (request.filename == null || request.filename.isEmpty() || request.filename.length() > 512)
             throw new UploadException(400, "filename must contain 1..512 characters");
         if (request.fingerprint == null || !request.fingerprint.matches("[0-9a-f]{64}"))

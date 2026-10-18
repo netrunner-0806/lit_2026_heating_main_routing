@@ -87,7 +87,7 @@ public class JobService {
     public JobEntity submit(MultipartFile file, ParseOptions.UnknownRestrictionPolicy policy, Integer maxVariants, String mode) throws IOException {
         if (file == null || file.isEmpty()) throw new IllegalArgumentException("Empty upload: field 'file' must contain a GeoJSON FeatureCollection");
         String normalized = normalizeMode(mode);
-        return persistAndQueue(file.getOriginalFilename(), file.getSize(), policy, maxVariants, normalized,
+        return persistAndQueue(file.getOriginalFilename(), file.getSize(), policy, maxVariants, normalized, false,
                 partial -> file.transferTo(partial.toFile()));
     }
 
@@ -99,8 +99,8 @@ public class JobService {
         Path srcInput = Paths.get(src.getInputPath());
         if (!Files.exists(srcInput)) throw new ru.lct.heatnet.api.ConflictException("input of job " + sourceId + " is no longer available");
         return persistAndQueue(src.getOriginalFilename(), Files.size(srcInput),
-                ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), Math.max(1, Math.min(ru.lct.heatnet.config.Constants.MAX_VARIANTS, src.getMaxVariants())), normalized,
-                partial -> Files.copy(srcInput, partial));
+                ParseOptions.UnknownRestrictionPolicy.valueOf(src.getUnknownRestrictionPolicy()), Math.max(1, Math.min(ru.lct.heatnet.config.Constants.MAX_VARIANTS, src.getMaxVariants())), normalized, true,
+                partial -> Files.createLink(partial, srcInput));
     }
 
     private int variantCount(Integer requested) {
@@ -114,8 +114,19 @@ public class JobService {
     private interface UploadWriter { void write(Path partial) throws IOException; }
 
     private JobEntity persistAndQueue(String originalFilename, long size, ParseOptions.UnknownRestrictionPolicy policy,
-                                     Integer maxVariants, String mode, UploadWriter writer) throws IOException {
+                                     Integer maxVariants, String mode, boolean sharedInput, UploadWriter writer) throws IOException {
         int count = variantCount(maxVariants);
+        java.util.concurrent.ThreadPoolExecutor pool = executor.getThreadPoolExecutor();
+        // Advisory early rejection; execute() below remains the authoritative, race-safe admission check.
+        if (pool != null && (pool.isShutdown() || (pool.getPoolSize() >= pool.getMaximumPoolSize()
+                && pool.getQueue().remainingCapacity() == 0)))
+            throw new org.springframework.core.task.TaskRejectedException("Calculation queue is full");
+        Files.createDirectories(storageDir());
+        // Immutable inputs are shared by reruns; ordinary uploads still need their declared disk space.
+        long reserve = 64L * 1024 * 1024;
+        long available = Files.getFileStore(storageDir()).getUsableSpace();
+        if (available < reserve || (size > available - reserve && !sharedInput))
+            throw new ru.lct.heatnet.api.UploadException(507, "Insufficient job storage");
         String id = UUID.randomUUID().toString();
         Path dir = storageDir().resolve(id);
         Path input = dir.resolve("input.geojson");

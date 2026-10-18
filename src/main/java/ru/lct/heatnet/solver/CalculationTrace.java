@@ -16,6 +16,21 @@ public final class CalculationTrace {
         decisions.add(new CalculationDecision(type, objectId, decision, reason, inputs, alternatives));
     }
 
+    public static final class Checkpoint {
+        private final int size, dropped;
+        private Checkpoint(int size, int dropped) { this.size = size; this.dropped = dropped; }
+    }
+    public Checkpoint checkpoint() { return new Checkpoint(decisions.size(), dropped); }
+    public void rollback(Checkpoint checkpoint) {
+        decisions.subList(checkpoint.size, decisions.size()).clear();
+        dropped = checkpoint.dropped;
+    }
+    /** Keep the final ranking explanation even when earlier decisions filled the bounded journal. */
+    public void addFinal(String type, String objectId, String decision, String reason, Map<String, Object> inputs, List<String> alternatives) {
+        if (decisions.size() == MAX_DECISIONS) { decisions.remove(decisions.size() - 1); dropped++; }
+        add(type, objectId, decision, reason, inputs, alternatives);
+    }
+
     public List<CalculationDecision> decisions() { return Collections.unmodifiableList(decisions); }
     public int dropped() { return dropped; }
 
