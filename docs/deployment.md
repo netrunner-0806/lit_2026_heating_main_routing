@@ -22,6 +22,8 @@ workflows (`workflow_call`), поэтому все три стадии выпо�
      - ShellCheck для всех отслеживаемых `*.sh` (сейчас это `scripts/`): ошибки валят job, предупреждения выводятся в отчёт;
      - `docker compose config --quiet` для обоих Compose-файлов, плюс проверка, что `compose.prod.yaml`
        выбирает публикуемый образ и правильно реагирует на `HEATNET_IMAGE_TAG`;
+     - то же самое официальным бинарём `docker-compose` 1.29.2 (версия из требований организаторов,
+       контрольная сумма SHA-256 закреплена в workflow): `config` только разбирает файлы, ничего не запускает;
      - `caddy validate` для `caddy/Caddyfile`;
      - поиск секретов (gitleaks);
      - `node --check` для JS;
@@ -48,8 +50,12 @@ workflows (`workflow_call`), поэтому все три стадии выпо�
    деплой идёт, только если этот запуск продвинул `latest`: более старый запуск, завершившийся после более
    нового, деплой пропускает — его выполнит более новый. Ручной запуск с выключенным **deploy** только
    проверяет и публикует (и при этом двигает `latest`, который подхватит следующий деплой). По SSH копирует на сервер `compose.prod.yaml` и `caddy/Caddyfile`, выполняет
-   `docker compose -f compose.prod.yaml pull` и `docker compose -f compose.prod.yaml up -d --no-build --remove-orphans`,
+   `docker-compose -p <проект> -f compose.prod.yaml pull` и
+   `docker-compose -p <проект> -f compose.prod.yaml up -d --no-build --remove-orphans --renew-anon-volumes`,
    проверяет health контейнеров, запущенный образ и HTTP-доступность. На сервере ничего не собирается.
+   Используется `docker-compose` 1.29.2 (с `COMPOSE_API_VERSION=1.44`); если его на сервере нет, деплой
+   выполняется через `docker compose` (Compose v2) с предупреждением в логе. Проект — `COMPOSE_PROJECT_NAME`
+   из серверного `.env`, иначе `heatnet`.
 
 Публикации и деплои выполняются строго по одному (группы concurrency `ghcr-publish` и `production-deploy`):
 следующий запуск ждёт завершения предыдущего, ожидающие запуски (до 100 в очереди) не отменяются и не вытесняют друг друга.
@@ -69,11 +75,11 @@ workflows (`workflow_call`), поэтому все три стадии выпо�
 
 Кроме этого, для деплоя нужны:
 
-- Docker Engine с Docker Compose (раздел 2);
+- Docker Engine и `docker-compose` 1.29.2 (раздел 2);
 - публичный IPv4 (и при желании IPv6), доменное имя, доступ по SSH;
 - свободное место на диске для образов и томов (база данных, файлы заданий в `heatnet-data`).
 
-## 2. Установка Docker Engine и Compose v2
+## 2. Установка Docker Engine и docker-compose 1.29.2
 
 По официальной инструкции <https://docs.docker.com/engine/install/ubuntu/> (на сервере, под администратором):
 
@@ -94,14 +100,27 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
+`docker-compose` 1.29.2 (требование организаторов) ставится отдельно — официальный бинарь релиза
+с проверкой контрольной суммы:
+
+```bash
+sudo curl -fL -o /usr/local/bin/docker-compose \
+  https://github.com/docker/compose/releases/download/1.29.2/docker-compose-Linux-x86_64
+echo "f3f10cf3dbb8107e9ba2ea5f23c1d2159ff7321d16f0a23051d68d8e2547b323  /usr/local/bin/docker-compose" | sha256sum -c -
+sudo chmod +x /usr/local/bin/docker-compose
+```
+
 Проверка:
 
 ```bash
 sudo systemctl enable --now docker
 docker --version
-docker compose version        # должно напечатать "Docker Compose version v2..." или новее
+docker-compose version        # должно напечатать "docker-compose version 1.29.2, build 5becea4c"
 sudo docker run --rm hello-world
 ```
+
+Плагин `docker-compose-plugin` (`docker compose`, Compose v2) можно оставить: деплой использует его,
+только если `docker-compose` 1.29.2 не установлен.
 
 Если ставите другим способом — сверяйтесь с официальной документацией Docker для вашего дистрибутива.
 
@@ -114,7 +133,7 @@ sudo adduser --disabled-password --gecos "" deploy
 sudo usermod -aG docker deploy
 ```
 
-Членство в группе `docker` нужно, чтобы выполнять `docker compose` без `sudo`.
+Членство в группе `docker` нужно, чтобы выполнять `docker-compose` без `sudo`.
 **Важно:** группа `docker` фактически равна root-доступу к серверу, поэтому ключ этого пользователя
 выдаётся только GitHub Actions и хранится только в GitHub Secrets. `sudo` пользователю `deploy` не нужен.
 
@@ -200,7 +219,7 @@ sudo install -d -m 750 -o deploy -g deploy /opt/heatnet
 Данные хранятся не в каталоге, а в именованных томах Docker с фиксированным префиксом проекта `heatnet`:
 `heatnet_heatnet-pg` (PostgreSQL), `heatnet_heatnet-data` (файлы заданий), `heatnet_heatnet-tmp`,
 `heatnet_caddy-data` (сертификаты), `heatnet_caddy-config`.
-**Никогда не выполняйте `docker compose down -v`** — это удалит базу и сертификаты.
+**Никогда не выполняйте `docker-compose down -v`** (и `docker compose down -v`) — это удалит базу и сертификаты.
 
 ## 6. Файл `.env`
 
@@ -219,7 +238,7 @@ nano .env
 
 | Переменная | Куда идёт | Обязательность | Значение по умолчанию | Пример формата |
 |---|---|---|---|---|
-| `COMPOSE_PROJECT_NAME` | Compose, префикс томов и сетей | обычно не нужна; только чтобы продолжить работу с уже существующим проектом другого имени (раздел 13, ошибка `belongs to project`) | `heatnet` из `name` | `COMPOSE_PROJECT_NAME=<имя существующего проекта>` |
+| `COMPOSE_PROJECT_NAME` | Compose, префикс томов и сетей | обычно не нужна; только чтобы продолжить работу с уже существующим проектом другого имени (раздел 13, ошибка `belongs to project`) | `heatnet` (деплой передаёт его через `-p`; ручные команды в `/opt/heatnet` берут его из имени каталога) | `COMPOSE_PROJECT_NAME=<имя существующего проекта>` |
 | `POSTGRES_PASSWORD` | `db` (пароль при создании БД), `app` (`SPRING_DATASOURCE_PASSWORD`) | **задать обязательно** (умолчание `heatnet` небезопасно) | `heatnet` | `POSTGRES_PASSWORD=<случайная строка>` |
 | `POSTGRES_USER` | `db`, `app` (`SPRING_DATASOURCE_USERNAME`), healthcheck `db` | необязательна | `heatnet` | `POSTGRES_USER=heatnet` |
 | `POSTGRES_DB` | `db`, `app` (`SPRING_DATASOURCE_URL`), healthcheck `db` | необязательна | `heatnet` | `POSTGRES_DB=heatnet` |
@@ -412,7 +431,7 @@ Secrets and variables → Actions — секреты `SSH_*` и `DEPLOY_PATH` (�
 
 ### 11.1. До первого запуска pipeline
 
-На сервере должны быть: Docker и Compose v2 (раздел 2), пользователь `deploy` в группе `docker` (3),
+На сервере должны быть: Docker и `docker-compose` 1.29.2 (раздел 2), пользователь `deploy` в группе `docker` (3),
 публичный ключ в `authorized_keys` (4.2), каталог `DEPLOY_PATH` (5), `.env` (6), DNS-запись и открытые
 порты (9). В GitHub — все обязательные записи из раздела 10.1.
 
@@ -421,10 +440,10 @@ Secrets and variables → Actions — секреты `SSH_*` и `DEPLOY_PATH` (�
 С вашего компьютера:
 
 ```bash
-ssh -i ./heatnet_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=./known_hosts_prod -p 22 deploy@203.0.113.10 'docker compose version && test -f /opt/heatnet/.env && echo READY'
+ssh -i ./heatnet_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=./known_hosts_prod -p 22 deploy@203.0.113.10 'docker-compose version && test -f /opt/heatnet/.env && echo READY'
 ```
 
-Ожидается версия Compose и `READY`. Ошибка `Host key verification failed` означает неверный `known_hosts`.
+Ожидается `docker-compose version 1.29.2` и `READY`. Ошибка `Host key verification failed` означает неверный `known_hosts`.
 
 ### 11.3. Доступ к GHCR с сервера
 
@@ -453,12 +472,13 @@ docker logout ghcr.io
 
 ```bash
 cd /opt/heatnet
-docker compose -f compose.prod.yaml config --quiet && echo "compose OK"
-docker compose -f compose.prod.yaml config --images
+docker-compose -f compose.prod.yaml config --quiet && echo "compose OK"
+docker-compose -f compose.prod.yaml config | grep 'image:'
 ```
 
-Вторая команда показывает выбранные образы, в том числе тег `app` (`latest` или значение `HEATNET_IMAGE_TAG`).
-Не запускайте `docker compose config` без `--quiet` там, где вывод могут увидеть другие: он печатает
+Вторая команда показывает выбранные образы, в том числе тег `app` (`latest` или значение `HEATNET_IMAGE_TAG`);
+`config --images` из Compose v2 в `docker-compose` 1.29.2 нет.
+Не запускайте `docker-compose config` без `--quiet` и фильтра там, где вывод могут увидеть другие: он печатает
 подставленные значения, включая `POSTGRES_PASSWORD`.
 
 ### 11.5. Запуск pipeline и логи
@@ -486,9 +506,9 @@ docker compose -f compose.prod.yaml config --images
 
 ```bash
 cd /opt/heatnet
-docker compose -f compose.prod.yaml ps
+docker-compose -f compose.prod.yaml ps
 docker inspect -f '{{.State.Health.Status}}' heatnet-db heatnet-app
-docker compose -f compose.prod.yaml logs --tail 200 app
+docker-compose -f compose.prod.yaml logs --tail 200 app
 ```
 
 Снаружи:
@@ -532,8 +552,8 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
    ```bash
    cd /opt/heatnet
    docker login ghcr.io -u <GHCR_READ_USER>     # только для приватного пакета
-   docker compose -f compose.prod.yaml pull app
-   docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
+   docker-compose -f compose.prod.yaml pull app
+   docker-compose -f compose.prod.yaml up -d --no-build --remove-orphans --renew-anon-volumes
    docker logout ghcr.io                        # только для приватного пакета
    ```
 
@@ -550,7 +570,7 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 
 | Симптом (шаг workflow) | Причина | Что сделать |
 |---|---|---|
-| verify падает на `actionlint`, `yamllint`, `ShellCheck`, `Docker Compose and Caddyfile configuration` | ошибка в workflow, YAML, shell-скрипте, Compose-файле или Caddyfile; линтеры ничего не исправляют сами | открыть шаг, исправить указанную строку; локально — `docker compose -f compose.prod.yaml config --quiet`, `node --test src/test/js/*.test.cjs` |
+| verify падает на `actionlint`, `yamllint`, `ShellCheck`, `Docker Compose and Caddyfile configuration`, `Docker Compose 1.29.2 compatibility` | ошибка в workflow, YAML, shell-скрипте, Compose-файле или Caddyfile; линтеры ничего не исправляют сами | открыть шаг, исправить указанную строку; локально — `docker-compose -f compose.prod.yaml config --quiet`, `node --test src/test/js/*.test.cjs` |
 | `app image does not resolve to ghcr.io/<owner>/heatnet:latest` (verify) | имя образа в `compose.prod.yaml` не совпадает с `IMAGE_NAME` и владельцем репозитория в workflow | привести `image:` к `ghcr.io/<owner>/heatnet:${HEATNET_IMAGE_TAG:-latest}` |
 | `Checks did not modify the checkout` падает | какая-то проверка создала или изменила файлы | список файлов есть в логе шага; проверка не должна писать в рабочее дерево |
 | deploy в статусе Skipped | push изменил только документацию; ручной запуск с выключенным **deploy** или не для `main`; этот запуск не продвинул `latest` (более новый уже опубликован и деплоит сам) | причина видна в Summary (`Pipeline:` в verify, `latest not moved` в build-and-publish) |
@@ -568,9 +588,10 @@ docker inspect -f '{{index .Config.Labels "org.opencontainers.image.version"}}' 
 | `The app image in compose.prod.yaml does not resolve to ...` | имя образа в `compose.prod.yaml` не совпадает с публикуемым | имя образа должно быть `ghcr.io/<owner>/heatnet:${HEATNET_IMAGE_TAG:-latest}`, владелец в нижнем регистре |
 | `Short tag collision` (build-and-publish) | другой коммит начинается с тех же 7 символов или тег в GHCR принадлежит другому коммиту | публикация остановлена, ничего не перезаписано; сделайте новый коммит (у него будет другой SHA) |
 | `Containers did not become healthy` | приложение не стартует: нет связи с БД, неверный пароль БД, нехватка памяти | смотреть вывод `logs app` в шаге; проверить `POSTGRES_*` и `JAVA_OPTS` |
-| `heatnet-app runs ..., expected ...` / `was not recreated from the freshly pulled` | контейнер не пересоздан из нового образа | на сервере `docker compose -f compose.prod.yaml up -d --no-build --remove-orphans`, затем разобраться по логам |
+| `heatnet-app runs ..., expected ...` / `was not recreated from the freshly pulled` | контейнер не пересоздан из нового образа | на сервере `docker-compose -f compose.prod.yaml up -d --no-build --remove-orphans --renew-anon-volumes`, затем разобраться по логам |
+| `KeyError: 'ContainerConfig'` при ручном `docker-compose up` | `docker-compose` 1.29.2 при пересоздании контейнера читает поле образа, которого Docker Engine 26+ больше не отдаёт | повторить команду с `--renew-anon-volumes` (раздел 12); если контейнер остался переименованным (`<id>_heatnet-...`), команда его заменит |
 | `Production is pinned` (предупреждение) | в `.env` задан `HEATNET_IMAGE_TAG` | это не ошибка; чтобы следовать `latest`, уберите переменную (раздел 7) |
-| `curl` падает в Check application availability | DNS ещё не указывает на сервер, сертификат не выпущен, закрыты 80/443, `DOMAIN` не совпадает с `PRODUCTION_URL` | `docker compose -f compose.prod.yaml logs caddy`; проверить DNS и порты (раздел 9). Одна ошибка `curl: (35) TLS connect error` с последующим успехом — норма при первом запуске на новом томе Caddy: проверка повторяет запрос, пока выпускается сертификат |
+| `curl` падает в Check application availability | DNS ещё не указывает на сервер, сертификат не выпущен, закрыты 80/443, `DOMAIN` не совпадает с `PRODUCTION_URL` | `docker-compose -f compose.prod.yaml logs caddy`; проверить DNS и порты (раздел 9). Одна ошибка `curl: (35) TLS connect error` с последующим успехом — норма при первом запуске на новом томе Caddy: проверка повторяет запрос, пока выпускается сертификат |
 
 ## Ссылки
 

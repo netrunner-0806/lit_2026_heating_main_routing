@@ -7,8 +7,10 @@
 #   .env                 - created and maintained manually on the server, never touched by CI
 #                          (template: .env.prod.example)
 #
-#   docker compose -f compose.prod.yaml pull
-#   docker compose -f compose.prod.yaml up -d --no-build --remove-orphans
+# Manual commands (docker-compose 1.29.2 as required by the case, run in the server directory; the same flags work
+# with `docker compose`):
+#   docker-compose -f compose.prod.yaml pull
+#   docker-compose -f compose.prod.yaml up -d --no-build --remove-orphans --renew-anon-volumes
 #
 # CI publishes every verified commit it runs for as an immutable ghcr.io/netrunner-0806/heatnet:<7-char SHA> tag
 # (full SHA in the org.opencontainers.image.revision label; manual runs of other branches publish only that tag)
