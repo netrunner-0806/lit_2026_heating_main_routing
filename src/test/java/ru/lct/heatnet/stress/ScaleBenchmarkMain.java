@@ -31,7 +31,7 @@ public final class ScaleBenchmarkMain {
             Map<String,Object> row=new LinkedHashMap<>();row.put("run",i);row.put("warmup",i==0);
             long start=System.nanoTime();
             com.sun.management.OperatingSystemMXBean os = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            long cpuStart=os.getProcessCpuTime(); Exception failure=null;
+            long cpuStart=os.getProcessCpuTime(); long gcStart=gcMillis(), allocationsStart=allocatedBytes(); Exception failure=null;
             try {
                 row.putAll(run(input,phase,output,i));
                 if(row.containsKey("output_sha256")&&!runs.isEmpty()
@@ -42,6 +42,7 @@ public final class ScaleBenchmarkMain {
             catch(Exception ex) {failure=ex;row.put("status","FAILED");row.put("exception",ex.toString());ex.printStackTrace();}
             finally {
                 row.put("cpu_ms", (os.getProcessCpuTime()-cpuStart)/1_000_000);
+                row.put("gc_ms",gcMillis()-gcStart);row.put("live_thread_allocated_bytes",Math.max(0,allocatedBytes()-allocationsStart));
                 row.put("wall_ms",(System.nanoTime()-start)/1_000_000);
                 sampler.interrupt();sampler.join();row.put("peak_heap_bytes",heap.get());row.put("peak_rss_bytes",rss.get());
                 runs.add(row);JSON.writerWithDefaultPrettyPrinter().writeValue(output.toFile(),runs);
@@ -103,6 +104,13 @@ public final class ScaleBenchmarkMain {
             r.put("intersection_calls",s.geometryStats().intersections.sum());
         }
         return r;
+    }
+    private static long gcMillis() { return ManagementFactory.getGarbageCollectorMXBeans().stream().mapToLong(b -> Math.max(0,b.getCollectionTime())).sum(); }
+    // Existing worker threads survive each run; allocations of terminated sampler threads are not included.
+    private static long allocatedBytes() {
+        com.sun.management.ThreadMXBean b=(com.sun.management.ThreadMXBean)ManagementFactory.getThreadMXBean();
+        if(!b.isThreadAllocatedMemoryEnabled())b.setThreadAllocatedMemoryEnabled(true);
+        long total=0;for(long v:b.getThreadAllocatedBytes(b.getAllThreadIds()))if(v>0)total+=v;return total;
     }
     private static long rss() {
         try {for(String l:Files.readAllLines(Paths.get("/proc/self/status")))
