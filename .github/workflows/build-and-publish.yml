@@ -1,0 +1,218 @@
+# CI/CD stage 2 (reusable workflow, called only by verify.yml after a successful verify with relevant changes):
+# builds the image with the existing Dockerfile and publishes ghcr.io/<owner>/heatnet:<7-char SHA>, then moves `latest`
+# forward only. The github context (sha, ref, event) is the one of the calling run, so the published commit is the
+# verified one. Outputs are returned to verify.yml, which decides whether deploy.yml runs.
+name: build-and-publish
+
+on:
+  workflow_call:
+    outputs:
+      image:
+        description: 'Image name without tag (ghcr.io/<owner>/heatnet)'
+        value: ${{ jobs.build-and-publish.outputs.image }}
+      tag:
+        description: '7-character short SHA tag published by this run'
+        value: ${{ jobs.build-and-publish.outputs.tag }}
+      digest:
+        description: 'Manifest digest of the published short SHA tag'
+        value: ${{ jobs.build-and-publish.outputs.digest }}
+      latest:
+        description: "'true' if this run moved (or re-confirmed) latest to its commit"
+        value: ${{ jobs.build-and-publish.outputs.latest }}
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REGISTRY: ghcr.io
+  # Container package name in the namespace of the repository owner: ghcr.io/<owner>/heatnet
+  IMAGE_NAME: heatnet
+
+jobs:
+  build-and-publish:
+    name: build-and-publish
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    # One publisher at a time. `queue: max` keeps every waiting run (the default queue replaces the pending run, which
+    # could drop the newest commit). Queue order is not guaranteed, so `latest` is only ever moved forward (see below).
+    concurrency:
+      group: ghcr-publish
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+      digest: ${{ steps.push.outputs.digest || steps.tag.outputs.digest }}
+      latest: ${{ steps.promote.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0              # all branches and tags: the short tag is checked against the whole history
+          persist-credentials: false
+
+      - name: Image name and short tag
+        id: meta
+        env:
+          OWNER: ${{ github.repository_owner }}
+          SHA: ${{ github.sha }}
+        run: |
+          # The package lives in the namespace of the repository owner (GHCR names must be lower case); the
+          # org.opencontainers.image.source label below links it to this repository.
+          # Commit images are tagged with the 7-character short SHA (as GitHub shows it); the full SHA is kept in the
+          # org.opencontainers.image.revision label and is what the ordering of `latest` is based on.
+          echo "image=${REGISTRY}/${OWNER,,}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          cat > "$RUNNER_TEMP/ghcr.sh" <<'LIB'
+          # image_revision REF: prints the org.opencontainers.image.revision label of REF (empty without the label).
+          # Exit code 0: the image exists, 2: the tag (or, before the first publication, the package) does not exist,
+          # 1: the registry could not be read (for example access denied).
+          image_revision() {
+            local out
+            if out=$(docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>&1); then
+              printf '%s' "$out" | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+          if "config" not in d:  # multi-platform index: take the first real platform
+              d = next((v for k, v in d.items() if isinstance(v, dict) and "config" in v and not k.startswith("unknown")), {})
+          print(((d.get("config") or {}).get("Labels") or {}).get("org.opencontainers.image.revision", ""))'
+            elif printf '%s' "$out" | grep -qiE 'not found|manifest unknown|name unknown'; then
+              return 2
+            else
+              echo "::error::Cannot read $1: $out" >&2
+              return 1
+            fi
+          }
+          # image_digest REF: prints the manifest digest REF points to
+          image_digest() {
+            docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])'
+          }
+          LIB
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check that the short tag identifies only this commit
+        id: tag
+        env:
+          SHA: ${{ github.sha }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          # shellcheck source=/dev/null
+          source "$RUNNER_TEMP/ghcr.sh"
+          # 1. Git: no other commit of the repository may start with the same 7 characters.
+          others=$(git rev-parse --disambiguate="$TAG" \
+            | git cat-file --batch-check='%(objecttype) %(objectname)' \
+            | awk -v sha="$SHA" '$1 == "commit" && $2 != sha { print $2 }' | paste -sd ' ' -)
+          if [ -n "$others" ]; then
+            echo "::error title=Short tag collision::${TAG} is ambiguous: besides ${SHA} it is the prefix of commit(s) ${others}. Nothing was published."
+            exit 1
+          fi
+          # 2. Registry: an existing tag must belong to this very commit; an image of another commit is never overwritten.
+          rev=$(image_revision "${IMAGE}:${TAG}") && rc=0 || rc=$?
+          exists=false
+          digest=""
+          case "$rc" in
+            2) echo "${IMAGE}:${TAG} does not exist yet: it will be built and pushed" ;;
+            0) if [ "$rev" = "$SHA" ]; then
+                 exists=true
+                 digest=$(image_digest "${IMAGE}:${TAG}")
+                 echo "${IMAGE}:${TAG} is already published for ${SHA} (re-run): reused as is (${digest}), not rebuilt"
+               else
+                 echo "::error title=Short tag collision::${IMAGE}:${TAG} already exists for revision '${rev:-<no revision label>}', not for ${SHA}. The existing image is not overwritten; nothing was published."
+                 exit 1
+               fi ;;
+            *) exit 1 ;;
+          esac
+          echo "exists=${exists}" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the immutable short SHA tag (existing Dockerfile)
+        id: push
+        if: steps.tag.outputs.exists != 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Promote latest (forward only)
+        id: promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          DIGEST: ${{ steps.push.outputs.digest || steps.tag.outputs.digest }}
+        run: |
+          # `latest` moves only to a descendant of the commit it currently points to (the full SHA from the image label
+          # org.opencontainers.image.revision, compared through the Git history, never the short tags), and only for
+          # commits that are on main. An older run that finishes after a newer one therefore keeps its short SHA tag
+          # but never moves `latest` back.
+          # shellcheck source=/dev/null
+          source "$RUNNER_TEMP/ghcr.sh"
+          [ -n "$DIGEST" ] || { echo "::error::No digest for ${IMAGE}:${TAG}"; exit 1; }
+          promote=false
+          compare() { gh api "repos/${REPO}/compare/$1...$2" --jq .status 2>/dev/null || echo unknown; }
+          if [ "$REF" != "refs/heads/main" ]; then
+            reason="run is not for main ($REF)"
+          else
+            head=$(gh api "repos/${REPO}/git/ref/heads/main" --jq .object.sha)
+            on_main=$(compare "$SHA" "$head")             # identical / ahead: SHA is contained in main
+            current=$(image_revision "${IMAGE}:latest") && rc=0 || rc=$?
+            case "$rc" in
+              0) ;;
+              2) current="" ;;                            # no latest tag yet
+              *) exit 1 ;;
+            esac
+            if [ "$on_main" != identical ] && [ "$on_main" != ahead ]; then
+              reason="commit ${SHA} is no longer on main (${on_main})"
+            elif [ -z "$current" ]; then
+              promote=true; reason="latest does not exist yet or has no revision label"
+            elif [ "$current" = "$SHA" ]; then
+              promote=true; reason="latest already points to this commit (re-run)"
+            else
+              rel=$(compare "$current" "$SHA")            # ahead: SHA is newer than the current latest
+              case "$rel" in
+                ahead) promote=true; reason="${SHA} is newer than the current latest ${current}" ;;
+                behind) reason="latest already points to the newer commit ${current}" ;;
+                *) if [ "$SHA" = "$head" ]; then promote=true; reason="history rewritten (${rel}); ${SHA} is the head of main"
+                   else reason="latest ${current} is not an ancestor of ${SHA} (${rel}) and ${SHA} is not the head of main"; fi ;;
+              esac
+            fi
+          fi
+          if [ "$promote" = true ]; then
+            # server-side retag of the already pushed image: no rebuild, same digest
+            docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}@${DIGEST}"
+            now=$(image_digest "${IMAGE}:latest")
+            [ "$now" = "$DIGEST" ] || { echo "::error::latest points to $now after promotion, expected $DIGEST"; exit 1; }
+          else
+            echo "::notice title=latest not moved::${reason}"
+          fi
+          echo "latest=${promote}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Published image"
+            echo "- ${IMAGE}:${TAG} (revision ${SHA}, digest ${DIGEST})"
+            if [ "$promote" = true ]; then echo "- ${IMAGE}:latest -> ${TAG} (${reason})"; else echo "- latest not moved: ${reason}"; fi
+          } >> "$GITHUB_STEP_SUMMARY"

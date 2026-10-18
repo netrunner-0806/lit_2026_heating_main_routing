@@ -1,0 +1,292 @@
+# CI/CD stage 3 (reusable workflow, called only by verify.yml): deploys to production over SSH with
+# compose.prod.yaml (pull + up --no-build). verify.yml calls it only for main, only when the build-and-publish stage of
+# the same run moved `latest`, and only for a push or a manual run with `deploy` checked. The application tag is chosen
+# by the server .env (HEATNET_IMAGE_TAG pins a version, absent or empty means `latest`); this workflow never passes it.
+name: deploy
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: 'Image name without tag, as published by build-and-publish.yml (ghcr.io/<owner>/heatnet)'
+        type: string
+        required: true
+      tag:
+        description: '7-character short SHA tag published by the same run (reported only, never forced on the server)'
+        type: string
+        required: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    environment: production
+    # one deployment at a time; every waiting run is kept (each deployment pulls what the server .env selects)
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+      IMAGE: ${{ inputs.image }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Registry of the published image
+        run: |
+          # The caller's workflow-level env is not passed to a reusable workflow: take the registry from the image name.
+          registry=${IMAGE%%/*}
+          if [ -z "$IMAGE" ] || [ "$registry" = "$IMAGE" ]; then
+            echo "::error::Unexpected image input '${IMAGE}'"; exit 1
+          fi
+          echo "REGISTRY=${registry}" >> "$GITHUB_ENV"
+
+      - name: Check deployment settings
+        id: settings
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          missing=()
+          for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS DEPLOY_PATH PRODUCTION_URL; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing deployment settings (repository or 'production' environment secrets / variables): ${missing[*]}"
+            exit 1
+          fi
+          # GHCR credentials are optional: a public package is pulled anonymously, a private one needs both.
+          if [ -n "$GHCR_READ_USER" ] && [ -n "$GHCR_READ_TOKEN" ]; then
+            echo "ghcr_login=true" >> "$GITHUB_OUTPUT"
+            echo "GHCR: logging in on the server with GHCR_READ_USER / GHCR_READ_TOKEN"
+          elif [ -z "$GHCR_READ_USER" ] && [ -z "$GHCR_READ_TOKEN" ]; then
+            echo "ghcr_login=false" >> "$GITHUB_OUTPUT"
+            echo "GHCR: no credentials set, the image is pulled anonymously (the package must be public)"
+          else
+            echo "::error::Set both GHCR_READ_USER and GHCR_READ_TOKEN (private package) or neither (public package)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            compose.prod.yaml
+            caddy/Caddyfile
+          sparse-checkout-cone-mode: false
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName ${SSH_HOST}
+            Port ${SSH_PORT:-22}
+            User ${SSH_USER}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ServerAliveInterval 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+      - name: Check server prerequisites (.env present, Docker Compose v2)
+        run: |
+          dir=$(printf '%q' "$DEPLOY_PATH")
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "test -d $dir && test -f $dir/.env" \
+            || { echo "::error::$DEPLOY_PATH/.env not found on the server. Create it manually (see docs/deployment.md); CI never creates it."; exit 1; }
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod 'docker compose version'
+
+      - name: Upload compose.prod.yaml and caddy/Caddyfile
+        run: |
+          dir=$(printf '%q' "$DEPLOY_PATH")
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "mkdir -p $dir/caddy"
+          scp -q compose.prod.yaml "prod:${DEPLOY_PATH}/.compose.prod.yaml.upload"
+          scp -q caddy/Caddyfile "prod:${DEPLOY_PATH}/caddy/.Caddyfile.upload"
+          # compose file: atomic rename. Caddyfile: rewritten in place (same inode) only when it changed, because
+          # the caddy container bind-mounts the file; the running caddy then reloads it.
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "cd $dir && mv -f .compose.prod.yaml.upload compose.prod.yaml && \
+            if cmp -s caddy/.Caddyfile.upload caddy/Caddyfile; then rm -f caddy/.Caddyfile.upload; echo 'Caddyfile unchanged'; \
+            else cat caddy/.Caddyfile.upload > caddy/Caddyfile && rm -f caddy/.Caddyfile.upload && touch .caddy-reload && echo 'Caddyfile updated'; fi"
+
+      - name: Log in to GHCR on the server
+        if: steps.settings.outputs.ghcr_login == 'true'
+        env:
+          GHCR_READ_USER: ${{ secrets.GHCR_READ_USER }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          printf '%s' "$GHCR_READ_TOKEN" | ssh prod "docker login ${REGISTRY} -u $(printf '%q' "$GHCR_READ_USER") --password-stdin"
+
+      - name: Pull and update the stack
+        id: pull
+        run: |
+          # The application tag is chosen only by the server .env: HEATNET_IMAGE_TAG=<7-char SHA> pins a version,
+          # absent or empty means `latest` (compose.prod.yaml: ${HEATNET_IMAGE_TAG:-latest}). CI never passes the
+          # variable, and the remote script clears it so that a value from the remote shell cannot override .env.
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "IMAGE=$(printf '%q' "$IMAGE") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/pull.log"
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          unset HEATNET_IMAGE_TAG
+          compose() { docker compose -f compose.prod.yaml "$@"; }
+          compose config --quiet            # validates the file with the server .env, prints nothing
+          # A different project name selects different named volumes. Refuse an implicit migration.
+          project=$(compose config | sed -n 's/^name: //p')
+          [ -n "$project" ] || { echo "::error::Cannot determine the Compose project name"; exit 1; }
+          for container in heatnet-db heatnet-app; do
+            existing=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$container" 2>/dev/null || true)
+            if [ -n "$existing" ] && [ "$existing" != "$project" ]; then
+              echo "::error::$container belongs to project $existing, but configuration selects $project. Set COMPOSE_PROJECT_NAME in the server .env to the existing project; volumes were not changed."
+              exit 1
+            fi
+          done
+          ref=$(compose config --images app | awk -v p="${IMAGE}:" 'index($0, p) == 1')
+          if [ -z "$ref" ] || [ "$(printf '%s\n' "$ref" | wc -l)" -ne 1 ]; then
+            echo "::error::The app image in compose.prod.yaml does not resolve to ${IMAGE}:<tag> (got: ${ref:-nothing})"
+            exit 1
+          fi
+          if [ "$ref" = "${IMAGE}:latest" ]; then
+            echo "App image: $ref (HEATNET_IMAGE_TAG is not set in .env: following latest)"
+          else
+            echo "App image: $ref (pinned by HEATNET_IMAGE_TAG in .env)"
+          fi
+          echo "DEPLOY_IMAGE=$ref"
+          compose pull || { echo "::error::docker compose pull failed. Check that $ref exists in GHCR (HEATNET_IMAGE_TAG in .env) and that the package is public or GHCR_READ_USER / GHCR_READ_TOKEN are set"; exit 1; }
+          compose up -d --no-build --remove-orphans
+          if [ -f .caddy-reload ]; then
+            compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+            rm -f .caddy-reload
+          fi
+          REMOTE
+          image=$(sed -n 's/^DEPLOY_IMAGE=//p' "$RUNNER_TEMP/pull.log" | tail -n 1)
+          tag=${image#"${IMAGE}:"}
+          if [ "$tag" = "$image" ] || ! [[ "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Unexpected app image reported by the server: '${image}'"; exit 1
+          fi
+          if [ "$tag" = latest ]; then mode=latest; else mode=pinned; fi
+          { echo "image=${image}"; echo "tag=${tag}"; echo "mode=${mode}"; } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for healthy containers
+        env:
+          EXPECTED: ${{ steps.pull.outputs.image }}
+        run: |
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "EXPECTED=$(printf '%q' "$EXPECTED") DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") bash -s" <<'REMOTE' | tee "$RUNNER_TEMP/health.log"
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          unset HEATNET_IMAGE_TAG
+          state() { docker inspect -f "$1" "$2" 2>/dev/null || echo missing; }
+          for i in $(seq 1 60); do
+            db=$(state '{{.State.Health.Status}}' heatnet-db)
+            app=$(state '{{.State.Health.Status}}' heatnet-app)
+            caddy=$(state '{{.State.Running}}' heatnet-caddy)
+            echo "[$i] db=$db app=$app caddy_running=$caddy"
+            if [ "$db" = healthy ] && [ "$app" = healthy ] && [ "$caddy" = true ]; then
+              running=$(docker inspect -f '{{.Config.Image}}' heatnet-app)
+              if [ "$running" != "$EXPECTED" ]; then echo "heatnet-app runs $running, expected $EXPECTED"; exit 1; fi
+              # the container must run the image that the selected tag resolved to in this deployment's pull
+              if [ "$(docker inspect -f '{{.Image}}' heatnet-app)" != "$(docker image inspect -f '{{.Id}}' "$EXPECTED")" ]; then
+                echo "heatnet-app was not recreated from the freshly pulled $EXPECTED"; exit 1
+              fi
+              docker compose -f compose.prod.yaml ps
+              echo "DEPLOYED_REVISION=$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' heatnet-app)"
+              exit 0
+            fi
+            if [ "$app" = unhealthy ] || [ "$db" = unhealthy ]; then break; fi
+            sleep 5
+          done
+          echo "Containers did not become healthy"
+          docker compose -f compose.prod.yaml ps
+          docker compose -f compose.prod.yaml logs --tail 100 app
+          exit 1
+          REMOTE
+
+      - name: Check the deployed revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          MODE: ${{ steps.pull.outputs.mode }}
+          DEPLOY_TAG: ${{ steps.pull.outputs.tag }}
+        run: |
+          rev=$(sed -n 's/^DEPLOYED_REVISION=//p' "$RUNNER_TEMP/health.log" | tail -n 1)
+          if ! [[ "$rev" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::The running image has no full commit SHA in org.opencontainers.image.revision (got '${rev}')"; exit 1
+          fi
+          if [ "$MODE" = latest ]; then
+            # `latest` must be this commit or a newer one promoted meanwhile, never an older one
+            if [ "$rev" = "$SHA" ]; then
+              echo "Production runs latest = ${TAG} (${rev}, this commit)"
+            else
+              rel=$(gh api "repos/${REPO}/compare/${SHA}...${rev}" --jq .status 2>/dev/null || echo unknown)
+              if [ "$rel" = ahead ]; then
+                echo "::notice title=Newer revision deployed::latest already points to the newer commit ${rev}"
+              else
+                echo "::error::Production runs latest = ${rev}, which is not this commit ${SHA} or a newer one (${rel})"; exit 1
+              fi
+            fi
+          else
+            # pinned by HEATNET_IMAGE_TAG: the running image must be the pinned one; publishing does not unpin it
+            if [[ "$DEPLOY_TAG" =~ ^[0-9a-f]{7}$ ]] && [ "${rev:0:7}" != "$DEPLOY_TAG" ]; then
+              echo "::error::Tag ${DEPLOY_TAG} runs revision ${rev}: the tag does not match its revision label"; exit 1
+            fi
+            if [ "$rev" = "$SHA" ]; then
+              echo "Production is pinned to ${DEPLOY_TAG} (${rev}), which is this commit"
+            else
+              echo "::warning title=Production is pinned::HEATNET_IMAGE_TAG=${DEPLOY_TAG} in the server .env keeps production on ${rev}. ${IMAGE}:${TAG} was published and latest was moved, but the application was not updated. Remove HEATNET_IMAGE_TAG from .env to follow latest again."
+            fi
+          fi
+          echo "DEPLOYED_REVISION=${rev}" >> "$GITHUB_ENV"
+
+      - name: Check application availability
+        env:
+          DEPLOY_IMAGE: ${{ steps.pull.outputs.image }}
+          MODE: ${{ steps.pull.outputs.mode }}
+        run: |
+          url="${PRODUCTION_URL%/}"
+          body=$(curl -fsS --retry 10 --retry-delay 6 --retry-all-errors --max-time 15 "$url/actuator/health")
+          echo "$url/actuator/health -> $body"
+          printf '%s' "$body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$url/")
+          echo "$url/ -> HTTP $code"
+          [ "$code" = 200 ]
+          {
+            echo "### Deployment"
+            echo "- Running: ${DEPLOY_IMAGE} (${MODE}), revision ${DEPLOYED_REVISION}"
+            echo "- Published by this run: ${IMAGE}:${TAG} (revision ${GITHUB_SHA})"
+            echo "- ${url}: health UP, / HTTP 200"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log out of GHCR on the server
+        if: always() && steps.settings.outputs.ghcr_login == 'true'
+        run: |
+          [ -f ~/.ssh/config ] || exit 0
+          # shellcheck disable=SC2029 # expanded locally on purpose (values escaped with printf %q)
+          ssh prod "docker logout ${REGISTRY}" || true

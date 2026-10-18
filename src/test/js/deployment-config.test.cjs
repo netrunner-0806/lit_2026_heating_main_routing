@@ -6,10 +6,14 @@ const vm = require('node:vm');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '../../..');
-const workflow = fs.readFileSync(path.join(root, '.github/workflows/ci-cd.yml'), 'utf8');
+const readWorkflow = (name) => fs.readFileSync(path.join(root, '.github/workflows', name), 'utf8');
+// verify.yml is the entry point (triggers, deploy gate); the other two stages are reusable workflows it calls.
+const verifyWorkflow = readWorkflow('verify.yml');
+const publishWorkflow = readWorkflow('build-and-publish.yml');
+const deployWorkflow = readWorkflow('deploy.yml');
 
 test('deployment runs for a verified main commit that moved latest, on push or an explicit manual request', () => {
-  const gate = workflow.match(/^  deploy:\n[\s\S]*?^    if: (.+)$/m)[1];
+  const gate = verifyWorkflow.match(/^  deploy:\n[\s\S]*?^    if: (.+)$/m)[1];
   const evaluate = (overrides = {}) => {
     const values = {
       'github.event_name': 'push', 'github.ref': 'refs/heads/main',
@@ -29,8 +33,8 @@ test('deployment runs for a verified main commit that moved latest, on push or a
   assert.equal(evaluate({ 'github.event_name': 'workflow_dispatch', 'inputs.deploy': true, 'github.ref': 'refs/heads/feature' }), false);
   assert.equal(evaluate({ 'needs.verify.outputs.relevant': 'false' }), false);
   assert.equal(evaluate({ 'needs.build-and-publish.outputs.latest': 'false' }), false, 'an older run never deploys');
-  assert.match(workflow, /^  push:\n    branches: \[main\]\n  workflow_dispatch:\n/m);
-  assert.match(workflow, /deploy:\n\s+description:[^\n]+\n\s+type: boolean\n\s+required: false\n\s+default: true/);
+  assert.match(verifyWorkflow, /^  push:\n    branches: \[main\]\n  workflow_dispatch:\n/m);
+  assert.match(verifyWorkflow, /deploy:\n\s+description:[^\n]+\n\s+type: boolean\n\s+required: false\n\s+default: true/);
 });
 
 test('production compose consumes the heatnet image published by this repository', () => {
@@ -38,13 +42,13 @@ test('production compose consumes the heatnet image published by this repository
   assert.match(compose, /image: ghcr\.io\/netrunner-0806\/heatnet:\$\{HEATNET_IMAGE_TAG:-latest\}/);
   assert(!compose.includes('lct_finale_private'), 'must not deploy the upstream registry image');
   assert(!compose.includes('lit_2026_heating_main_routing:'), 'must not deploy the previous package name');
-  assert.match(workflow, /^  IMAGE_NAME: heatnet$/m);
-  assert.match(workflow, /OWNER: \$\{\{ github\.repository_owner \}\}/);
-  assert.match(workflow, /image=\$\{REGISTRY\}\/\$\{OWNER,,\}\/\$\{IMAGE_NAME\}/);
+  assert.match(publishWorkflow, /^  IMAGE_NAME: heatnet$/m);
+  assert.match(publishWorkflow, /OWNER: \$\{\{ github\.repository_owner \}\}/);
+  assert.match(publishWorkflow, /image=\$\{REGISTRY\}\/\$\{OWNER,,\}\/\$\{IMAGE_NAME\}/);
 });
 
 test('deployment refuses a different existing Compose project before changing volumes', () => {
-  const step = workflow.split('      - name: Pull and update the stack\n')[1].split('      - name: Wait for healthy containers\n')[0];
+  const step = deployWorkflow.split('      - name: Pull and update the stack\n')[1].split('      - name: Wait for healthy containers\n')[0];
   const remote = step.split("<<'REMOTE' | tee \"$RUNNER_TEMP/pull.log\"\n")[1].split('          ref=$(compose config --images app')[0];
   assert(remote.includes('for container in heatnet-db heatnet-app'));
   // Execute the actual preflight shell with a fake Docker CLI; no daemon, server or volumes are touched.

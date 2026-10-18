@@ -1,12 +1,15 @@
 # Развёртывание на сервер и настройка GitHub Actions
 
-Инструкция по подготовке чистого сервера и настройке pipeline `.github/workflows/ci-cd.yml`.
+Инструкция по подготовке чистого сервера и настройке pipeline `.github/workflows/` (`verify.yml`,
+`build-and-publish.yml`, `deploy.yml`).
 Все значения в примерах (`heatnet.example.ru`, `203.0.113.10`, `deploy`, `/opt/heatnet`, `a1b2c3d`)
 условные — подставьте свои. Настоящие пароли, токены и ключи в репозиторий и документацию не записываются.
 
 ## Как это устроено
 
-Pipeline запускается на каждый push в `main` и вручную (Actions → CI/CD → Run workflow). Стадии:
+Pipeline запускается на каждый push в `main` и вручную (Actions → CI/CD → Run workflow). Триггеры есть только
+у `verify.yml` (workflow «CI/CD»): после verify он вызывает `build-and-publish.yml` и `deploy.yml` как reusable
+workflows (`workflow_call`), поэтому все три стадии выполняются в одном запуске и строго по порядку. Стадии:
 
 1. **verify** — сначала определяет, затронуты ли файлы образа или деплоя: `src/`, `pom.xml`, `Dockerfile`,
    `.dockerignore`, `docker-compose.yml`, `compose.prod.yaml`, `caddy/`, `.github/workflows/`. Push, в котором
@@ -23,7 +26,6 @@ Pipeline запускается на каждый push в `main` и вручну
      - поиск секретов (gitleaks);
      - `node --check` для JS;
      - компиляция Java-исходников с `javac -Xlint:all`: без тестов, предупреждения только в отчёт;
-     - osv-scanner: известные уязвимости зависимостей, только отчёт;
    - фронтенд-тесты `node --test src/test/js/*.test.cjs`;
    - контроль, что проверки не изменили рабочее дерево.
 
@@ -361,7 +363,8 @@ Classic-токен с `read:packages` даёт чтение всех пакет�
 | `PRODUCTION_URL` | Variable | публичный адрес для HTTP-проверок | `https://` + `DOMAIN`, без завершающего `/` | да | Environment variables `production` или Repository variables |
 | `GITHUB_TOKEN` | создаётся автоматически | публикация в GHCR, GitHub API | ничего создавать не нужно; права заданы в workflow (`packages: write` только у build-and-publish) | — | — |
 
-Имя образа (`IMAGE_NAME: heatnet`) и владелец (`github.repository_owner`) заданы в самом workflow — отдельных
+Имя образа (`IMAGE_NAME: heatnet`) и владелец (`github.repository_owner`) заданы в `build-and-publish.yml`
+(`verify.yml` сверяет с ними `compose.prod.yaml`) — отдельных
 secrets/variables для них нет.
 
 `verify` и `build-and-publish` никаких пользовательских секретов не используют. Если обязательной
@@ -465,14 +468,14 @@ docker compose -f compose.prod.yaml config --images
   включён) → **Run workflow**. С выключенным **deploy** запуск ограничивается проверками и публикацией.
   Ручной запуск для другой ветки проверяет код и публикует образ с её коротким SHA, но `latest` не двигает
   и не деплоит.
-- Из терминала: `gh workflow run ci-cd.yml --ref main` (с деплоем) или
-  `gh workflow run ci-cd.yml --ref main -f deploy=false` (без деплоя).
+- Из терминала: `gh workflow run verify.yml --ref main` (с деплоем) или
+  `gh workflow run verify.yml --ref main -f deploy=false` (без деплоя).
 - Логи: вкладка Actions → запуск → job (`verify`, `build-and-publish`, `deploy`) → шаг. В Summary запуска —
   опубликованный тег, решение по `latest`, запущенный образ и полный SHA.
 - Из терминала (GitHub CLI):
 
   ```bash
-  gh run list --workflow ci-cd.yml
+  gh run list --workflow verify.yml
   gh run watch
   gh run view --log-failed
   ```
