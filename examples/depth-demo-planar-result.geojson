@@ -91,86 +91,8 @@
       "id" : "v1_net_4",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "A",
-      "end_node_id" : "v1_tn_3",
-      "flow_tph" : 20.0,
-      "diameter" : 100,
-      "length" : 97.257,
-      "laying_method" : "base",
-      "depth_start" : null,
-      "depth_end" : null,
-      "cost" : 8728621,
-      "k_spec" : 1.0,
-      "k_depth" : 1.0,
-      "slope" : null,
-      "crossed_restrictions" : [ ],
-      "crossings" : null,
-      "link_id" : 2
-    },
-    "geometry" : {
-      "type" : "LineString",
-      "coordinates" : [ [ 37.410998545, 55.66634219 ], [ 37.410748499014, 55.666338952317 ], [ 37.410749429587, 55.666249096796 ], [ 37.410802524402, 55.66560723142 ] ]
-    }
-  }, {
-    "type" : "Feature",
-    "properties" : {
-      "id" : "v1_net_5",
-      "object_type" : "heat_network",
-      "variant_id" : "v1",
-      "start_node_id" : "v1_tn_3",
-      "end_node_id" : "v1_tn_4",
-      "flow_tph" : 20.0,
-      "diameter" : 100,
-      "length" : 4.0,
-      "laying_method" : "special",
-      "depth_start" : null,
-      "depth_end" : null,
-      "cost" : 448740,
-      "k_spec" : 1.25,
-      "k_depth" : 1.0,
-      "slope" : null,
-      "crossed_restrictions" : [ "gas_pipeline#11" ],
-      "crossings" : null,
-      "link_id" : 2
-    },
-    "geometry" : {
-      "type" : "LineString",
-      "coordinates" : [ [ 37.410802524402, 55.66560723142 ], [ 37.410805493821, 55.665571333297 ] ]
-    }
-  }, {
-    "type" : "Feature",
-    "properties" : {
-      "id" : "v1_net_6",
-      "object_type" : "heat_network",
-      "variant_id" : "v1",
-      "start_node_id" : "v1_tn_4",
-      "end_node_id" : "v1_chamber_2",
-      "flow_tph" : 20.0,
-      "diameter" : 100,
-      "length" : 4.502,
-      "laying_method" : "base",
-      "depth_start" : null,
-      "depth_end" : null,
-      "cost" : 404045,
-      "k_spec" : 1.0,
-      "k_depth" : 1.0,
-      "slope" : null,
-      "crossed_restrictions" : [ ],
-      "crossings" : null,
-      "link_id" : 2
-    },
-    "geometry" : {
-      "type" : "LineString",
-      "coordinates" : [ [ 37.410805493821, 55.665571333297 ], [ 37.410808835798, 55.665530931136 ] ]
-    }
-  }, {
-    "type" : "Feature",
-    "properties" : {
-      "id" : "v1_net_7",
-      "object_type" : "heat_network",
-      "variant_id" : "v1",
       "start_node_id" : "C",
-      "end_node_id" : "v1_tn_5",
+      "end_node_id" : "v1_tn_3",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 28.0,
@@ -183,7 +105,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -192,11 +114,11 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_8",
+      "id" : "v1_net_5",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "v1_tn_5",
-      "end_node_id" : "v1_tn_6",
+      "start_node_id" : "v1_tn_3",
+      "end_node_id" : "v1_tn_4",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 4.0,
@@ -209,7 +131,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "power_cable#13" ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -218,11 +140,11 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_9",
+      "id" : "v1_net_6",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "v1_tn_6",
-      "end_node_id" : "v1_tn_7",
+      "start_node_id" : "v1_tn_4",
+      "end_node_id" : "v1_tn_5",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 4.0,
@@ -235,7 +157,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -244,11 +166,11 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_10",
+      "id" : "v1_net_7",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "v1_tn_7",
-      "end_node_id" : "v1_tn_8",
+      "start_node_id" : "v1_tn_5",
+      "end_node_id" : "v1_tn_6",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 4.0,
@@ -261,7 +183,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "gas_pipeline#14" ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -270,11 +192,11 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_11",
+      "id" : "v1_net_8",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "v1_tn_8",
-      "end_node_id" : "v1_tn_9",
+      "start_node_id" : "v1_tn_6",
+      "end_node_id" : "v1_tn_7",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 43.0,
@@ -287,7 +209,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -296,7 +218,59 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_12",
+      "id" : "v1_net_9",
+      "object_type" : "heat_network",
+      "variant_id" : "v1",
+      "start_node_id" : "v1_tn_7",
+      "end_node_id" : "v1_tn_8",
+      "flow_tph" : 30.0,
+      "diameter" : 125,
+      "length" : 7.0,
+      "laying_method" : "special",
+      "depth_start" : null,
+      "depth_end" : null,
+      "cost" : 1089480,
+      "k_spec" : 1.6,
+      "k_depth" : 1.0,
+      "slope" : null,
+      "crossed_restrictions" : [ "road#15" ],
+      "crossings" : null,
+      "link_id" : 2
+    },
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 37.415788750603, 55.665837956141 ], [ 37.415791290954, 55.665775082144 ] ]
+    }
+  }, {
+    "type" : "Feature",
+    "properties" : {
+      "id" : "v1_net_10",
+      "object_type" : "heat_network",
+      "variant_id" : "v1",
+      "start_node_id" : "v1_tn_8",
+      "end_node_id" : "v1_tn_9",
+      "flow_tph" : 30.0,
+      "diameter" : 125,
+      "length" : 4.0,
+      "laying_method" : "special",
+      "depth_start" : null,
+      "depth_end" : null,
+      "cost" : 622560,
+      "k_spec" : 1.6,
+      "k_depth" : 1.0,
+      "slope" : null,
+      "crossed_restrictions" : [ "road#15", "heat_network#101" ],
+      "crossings" : null,
+      "link_id" : 2
+    },
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 37.415791290954, 55.665775082144 ], [ 37.415792742578, 55.665739154146 ] ]
+    }
+  }, {
+    "type" : "Feature",
+    "properties" : {
+      "id" : "v1_net_11",
       "object_type" : "heat_network",
       "variant_id" : "v1",
       "start_node_id" : "v1_tn_9",
@@ -313,59 +287,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "road#15" ],
       "crossings" : null,
-      "link_id" : 3
-    },
-    "geometry" : {
-      "type" : "LineString",
-      "coordinates" : [ [ 37.415788750603, 55.665837956141 ], [ 37.415791290954, 55.665775082144 ] ]
-    }
-  }, {
-    "type" : "Feature",
-    "properties" : {
-      "id" : "v1_net_13",
-      "object_type" : "heat_network",
-      "variant_id" : "v1",
-      "start_node_id" : "v1_tn_10",
-      "end_node_id" : "v1_tn_11",
-      "flow_tph" : 30.0,
-      "diameter" : 125,
-      "length" : 4.0,
-      "laying_method" : "special",
-      "depth_start" : null,
-      "depth_end" : null,
-      "cost" : 622560,
-      "k_spec" : 1.6,
-      "k_depth" : 1.0,
-      "slope" : null,
-      "crossed_restrictions" : [ "road#15", "heat_network#101" ],
-      "crossings" : null,
-      "link_id" : 3
-    },
-    "geometry" : {
-      "type" : "LineString",
-      "coordinates" : [ [ 37.415791290954, 55.665775082144 ], [ 37.415792742578, 55.665739154146 ] ]
-    }
-  }, {
-    "type" : "Feature",
-    "properties" : {
-      "id" : "v1_net_14",
-      "object_type" : "heat_network",
-      "variant_id" : "v1",
-      "start_node_id" : "v1_tn_11",
-      "end_node_id" : "v1_tn_12",
-      "flow_tph" : 30.0,
-      "diameter" : 125,
-      "length" : 7.0,
-      "laying_method" : "special",
-      "depth_start" : null,
-      "depth_end" : null,
-      "cost" : 1089480,
-      "k_spec" : 1.6,
-      "k_depth" : 1.0,
-      "slope" : null,
-      "crossed_restrictions" : [ "road#15" ],
-      "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -374,11 +296,11 @@
   }, {
     "type" : "Feature",
     "properties" : {
-      "id" : "v1_net_15",
+      "id" : "v1_net_12",
       "object_type" : "heat_network",
       "variant_id" : "v1",
-      "start_node_id" : "v1_tn_12",
-      "end_node_id" : "v1_chamber_3",
+      "start_node_id" : "v1_tn_10",
+      "end_node_id" : "v1_chamber_2",
       "flow_tph" : 30.0,
       "diameter" : 125,
       "length" : 9.0,
@@ -391,11 +313,89 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 3
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
       "coordinates" : [ [ 37.415795282913, 55.66567628014 ], [ 37.415798549039, 55.665595442248 ] ]
+    }
+  }, {
+    "type" : "Feature",
+    "properties" : {
+      "id" : "v1_net_13",
+      "object_type" : "heat_network",
+      "variant_id" : "v1",
+      "start_node_id" : "A",
+      "end_node_id" : "v1_tn_11",
+      "flow_tph" : 20.0,
+      "diameter" : 100,
+      "length" : 97.257,
+      "laying_method" : "base",
+      "depth_start" : null,
+      "depth_end" : null,
+      "cost" : 8728621,
+      "k_spec" : 1.0,
+      "k_depth" : 1.0,
+      "slope" : null,
+      "crossed_restrictions" : [ ],
+      "crossings" : null,
+      "link_id" : 3
+    },
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 37.410998545, 55.66634219 ], [ 37.410748499014, 55.666338952317 ], [ 37.410749429587, 55.666249096796 ], [ 37.410802524402, 55.66560723142 ] ]
+    }
+  }, {
+    "type" : "Feature",
+    "properties" : {
+      "id" : "v1_net_14",
+      "object_type" : "heat_network",
+      "variant_id" : "v1",
+      "start_node_id" : "v1_tn_11",
+      "end_node_id" : "v1_tn_12",
+      "flow_tph" : 20.0,
+      "diameter" : 100,
+      "length" : 4.0,
+      "laying_method" : "special",
+      "depth_start" : null,
+      "depth_end" : null,
+      "cost" : 448740,
+      "k_spec" : 1.25,
+      "k_depth" : 1.0,
+      "slope" : null,
+      "crossed_restrictions" : [ "gas_pipeline#11" ],
+      "crossings" : null,
+      "link_id" : 3
+    },
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 37.410802524402, 55.66560723142 ], [ 37.410805493821, 55.665571333297 ] ]
+    }
+  }, {
+    "type" : "Feature",
+    "properties" : {
+      "id" : "v1_net_15",
+      "object_type" : "heat_network",
+      "variant_id" : "v1",
+      "start_node_id" : "v1_tn_12",
+      "end_node_id" : "v1_chamber_3",
+      "flow_tph" : 20.0,
+      "diameter" : 100,
+      "length" : 4.502,
+      "laying_method" : "base",
+      "depth_start" : null,
+      "depth_end" : null,
+      "cost" : 404045,
+      "k_spec" : 1.0,
+      "k_depth" : 1.0,
+      "slope" : null,
+      "crossed_restrictions" : [ ],
+      "crossings" : null,
+      "link_id" : 3
+    },
+    "geometry" : {
+      "type" : "LineString",
+      "coordinates" : [ [ 37.410805493821, 55.665571333297 ], [ 37.410808835798, 55.665530931136 ] ]
     }
   }, {
     "type" : "Feature",
@@ -425,7 +425,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.410808835798, 55.665530931136 ]
+      "coordinates" : [ 37.415798549039, 55.665595442248 ]
     }
   }, {
     "type" : "Feature",
@@ -440,7 +440,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415798549039, 55.665595442248 ]
+      "coordinates" : [ 37.410808835798, 55.665530931136 ]
     }
   }, {
     "type" : "Feature",
@@ -473,7 +473,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.410802524402, 55.66560723142 ]
+      "coordinates" : [ 37.415768790328, 55.666331966814 ]
     }
   }, {
     "type" : "Feature",
@@ -484,7 +484,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.410805493821, 55.665571333297 ]
+      "coordinates" : [ 37.415770242003, 55.66629603882 ]
     }
   }, {
     "type" : "Feature",
@@ -495,7 +495,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415768790328, 55.666331966814 ]
+      "coordinates" : [ 37.415771693675, 55.666260110814 ]
     }
   }, {
     "type" : "Feature",
@@ -506,7 +506,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415770242003, 55.66629603882 ]
+      "coordinates" : [ 37.415773145344, 55.66622418282 ]
     }
   }, {
     "type" : "Feature",
@@ -517,7 +517,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415771693675, 55.666260110814 ]
+      "coordinates" : [ 37.415788750603, 55.665837956141 ]
     }
   }, {
     "type" : "Feature",
@@ -528,7 +528,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415773145344, 55.66622418282 ]
+      "coordinates" : [ 37.415791290954, 55.665775082144 ]
     }
   }, {
     "type" : "Feature",
@@ -539,7 +539,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415788750603, 55.665837956141 ]
+      "coordinates" : [ 37.415792742578, 55.665739154146 ]
     }
   }, {
     "type" : "Feature",
@@ -550,7 +550,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415791290954, 55.665775082144 ]
+      "coordinates" : [ 37.415795282913, 55.66567628014 ]
     }
   }, {
     "type" : "Feature",
@@ -561,7 +561,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415792742578, 55.665739154146 ]
+      "coordinates" : [ 37.410802524402, 55.66560723142 ]
     }
   }, {
     "type" : "Feature",
@@ -572,7 +572,7 @@
     },
     "geometry" : {
       "type" : "Point",
-      "coordinates" : [ 37.415795282913, 55.66567628014 ]
+      "coordinates" : [ 37.410805493821, 55.665571333297 ]
     }
   }, {
     "type" : "Feature",
@@ -596,7 +596,7 @@
       "notes" : [ ],
       "shared_network_length" : 0.0,
       "attachment_point_count" : 3,
-      "attachment_points" : [ "new chamber on line 100 @400150,6170000", "new chamber on line 100 @400036,6170000", "new chamber on line 100 @400350,6170000" ],
+      "attachment_points" : [ "new chamber on line 100 @400150,6170000", "new chamber on line 100 @400350,6170000", "new chamber on line 100 @400036,6170000" ],
       "diff_vs_best" : null,
       "mode" : "planar"
     },
@@ -621,7 +621,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -647,7 +647,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "power_cable#13" ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -673,7 +673,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -699,7 +699,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "gas_pipeline#14" ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -725,7 +725,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -751,7 +751,7 @@
       "slope" : null,
       "crossed_restrictions" : [ "gas_pipeline#12" ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",
@@ -777,7 +777,7 @@
       "slope" : null,
       "crossed_restrictions" : [ ],
       "crossings" : null,
-      "link_id" : 5
+      "link_id" : 2
     },
     "geometry" : {
       "type" : "LineString",

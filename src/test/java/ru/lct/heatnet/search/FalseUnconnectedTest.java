@@ -18,7 +18,7 @@ import static ru.lct.heatnet.search.SearchTestSupport.*;
 /**
  * PHASE 10 — "false unconnected" attack: a connection point must never be reported unreachable only because the
  * first heuristic candidates were rejected or because the navigation graph has no vertex on the only corridor.
- * Cases that fail against the current solver are disabled with the observed evidence.
+ * Candidate-rejection witnesses use a fixed construction order; the best of five strategies may connect B first.
  */
 class FalseUnconnectedTest {
 
@@ -43,6 +43,17 @@ class FalseUnconnectedTest {
         assertTrue(validate(in, v).isValid(), validate(in, v).getIssues().toString());
     }
 
+    /** Keep A's trunk present when B is evaluated; final ranking and improvePass may choose another history. */
+    static VariantResult farthestFirstConstruction(InputModel in) {
+        var cfg = ru.lct.heatnet.solver.SolverConfig.defaults();
+        cfg.improve = false;
+        var r = new ru.lct.heatnet.solver.HeatnetSolver(cfg,
+                new ru.lct.heatnet.validation.SolverVariantValidator(in)).solve(in,
+                java.util.Collections.singletonList(ru.lct.heatnet.solver.HeatnetSolver.defaultStrategies().get(1)), null);
+        assertAllConnected(in, r, 2);
+        return best(r);
+    }
+
     /**
      * CASE 1. A's trunk runs south from (0,200); B (east of it) leaves its building northwards, so the junction
      * candidates it reaches first arrive heading north into the southbound trunk (turn > 90° through the chamber):
@@ -57,7 +68,7 @@ class FalseUnconnectedTest {
                 .build();
         SolveResult r = solve(in, false);
         assertAllConnected(in, r, 2);
-        VariantResult v = best(r);
+        VariantResult v = farthestFirstConstruction(in);
         assertTrue(maxRejected(v, "B") >= 2, "exact evaluation rejected at least two candidates for B:\n" + traceOf(v, "B"));
         assertEquals(1, v.network().roots().size(), "joint connection expected\n" + describe(v));
     }
@@ -72,7 +83,7 @@ class FalseUnconnectedTest {
                 .build();
         SolveResult r = solve(in, false);
         assertAllConnected(in, r, 2);
-        VariantResult v = best(r);
+        VariantResult v = farthestFirstConstruction(in);
         assertTrue(maxRejected(v, "B") >= 4, "exact evaluation rejected at least four candidates for B:\n" + traceOf(v, "B"));
     }
 

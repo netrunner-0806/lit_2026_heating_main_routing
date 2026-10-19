@@ -295,14 +295,14 @@ public final class ForestBuilder {
     }
 
     /**
-     * A bounded last resort for DU50/65 terminals hidden by the DU400 navigation envelope.
+     * A bounded last resort for SMALL-class terminals hidden by the DU400 navigation envelope.
      * Tries straight approaches to existing tie-ins and exact projections, without a second graph.
      * All candidates go through the normal hydraulic/depth calculation and full independent validator.
      * Longer/bent narrow corridors may still exhaust search; this is not a completeness claim.
      */
     private Attempt exactDuDirectFallback(ConnectionPoint cp, SolverContext.ClassResources r) {
         int du = DiameterTable.minByFlow(cp.flowTph()).orElse(DiameterTable.largest()).du();
-        if (du > 65 || r.cls != ClearanceClass.SMALL) return null;
+        if (r.cls != ClearanceClass.SMALL) return null;
         ctx.countFallback();
         checkingAdaptiveCandidate = true;
         var space = new ru.lct.heatnet.restrictions.ObstacleSpace(ctx.input(), r.cls, true, null, true, du);
