@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WitnessRoutesTest {
     @Test void suppliedWitnessesPassIndependentEngineeringValidation() throws Exception {
-        Path root=Paths.get("examples/stress");
+        Path root=Paths.get("src/test/resources/routing");
         try (java.util.stream.Stream<Path> files=Files.list(root)) {
             for(Path p:(Iterable<Path>)files.filter(x->x.toString().endsWith(".witness.json")).sorted()::iterator) validate(p);
         }

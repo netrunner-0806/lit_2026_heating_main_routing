@@ -59,3 +59,11 @@ Thumbs.db
 *.swo
 *~
 reports/
+
+# Local organizer materials and research assets; excluded from submission
+/ТЗ/
+/docs_dataset/
+/examples/
+/scripts/
+/AUDIT_REPORT.md
+/SOLUTION_REVIEW.md

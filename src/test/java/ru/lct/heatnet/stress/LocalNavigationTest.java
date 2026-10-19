@@ -48,7 +48,7 @@ class LocalNavigationTest {
         for(boolean depth:new boolean[]{false,true}) {
             String previous=null;
             for(int repeat=0;repeat<2;repeat++) {
-                InputModel m=new GeoJsonStreamReader(ParseOptions.defaults()).read(Paths.get("examples/stress",name+".geojson"));
+                InputModel m=new GeoJsonStreamReader(ParseOptions.defaults()).read(Paths.get("src/test/resources/routing",name+".geojson"));
                 SolverConfig cfg=SolverConfig.defaults();cfg.depthMode=depth;cfg.localGraphMinimumObstacles=0;cfg.localGraphMargin=30;
                 SolveResult r=new HeatnetSolver(cfg,new SolverVariantValidator(m)).solve(m);
                 assertFalse(r.diagnostics().hasErrors(),r.diagnostics().messages().toString());

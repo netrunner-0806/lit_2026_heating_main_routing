@@ -10,7 +10,7 @@ import java.nio.file.Path;
 
 /**
  * Generates a synthetic GeoJSON much larger than the JVM heap it is run with and parses it with the streaming reader.
- * Used by {@link LargeInputStreamingTest} in a child JVM (-Xmx256m) and by scripts/large-file-smoke.sh.
+ * Used by {@link LargeInputStreamingTest} in a child JVM (-Xmx256m).
  * The file contains a small valid problem plus many padded features of an unsupported object_type: the raw bytes
  * never fit into the heap while the normalised model stays tiny.
  */

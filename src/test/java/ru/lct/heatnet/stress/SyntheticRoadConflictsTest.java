@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SyntheticRoadConflictsTest {
     @ParameterizedTest @ValueSource(ints={2,11,12,15,17})
     void nonChamberConsumerInsideRoadCannotAccommodateRequiredThreeMetres(int id) throws Exception {
-        InputModel full=new GeoJsonStreamReader(ParseOptions.defaults()).read(Paths.get("examples/stress/competition-with-roads.geojson"));
+        InputModel full=new GeoJsonStreamReader(ParseOptions.defaults()).read(Paths.get("src/test/resources/routing/competition-with-roads.geojson"));
         ConnectionPoint cp=full.connectionPoints().stream().filter(p->p.id().text().equals(Integer.toString(id))).findFirst().orElseThrow();
         var point=GeometryUtils.point(cp.coordinate());
         Restriction road=full.restrictions().stream().filter(r->r.restrictionType().equals("road")&&r.geometry().contains(point)).findFirst().orElseThrow();

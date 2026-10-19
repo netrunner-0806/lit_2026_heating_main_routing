@@ -12,13 +12,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UniversalRoutingTest {
     static Stream<String> scenes() throws Exception {
-        var root=new ObjectMapper().readTree(Paths.get("examples/stress/universal-manifest.json").toFile());
+        var root=new ObjectMapper().readTree(Paths.get("src/test/resources/routing/universal-manifest.json").toFile());
         return java.util.stream.StreamSupport.stream(root.get("scenarios").spliterator(),false)
                 .map(n->n.get("file").asText()).filter(s->s.startsWith("universal-"));
     }
     @ParameterizedTest @MethodSource("scenes")
     void knownFeasibleRoutesAreFoundInBothModes(String file) throws Exception {
-        Path input=Paths.get("examples/stress",file);
+        Path input=Paths.get("src/test/resources/routing",file);
         boolean impossible=file.contains("impossible");
         if(!impossible) WitnessRoutesTest.validate(input.resolveSibling(file.replace(".geojson",".witness.json")));
         for(boolean depth:new boolean[]{false,true}) {

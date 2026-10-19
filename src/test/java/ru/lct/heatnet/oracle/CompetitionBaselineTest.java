@@ -16,7 +16,7 @@ class CompetitionBaselineTest {
             assertEquals(17,run.result.variants().get(0).connectedCount());
             assertEquals(13.433636792,run.result.variants().get(0).summary().score(),1e-9);
             ByteArrayOutputStream out=new ByteArrayOutputStream();new GeoJsonResultWriter().write(out,run.features);
-            assertArrayEquals(Files.readAllBytes(Paths.get("examples/stress/baseline",depth?"depth.geojson":"planar.geojson")),out.toByteArray(),"frozen competition output "+depth);
+            assertArrayEquals(Files.readAllBytes(Paths.get("src/test/resources/golden",depth?"competition-depth.geojson":"competition-planar.geojson")),out.toByteArray(),"frozen competition output "+depth);
         }
     }
 }

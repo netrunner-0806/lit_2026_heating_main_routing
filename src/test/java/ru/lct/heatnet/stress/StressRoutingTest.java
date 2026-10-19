@@ -14,7 +14,7 @@ class StressRoutingTest {
     @ParameterizedTest
     @ValueSource(strings={"routing-fallback", "routing-fallback-detour", "routing-fallback-oks", "routing-fallback-road-exit", "geometry-edge-cases", "routing-impossible", "routing-impossible-exit"})
     void fixturesHaveValidDeterministicEngineeringResults(String name) throws Exception {
-        Path input=Paths.get("examples/stress",name+".geojson");
+        Path input=Paths.get("src/test/resources/routing",name+".geojson");
         if(!name.startsWith("routing-impossible")) WitnessRoutesTest.validate(input.resolveSibling(name+".witness.json"));
         int expected=name.startsWith("routing-impossible")?0:1;
         for(boolean depth:new boolean[]{false,true}) {

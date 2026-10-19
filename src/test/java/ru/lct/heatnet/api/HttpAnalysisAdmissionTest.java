@@ -11,7 +11,7 @@ import static org.mockito.Mockito.*;
 
 class HttpAnalysisAdmissionTest {
     @Test void onlyOneHeavyValidationMayMaterializeFilesAtOnce() throws Exception {
-        byte[] bytes=Files.readAllBytes(Paths.get("examples/depth-demo.geojson"));
+        byte[] bytes=Files.readAllBytes(Paths.get("src/test/resources/fixtures/depth-demo.geojson"));
         CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
         AtomicInteger reads=new AtomicInteger();
         MockMultipartFile input=new MockMultipartFile("input","input.geojson","application/json",bytes) {
