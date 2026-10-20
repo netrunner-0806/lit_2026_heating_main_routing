@@ -19,6 +19,15 @@
   const osm = L.tileLayer(OSM_TILES.url, { maxZoom: OSM_TILES.maxZoom, attribution: OSM_TILES.attribution }).addTo(map);
   $('basemap').addEventListener('change', (e) => (e.target.checked ? osm.addTo(map) : map.removeLayer(osm)));
 
+  // single-variant view: new network blue, special passages magenta, width by DU (or colour by depth in DEPTH)
+  const NEW_NET_COLOR = '#1d4ed8', SPECIAL_COLOR = '#d000d0';
+  function duWeight(du) { return du <= 100 ? 3 : du <= 200 ? 4 : du <= 400 ? 5 : 7; }
+  function depthColor(d) {
+    if (d == null) return NEW_NET_COLOR;
+    if (d < 2.95) { const t = Math.max(0, Math.min(1, (2.95 - d) / 2.25)); return `hsl(${170 - 20 * t}, 60%, ${45 - 10 * t}%)`; }
+    if (d > 3.05) { const t = Math.max(0, Math.min(1, (d - 3.05) / 2.0)); return `hsl(${20 - 20 * t}, 75%, ${45 - 10 * t}%)`; }
+    return NEW_NET_COLOR;
+  }
   const RESTRICTION_COLORS = { oks: '#8d99ae', water: '#4ea8de', railway: '#b5651d', road: '#e9c46a', tram_tracks: '#c77dff', gas_pipeline: '#f4a261', power_cable: '#e63946', park: '#52b788', social_area: '#90be6d', prohibited_site: '#6c757d' };
   const layerDefs = [
     { key: 'restrictions', name: 'Ограничения (restriction)', color: '#8d99ae' },
@@ -39,7 +48,6 @@
   }
   layerDefs.forEach((d) => {
     groups[d.key] = L.layerGroup().addTo(map);
-    if (['newNet', 'newChambers', 'techNodes'].includes(d.key)) return;
     const label = document.createElement('label');
     label.innerHTML = `<input type="checkbox" checked data-layer="${d.key}"><span class="sw" style="background:${d.color}"></span><span class="name">${d.name}</span>`;
     label.querySelector('input').addEventListener('change', (e) => setLayerVisible(d.key, e.target.checked, 'panel'));
@@ -51,6 +59,8 @@
     const div = L.DomUtil.create('div', 'legend');
     const rows = [
       ['existing', '<span class="sw" style="border-color:#d62828"></span>Существующая сеть'],
+      ['newNet', `<span class="sw" style="border-color:${NEW_NET_COLOR}"></span>Новая сеть`],
+      ['newNet', `<span class="sw" style="border-color:${SPECIAL_COLOR}"></span>Спецпроходы`, 'special'],
       ['points', '<span class="dot" style="background:#2a9d8f;border-color:#1b4332"></span>Точки подключения ОКС'],
       ['chambers', '<span class="dot" style="background:#fff;border-color:#000"></span>Существующие камеры'],
       ['newChambers', '<span class="dot" style="background:#facc15;border-color:#7a5c00"></span>Новые камеры'],
@@ -59,7 +69,8 @@
     ];
     // collapsed on narrow windows so that it does not cover the map; one click opens it
     const wide = typeof window === 'undefined' || !window.innerWidth || window.innerWidth > 820;
-    div.innerHTML = `<details${wide ? ' open' : ''}><summary>Легенда</summary>` + '<div class="rows">' + rows.map((r) => ['newNet', 'newChambers', 'techNodes'].includes(r[0]) ? `<label class="plain">${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}">${r[1]}</label>`).join('') + '</div></details>';
+    div.innerHTML = `<details${wide ? ' open' : ''}><summary>Легенда</summary>` + '<div class="rows">' + rows.map((r) => r[2] === 'special' ? `<label class="plain">${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}">${r[1]}</label>`).join('') + '</div></details>';
+    // route visibility only; the active variant is chosen in the left panel
     variantLegendElement = document.createElement('div');
     variantLegendElement.className = 'variant-choices';
     variantLegendElement.hidden = true;
@@ -83,16 +94,15 @@
     return (resultData?.variants || []).filter(v => visibleVariants.has(v.variantId))
       .sort((a, b) => variantStyle(b).weight - variantStyle(a).weight);
   }
-  function singleVariantId() {
-    const vs = chosenVariants();
-    return vs.length === 1 ? vs[0].variantId : null;
-  }
 
   // ---- state ----
   let mode = 'PLANAR';
   let currentJob = null, jobMeta = null, resultData = null, resultGeo = null, inputGeo = null, pollTimer = null;
   let overlayWorker = null, overlayGeneration = 0;
   let indexedVariants = new Map();
+  // currentVariant: chosen in the left tabs (summary, validation, profile, explanation follow it);
+  // visibleVariants: routes drawn on the map (legend checkboxes). Hiding a route never changes the choice.
+  let currentVariant = null;
   const visibleVariants = new Set();
   const VARIANT_STYLES = [{ color: '#2563eb', dashArray: null, weight: 8 }, { color: '#c65d08', dashArray: '12 8', weight: 6 }, { color: '#7c3aed', dashArray: '3 7', weight: 4 }];
   function variantStyle(v) {
@@ -244,8 +254,9 @@
   });
 
   async function openJob(id, own) {
-    cancelOverlay(); visibleVariants.clear(); indexedVariants = new Map();
+    cancelOverlay(); visibleVariants.clear(); indexedVariants = new Map(); currentVariant = null;
     if (variantLegendElement) { variantLegendElement.innerHTML = ''; variantLegendElement.hidden = true; }
+    $('variantTabs').innerHTML = '';
     resultData = null; resultGeo = null;
     ['newNet', 'newChambers', 'techNodes'].forEach(k => groups[k].clearLayers());
     $('overlayPanel').hidden = true;
@@ -357,6 +368,8 @@
     indexResultGeometry(geo);
     initViews(); explainData = null; otherMode = null;
     const depth = res.mode === 'DEPTH';
+    $('colorModeRow').hidden = !depth;
+    if (!depth) $('colorMode').value = 'default';
     $('modeTag').textContent = depth ? 'режим с учётом глубины' : '2D';
     $('download').href = '/api/v1/jobs/' + currentJob + '/result.geojson';
     $('downloadReport').href = '/api/v1/jobs/' + currentJob + '/report.json';
@@ -368,8 +381,9 @@
     renderBadge(res.validation);
     renderPerf(res);
     drawInput();
+    renderActiveVariant();
     renderVisibleVariants();
-    if (res.variants?.length && !inputGeo) fitResultBounds(singleVariantId());
+    if (res.variants?.length && !inputGeo) fitResultBounds(currentVariant);
     if (!smallInput) setStatus(`Готово · ${jobMeta.variantCount} вариант(а). Большой исходный файл не отображается целиком; на карте показан результат расчёта.`);
     loadModeComparison().catch(() => { if (id === currentJob && version === jobVersion) $('modeCompareCard').hidden = true; });
     loadExplain();
@@ -442,40 +456,80 @@
   }
   function variantFeatures(vid) { return indexedVariants.get(String(vid)) || []; }
 
+  // left tabs: choose the active variant and show exactly its route (legend checkboxes follow)
+  function showVariant(vid) {
+    if (!(resultData?.variants || []).some(v => v.variantId === vid)) return;
+    if (vid !== currentVariant) $('featureCard').hidden = true;
+    currentVariant = vid;
+    visibleVariants.clear();
+    visibleVariants.add(vid);
+    renderActiveVariant();
+    renderVisibleVariants();
+  }
+
+  // legend checkboxes: visibility of routes only; the active variant and its figures stay as they are
   function setVariantVisible(vid, visible) {
     if (!(resultData?.variants || []).some(v => v.variantId === vid)) return;
     visible ? visibleVariants.add(vid) : visibleVariants.delete(vid);
     renderVisibleVariants();
   }
 
+  function updateVariantTabs() {
+    [...$('variantTabs').children].forEach((b) => {
+      const on = b.dataset.variant === currentVariant;
+      b.classList.toggle('active', on);
+      if (b.setAttribute) b.setAttribute('aria-selected', String(on));
+    });
+  }
+
+  /** Figures of the active variant (left panel); independent of which routes are drawn. */
+  function renderActiveVariant() {
+    updateVariantTabs();
+    const vid = currentVariant;
+    $('summary').hidden = !vid;
+    $('unconnected').hidden = !vid;
+    if (!vid) {
+      ['depthSummary', 'profileCard', 'explainCard'].forEach(id => { $(id).hidden = true; });
+      $('comparison').innerHTML = '';
+      renderValidation(null);
+      return;
+    }
+    const s = variantFeatures(vid).find((f) => f.properties.object_type === 'variant_summary');
+    const v = (resultData.variants || []).find((x) => x.variantId === vid) || {};
+    renderSummary(s ? s.properties : {}, v);
+    renderComparison(vid);
+    renderValidation(vid);
+    renderProfilePanel(vid);
+    renderExplain(vid);
+  }
+
+  /** Routes on the map: one visible variant in the classic view, several as an overlay comparison. */
   function renderVisibleVariants() {
-    cancelOverlay(); updateVariantLegend();
-    const vs = chosenVariants(), single = vs.length === 1;
+    cancelOverlay(); updateVariantLegend(); updateVariantTabs();
+    const vs = chosenVariants();
     ['newNet', 'newChambers', 'techNodes'].forEach(k => groups[k].clearLayers());
-    $('featureCard').hidden = true;
     $('overlayPanel').hidden = vs.length < 2;
     $('variantHint').hidden = vs.length > 0;
     $('variantHint').textContent = resultData?.variants?.length
-      ? 'Выберите вариант в легенде карты, чтобы показать трассу.' : 'Нет вариантов для отображения.';
-    $('summary').hidden = !single;
-    $('unconnected').hidden = !single;
+      ? 'Маршруты скрыты. Включите вариант в легенде карты или выберите его во вкладках выше.' : 'Нет вариантов для отображения.';
     $('overlayKpis').innerHTML = ''; $('overlayStatus').textContent = '';
-    if (!single) {
-      ['depthSummary', 'profileCard', 'explainCard'].forEach(id => { $(id).hidden = true; });
-      renderValidation(null);
-      if (vs.length > 1) drawOverlay();
-      return;
-    }
-    const vid = vs[0].variantId, feats = variantFeatures(vid);
-    const style = variantStyle(vs[0]);
-    feats.forEach((f) => {
+    const byDepth = vs.length === 1 && $('colorMode').value === 'depth' && resultData?.mode === 'DEPTH';
+    $('depthLegend').hidden = !byDepth;
+    if (byDepth) $('depthLegend').innerHTML = '<div>Глубина верха габарита новой сети</div><div class="bar"></div><div class="ticks"><span>0,7 м (мельче)</span><span>3,0 м</span><span>4,0+ м (глубже)</span></div>';
+    if (vs.length > 1) { drawOverlay(); return; }
+    if (vs.length === 1) drawSingleVariant(vs[0].variantId, byDepth);
+  }
+
+  function drawSingleVariant(vid, byDepth) {
+    variantFeatures(vid).forEach((f) => {
       const p = f.properties;
       if (p.object_type === 'heat_network') {
         const special = p.laying_method === 'special';
-        const layer = L.geoJSON(f, { style: { ...style, opacity: 0.92 } });
+        const mid = p.depth_start != null ? (p.depth_start + p.depth_end) / 2 : null;
+        const color = byDepth ? depthColor(mid) : (special ? SPECIAL_COLOR : NEW_NET_COLOR);
+        const layer = L.geoJSON(f, { style: { color, weight: duWeight(p.diameter) + (special && byDepth ? 2 : 0), opacity: 0.95, dashArray: special && byDepth ? '8 4' : null } });
         layer.on('click', () => showFeature(p));
-        const depthTxt = p.depth_start != null ? ` · h ${fmtNum(p.depth_start, 2)}→${fmtNum(p.depth_end, 2)} м · Kгл ${esc(p.k_depth)}` : '';
-        layer.bindTooltip(`ДУ ${esc(p.diameter)} · ${fmtNum(p.flow_tph, 2)} т/ч · ${fmtNum(p.length, 1)} м${special ? ' · спецпроход K=' + esc(p.k_spec) : ''}${depthTxt}`, { sticky: true });
+        layer.bindTooltip(networkTooltip(p), { sticky: true });
         groups.newNet.addLayer(layer);
       } else if (p.object_type === 'heat_chamber') {
         const [x, y] = f.geometry.coordinates;
@@ -491,12 +545,14 @@
         groups.techNodes.addLayer(m);
       }
     });
-    const s = feats.find((f) => f.properties.object_type === 'variant_summary');
-    const v = (resultData.variants || []).find((x) => x.variantId === vid) || {};
-    renderSummary(s ? s.properties : {}, v);
-    renderValidation(vid);
-    renderProfilePanel(vid);
-    renderExplain(vid);
+  }
+
+  $('colorMode').addEventListener('change', () => renderVisibleVariants());
+
+  function networkTooltip(p, prefix) {
+    const special = p.laying_method === 'special';
+    const depthTxt = p.depth_start != null ? ` · h ${fmtNum(p.depth_start, 2)}→${fmtNum(p.depth_end, 2)} м · Kгл ${esc(p.k_depth)}` : '';
+    return `${prefix ? esc(prefix) + ' · ' : ''}ДУ ${esc(p.diameter)} · ${fmtNum(p.flow_tph, 2)} т/ч · ${fmtNum(p.length, 1)} м${special ? ' · спецпроход K=' + esc(p.k_spec) : ''}${depthTxt}`;
   }
 
   // Initial framing only. Toggling variants never changes the camera.
@@ -526,10 +582,23 @@
     cancelOverlay(); visibleVariants.clear();
     const vs = resultData.variants || [];
     const first = vs.find(v => v.variantId === 'v1') || vs[0];
+    currentVariant = first ? first.variantId : null;
     if (first) visibleVariants.add(first.variantId);
+    // the variant choice lives in the left panel, as before the comparison was introduced
+    const tabs = $('variantTabs');
+    tabs.innerHTML = '';
+    vs.forEach((v) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.variant = v.variantId;
+      if (b.setAttribute) b.setAttribute('role', 'tab');
+      b.textContent = `${v.variantId} · место ${v.rank} · S ${fmtScore(v.score)}`;
+      b.addEventListener('click', () => showVariant(v.variantId));
+      tabs.appendChild(b);
+    });
     if (variantLegendElement) {
       variantLegendElement.hidden = !vs.length;
-      variantLegendElement.innerHTML = vs.map(v => {
+      variantLegendElement.innerHTML = (vs.length ? '<div class="variant-choices-title">Маршруты на карте</div>' : '') + vs.map(v => {
         const style = variantStyle(v);
         return `<label><input type="checkbox" data-variant="${esc(v.variantId)}"${visibleVariants.has(v.variantId) ? ' checked' : ''}>` +
           `<svg class="route-swatch" viewBox="0 0 48 12" aria-hidden="true"><path d="M0 6H48" fill="none" stroke="${style.color}" stroke-width="${style.weight}" stroke-linecap="round"${style.dashArray ? ` stroke-dasharray="${style.dashArray}"` : ''}/></svg>` +
@@ -546,7 +615,7 @@
       ['Подключено ОКС', v => v.connectedOksCount == null ? '—' : `${v.connectedOksCount}/${total == null ? '—' : total}`],
       ['Новые камеры', v => cell(v, 'newChamberCount', String)] ];
     $('overlayKpis').innerHTML = vs.length ? '<table><caption>Сравнение вариантов</caption><thead><tr><th>Показатель</th>' +
-      vs.map(v => `<th class="${v.rank === 1 ? 'best' : ''}">${esc(v.variantId)}${v.rank === 1 ? ' · лучший S' : ''}</th>`).join('') +
+      vs.map(v => `<th class="${v.rank === 1 ? 'best' : ''}${v.variantId === currentVariant ? ' active' : ''}">${esc(v.variantId)}${v.rank === 1 ? ' · лучший S' : ''}${v.variantId === currentVariant ? ' · выбран' : ''}</th>`).join('') +
       '</tr></thead><tbody>' + rows.map(([name, value]) => '<tr><th scope="row">' + name + '</th>' + vs.map(v => '<td>' + esc(value(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' : '';
   }
   function drawOverlay() {
@@ -557,6 +626,12 @@
     const render = features => {
       if (generation !== overlayGeneration) return;
       ['newNet', 'newChambers', 'techNodes'].forEach(k => groups[k].clearLayers());
+      // Special passages keep their magenta mark under the variant strokes.
+      const specials = features.filter(f => f.properties.laying_method === 'special');
+      if (specials.length) groups.newNet.addLayer(L.geoJSON({ type: 'FeatureCollection', features: specials }, {
+        style: f => ({ color: SPECIAL_COLOR, weight: variantStyle({ variantId: String(f.properties.variant_id) }).weight + 6, opacity: 0.45, dashArray: null }),
+        interactive: false
+      }));
       // Wider blue base, then orange dashes and narrow purple dots preserve coincident routes.
       for (const v of vs) {
         const style = variantStyle(v);
@@ -565,7 +640,7 @@
           style: f => ({ ...style, opacity: f.common ? 0.55 : 0.92, weight: style.weight }),
           onEachFeature: (f, layer) => {
             layer.on('click', () => showFeature(f.properties));
-            layer.bindTooltip(`${esc(v.variantId)} · ДУ ${esc(f.properties.diameter)}${f.common ? ' · общий плановый участок' : ''}`, { sticky: true });
+            layer.bindTooltip(networkTooltip(f.properties, v.variantId) + (f.common ? ' · общий плановый участок' : ''), { sticky: true });
           }
         });
         groups.newNet.addLayer(group);
@@ -624,6 +699,20 @@
     const notes = (v.notes || []).map(esc).join('<br>');
     const attach = (v.attachmentPoints || []).map(esc).join('; ');
     $('techJob').innerHTML = $('techJob').innerHTML.split('<br>')[0] + (attach ? `<br>Точки присоединения: ${attach}` : '') + (notes ? `<br>${notes}` : '');
+  }
+
+  // all variants side by side (technical details); the active one is highlighted
+  function renderComparison(vid) {
+    const vs = resultData.variants || [];
+    if (vs.length < 2) { $('comparison').innerHTML = ''; return; }
+    const rows = vs.map((v) => `<tr class="${v.variantId === vid ? 'active' : ''}"><td>${esc(v.variantId)} · ${esc(v.strategy)}</td><td>${esc(v.rank)}</td><td>${fmtScore(v.score)}</td>` +
+      `<td>${fmtMoney(v.calculatedCost)}</td><td>${fmtNum(v.newNetworkLength, 1)}</td><td>${esc(v.newChamberCount)}</td><td>${esc(v.existingChamberTieInCount)}</td>` +
+      `<td>${esc(v.connectedOksCount)}</td><td>${fmtNum(v.sharedNetworkLength, 1)}</td><td>${esc(v.rootCount)}</td>${v.mode === 'depth' ? `<td>${fmtNum(v.maxDepth, 2)}</td>` : ''}</tr>`).join('');
+    let html = `<table><tr><th>вариант</th><th>место</th><th>S</th><th>стоимость</th><th>длина, м</th><th>нов. камер</th><th>врезок</th><th>ОКС</th><th>общая, м</th><th>корней</th>${vs[0].mode === 'depth' ? '<th>макс. h</th>' : ''}</tr>${rows}</table>`;
+    const cur = vs.find((v) => v.variantId === vid);
+    if (cur && cur.diffVsBest) html += `<div class="diff">${esc(cur.diffVsBest.text)}</div>`;
+    else if (cur) html += `<div class="diff">${esc(vid)} — базовый вариант (место 1) для сравнения</div>`;
+    $('comparison').innerHTML = html;
   }
 
   const GROUPS = [['Output schema', (k) => k === 'schema' || k === 'references'], ['Geometry & topology', (k) => ['forest', 'degrees', 'turns', 'intersections'].includes(k)],
@@ -806,8 +895,7 @@
     const data = await fetchJson('/api/v1/jobs/' + currentJob + '/explain').catch(() => null);
     if (version !== jobVersion) return;
     explainData = data;
-    const vid = singleVariantId();
-    if (vid) renderExplain(vid);
+    if (currentVariant) renderExplain(currentVariant);
   }
   function renderExplain(vid) {
     if (!explainData || !explainData.decisions) { $('explainCard').hidden = true; return; }

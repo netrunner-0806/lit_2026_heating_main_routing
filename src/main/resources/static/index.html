@@ -5,7 +5,7 @@
   <title>Трассы подключения к тепловым сетям</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/webjars/leaflet/1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/style.css?v=11">
+  <link rel="stylesheet" href="/style.css?v=12">
 </head>
 <body>
 <header class="topbar">
@@ -64,11 +64,12 @@
       <h3 class="pane-title">Результат <span id="modeTag" class="tag"></span></h3>
       <div id="badge" class="badge" hidden></div>
       <div id="perf" class="perf"></div>
+      <div id="variantTabs" class="tabs" role="tablist" aria-label="Варианты"></div>
       <p id="variantHint" class="muted" role="status" hidden></p>
       <div id="overlayPanel" hidden>
         <div id="overlayStatus" role="status" aria-live="polite"></div>
         <div id="overlayKpis" class="overlay-kpis"></div>
-        <p class="muted">Сравнение в плане, допуск 5 см. ДУ и глубины не сравниваются.</p>
+        <p class="muted">Сравнение в плане, допуск 5 см. ДУ и глубины не сравниваются. Пурпурная подложка — спецпроходы. Показатели ниже относятся к варианту, выбранному во вкладках.</p>
       </div>
       <div id="summary" class="summary"></div>
       <div id="depthSummary" class="summary depth" hidden></div>
@@ -91,6 +92,9 @@
       <h3 class="pane-title">Слои карты</h3>
       <div id="layers" class="layers"></div>
       <label class="check basemap-row"><input type="checkbox" id="basemap" checked> <span>Подложка OpenStreetMap <span class="muted">(нужен интернет)</span></span></label>
+      <label class="row" id="colorModeRow" hidden><span>Цвет новой сети</span>
+        <select id="colorMode"><option value="default">по умолчанию</option><option value="depth">по глубине</option></select></label>
+      <div id="depthLegend" class="depthLegend" hidden></div>
     </section>
 
     <!-- collapsed by default -->
@@ -120,6 +124,7 @@
       <summary><span class="h">Технические детали</span><span class="line">валидатор · варианты · метрики · журнал</span></summary>
       <div id="techJob" class="notes"></div>
       <div id="validation" class="validation"></div>
+      <div id="comparison" class="comparison"></div>
       <div id="techPerf" class="notes"></div>
       <div class="actions"><a id="downloadReport" class="button secondary small" target="_blank" rel="noopener">Отчёт JSON</a><a id="downloadCsv" class="button secondary small" download>CSV</a></div>
       <details class="sub"><summary>Журнал решений (сырые события)</summary><div id="explain" class="explain"></div></details>
@@ -134,6 +139,6 @@
 </main>
 <script src="/webjars/leaflet/1.9.4/dist/leaflet.js"></script>
 <script src="/upload.js?v=1"></script>
-<script src="/app.js?v=17"></script>
+<script src="/app.js?v=18"></script>
 </body>
 </html>

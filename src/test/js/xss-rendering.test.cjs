@@ -30,7 +30,7 @@ function app() {
     setTimeout() { return {}; }, clearTimeout() {},
     async fetch() { return { ok: true, status: 200, json: async () => [] }; },
   };
-  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {setVariantVisible, renderBadge, showFeature, renderSummary, renderExplainSummary, overlayKpis, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;indexResultGeometry(r);}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
+  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {setVariantVisible, showVariant, renderBadge, showFeature, renderSummary, renderExplainSummary, overlayKpis, renderComparison, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;indexResultGeometry(r);}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
   return { audit: context.audit, popups, tooltips, elements, listeners, tiles, prefix: () => prefix, uploadProgress: (p) => uploadProgress(p) };
 }
 
@@ -53,6 +53,7 @@ test('summary, variants and validation never interpolate raw API text', () => {
   safe(ui.elements.get('summary').innerHTML); safe(ui.elements.get('unconnected').innerHTML);
   ui.audit.setResult({variants:[{variantId:payload,strategy:payload}, {variantId:'v2'}],validation:{issues:[{severity:payload,code:payload,message:payload}]}});
   ui.audit.overlayKpis([{variantId:payload,rank:1}]); safe(ui.elements.get('overlayKpis').innerHTML);
+  ui.audit.renderComparison(payload); safe(ui.elements.get('comparison').innerHTML);
   ui.audit.renderValidation(payload); safe(ui.elements.get('validation').innerHTML);
 });
 test('GeoJSON popup IDs, names and properties stay escaped', () => {
