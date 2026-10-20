@@ -13,7 +13,7 @@ import java.util.function.BiFunction;
 final class ParallelStrategies implements AutoCloseable {
     private final ExecutorService executor = Executors.newFixedThreadPool(2, r -> new Thread(r, "heatnet-strategy"));
     private final List<Future<Outcome>> pending = new ArrayList<>();
-    private final SolverContext base;
+    private SolverContext base;
     private final ComputeCancellation cancellation;
     private final BiFunction<SolverContext, Strategy, VariantResult> runner;
     private final List<Strategy> strategies;
@@ -22,10 +22,19 @@ final class ParallelStrategies implements AutoCloseable {
     private ParallelMemoryGuard memory;
 
     static final class Outcome {
+        enum State { SUCCESS, RESOURCE_LIMIT, FAILED, CANCELLED }
+        State state;
         VariantResult result;
         RuntimeException failure;
         Map<String,Object> metrics;
         VariantResult get() { if (failure != null) throw failure; return result; }
+        void classify() {
+            state = failure instanceof CancellationException ? State.CANCELLED
+                    : failure instanceof ComplexityLimitException || failure instanceof ParallelMemoryGuard.Pressure
+                    || result != null && (result.unconnected().values().stream().anyMatch(r->r.startsWith("COMPLEXITY_LIMIT"))
+                    || result.notes().stream().anyMatch(r->r.startsWith("COMPLEXITY_LIMIT")))
+                    ? State.RESOURCE_LIMIT : failure != null ? State.FAILED : State.SUCCESS;
+        }
     }
 
     ParallelStrategies(SolverContext base, List<Strategy> strategies, BiFunction<SolverContext,Strategy,VariantResult> runner) {
@@ -44,9 +53,9 @@ final class ParallelStrategies implements AutoCloseable {
     ParallelStrategies withMemoryGuard(ParallelMemoryGuard guard) { memory=guard;return this; }
 
     List<Outcome> run() {
-        long start=System.nanoTime();warm(base.input());base.separateDistances();
-        preparationMs=(System.nanoTime()-start)/1_000_000;
-        if(memory!=null)memory.admit(base);
+        long start=System.nanoTime();
+        try {warm(base.input());base.separateDistances();if(memory!=null)memory.admit(base);}
+        finally {preparationMs=(System.nanoTime()-start)/1_000_000;}
         // Start the historically longest independent strategy first; output order never follows completion.
         // Only two tasks can own contexts. Queued tasks capture no graph; each worker releases its graph
         // before accepting the next task. The order is fixed, never selected using measured job timings.
@@ -58,23 +67,27 @@ final class ParallelStrategies implements AutoCloseable {
             Strategy strategy=strategies.get(ordinal);
             pending.set(ordinal,executor.submit(()->{
                 SolverContext local=null;
+                Outcome out=new Outcome();
+                long taskStart=System.nanoTime();
                 if(memory!=null)memory.started();
                 try(ComputeCancellation.Scope ignored=cancellation.bind()) {
-                    cancellation.check();local=base.experimentalFork();
-                    Outcome out=new Outcome();
-                    try {out.result=runner.apply(local,strategy);}
+                    try {
+                        cancellation.check();local=base.experimentalFork();
+                        out.result=runner.apply(local,strategy);
+                    }
                     catch(CancellationException ex) {throw ex;}
                     catch(RuntimeException ex) {out.failure=ex;}
-                    out.metrics=local.graphStats();return out;
+                    out.classify();
+                    out.metrics=local==null?new LinkedHashMap<>():local.graphStats();
+                    out.metrics.put("strategy",strategy.name());out.metrics.put("state",out.state.name());
+                    out.metrics.put("wall_time_ms",(System.nanoTime()-taskStart)/1_000_000);
+                    if(out.failure!=null)out.metrics.put("failure",out.failure.getMessage());
+                    return out;
                 } finally {if(local!=null)local.releaseExperimentalResources();if(memory!=null)memory.finished();}
             }));
         }
         for(Future<Outcome> future:pending) outcomes.add(await(future));
         return outcomes;
-    }
-    boolean needsRecovery() {
-        return outcomes.stream().anyMatch(o->o.failure instanceof ComplexityLimitException
-                || o.result!=null && o.result.unconnected().values().stream().anyMatch(u->u.startsWith("COMPLEXITY_LIMIT")));
     }
     private Outcome await(Future<Outcome> future) {
         try { return future.get(); }
@@ -93,7 +106,7 @@ final class ParallelStrategies implements AutoCloseable {
         if(interrupted||cancellation.isCancelled())cancel();
         while(!executor.isTerminated())try {executor.awaitTermination(100,TimeUnit.MILLISECONDS);}
         catch(InterruptedException ex){interrupted=true;cancel();}
-        pending.clear();if(interrupted)Thread.currentThread().interrupt();
+        pending.clear();base=null;if(interrupted)Thread.currentThread().interrupt();
     }
     private static void warm(InputModel m) {
         m.inputIds();m.sources().forEach(x->warmGeometry(x.geometry()));m.chambers().forEach(x->warmGeometry(x.geometry()));

@@ -94,4 +94,16 @@ class ParallelMemoryGuardTest {
         assertEquals(0,cfg.cancellation.estimatedGraphBytes());
         base.releaseExperimentalResources();
     }
+    @Test void recoveryWaitsBrieflyForMeasuredReclamationRatherThanAssumingReferencesAreMemory()throws Exception {
+        var cfg=SolverConfig.defaults();var heap=new AtomicLong(ParallelMemoryGuard.criticalHeap(cfg)+1);
+        try(var guard=new ParallelMemoryGuard(new SyntheticInput().build(),cfg,heap::get,()->-1,false)){
+            guard.sample();
+            Thread reclaim=new Thread(()->{try{Thread.sleep(60);}catch(InterruptedException ex){throw new AssertionError(ex);}heap.set(64L<<20);});
+            reclaim.start();
+            try {guard.prepareFallback();cfg.cancellation.check();assertFalse(guard.pressured());}
+            finally {reclaim.join();}
+            var events=(List<?>)guard.metrics().get("decisions");
+            assertEquals("RECOVERY_ADMIT",((Map<?,?>)events.get(events.size()-1)).get("decision"));
+        }
+    }
 }

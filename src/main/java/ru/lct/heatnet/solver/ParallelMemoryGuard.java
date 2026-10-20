@@ -101,15 +101,29 @@ final class ParallelMemoryGuard implements AutoCloseable {
     void started() {peakActive.accumulateAndGet(active.incrementAndGet(),Math::max);}
     void finished() {active.decrementAndGet();}
     boolean pressured() {return pressure!=null;}
-    /** Called only after executor join and release of the discarded base. No forced GC or waiting for free heap. */
+    /** Called only after executor join and release of the discarded base. Bounded re-admission, no forced GC. */
     synchronized void prepareFallback() {
         if(active.get()!=0)throw new IllegalStateException("Fallback before worker termination");
         // This entire attempt is discarded, including graphs whose constructors failed.
         cfg.cancellation.trackMemory(false);cfg.cancellation.trackMemory(true);
-        if(pressure!=null) {
+        // Re-sample even after a soft admission refusal. Give natural GC a bounded opportunity to
+        // reclaim discarded overlays, without forcing GC or equating dropped references with free memory.
+        long deadline=System.nanoTime()+java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(250);
+        for (;;) {
+            if(Thread.currentThread().isInterrupted()||cfg.cancellation.isCancelled()) {
+                cfg.cancellation.cancel();cfg.cancellation.check();
+            }
             pressure=null;cfg.cancellation.clearResourceStop();sample();
-            if(pressure!=null)throw pressure; // Still unsafe: controlled failure, never a second OOM-prone calculation.
+            if(pressure==null||System.nanoTime()>=deadline)break;
+            try {Thread.sleep(25);} catch(InterruptedException ex) {
+                Thread.currentThread().interrupt();cfg.cancellation.cancel();cfg.cancellation.check();
+            }
         }
+        Map<String,Object> event=new LinkedHashMap<>();
+        event.put("decision",pressure==null?"RECOVERY_ADMIT":"RECOVERY_DENIED");
+        event.put("heap_bytes",heap.getAsLong());event.put("rss_bytes",rss.getAsLong());
+        event.put("active_strategies",active.get());decisions.add(event);
+        if(pressure!=null)throw pressure;
     }
     Map<String,Object> metrics() {
         Map<String,Object> m=new LinkedHashMap<>();

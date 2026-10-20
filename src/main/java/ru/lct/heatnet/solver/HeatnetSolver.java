@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,16 +95,19 @@ public final class HeatnetSolver {
         SolverContext ctx = new SolverContext(input, config, validator == null);
         List<ParallelStrategies.Outcome> parallelOutcomes = null;
         List<Map<String,Object>> strategyMetrics = new ArrayList<>();
+        List<Map<String,Object>> recoveryStrategyMetrics = new ArrayList<>();
+        Map<String,Object> discardedPreparation = null;
+        int recoveredStrategies = 0;
+        long recoveryMs = 0;
         String parallelFallback = null;
         long parallelPreparationMs = 0;
         if (config.executionMode == SolverConfig.ExecutionMode.PARALLEL_2) {
             {
                 try (ParallelStrategies execution = new ParallelStrategies(ctx,strategies,strategyRunner).withMemoryGuard(memory)) {
-                    parallelOutcomes=execution.run();
-                    parallelPreparationMs=execution.preparationMs;
+                    try {parallelOutcomes=execution.run();}
+                    finally {parallelPreparationMs=execution.preparationMs;}
                     for (ParallelStrategies.Outcome outcome:parallelOutcomes) strategyMetrics.add(outcome.metrics);
                     if(memory.pressured())parallelFallback="MEMORY_PRESSURE";
-                    else if(execution.needsRecovery()) parallelFallback="LOCAL_COMPLEXITY_LIMIT";
                 } catch (ParallelMemoryGuard.Admission ex) {
                     parallelFallback="MEMORY_ADMISSION";
                 } catch (ParallelMemoryGuard.Pressure ex) {
@@ -118,10 +122,12 @@ public final class HeatnetSolver {
                 }
             }
             if(memory.pressured())parallelFallback="MEMORY_PRESSURE";
-            if(parallelFallback!=null) {
-                // Workers have really exited. Discard overlays and use the original cumulative policy once.
-                parallelOutcomes=null;
+            // A deterministic construction limit is already memoized by resource key; keep that memo.
+            if(parallelFallback!=null && !"SHARED_PREPARATION_LIMIT".equals(parallelFallback)) {
+                // Workers have really exited. Keep completed outcomes; only interrupted work needs recovery.
+                discardedPreparation = ctx.graphStats();
                 ctx.releaseExperimentalResources();
+                ctx = null; // Drop the old index/cache owner before measuring recovery admission.
                 memory.prepareFallback();
                 ctx=new SolverContext(input,config,validator==null);
             }
@@ -136,9 +142,29 @@ public final class HeatnetSolver {
             config.cancellation.check();
             if (progress != null) progress.accept("strategy " + s.name());
             try {
-                VariantResult vr = parallelOutcomes == null ? strategyRunner.apply(ctx, s) : parallelOutcomes.get(strategyOrdinal).get();
-                if (vr != null) { vr.setDepthMode(config.depthMode); vr.reserveInputIds(input.inputIds()); candidates.add(vr); }
-            } catch (java.util.concurrent.CancellationException ex) { throw ex; } catch (RuntimeException ex) {
+                ParallelStrategies.Outcome outcome = parallelOutcomes == null ? null : parallelOutcomes.get(strategyOrdinal);
+                boolean retry = outcome != null && outcome.failure instanceof ParallelMemoryGuard.Pressure;
+                long recoveryStart = System.nanoTime();
+                VariantResult vr;
+                try {
+                    // Repeating a deterministic local limit with the same budget has no benefit.
+                    // Pressure recovery is different: worker overlays are gone and a fresh sample admitted it.
+                    vr = retry ? recoverStrategy(ctx,s,memory,recoveryStrategyMetrics)
+                            : outcome == null ? strategyRunner.apply(ctx, s) : outcome.get();
+                } finally {
+                    if (parallelFallback != null && (outcome == null || retry)) {
+                        recoveredStrategies++;
+                        recoveryMs += (System.nanoTime()-recoveryStart)/1_000_000;
+                    }
+                }
+                if (vr != null) {
+                    vr.setDepthMode(config.depthMode); vr.reserveInputIds(input.inputIds()); candidates.add(vr);
+                    if (vr.unconnected().values().stream().anyMatch(r->r.startsWith("COMPLEXITY_LIMIT"))
+                            || vr.notes().stream().anyMatch(r->r.startsWith("COMPLEXITY_LIMIT")))
+                        diag.warn("COMPLEXITY_LIMIT", "Strategy " + s.name() + " retained its committed network with "
+                                + vr.connectedCount() + " connected consumers after a resource limit; mandatory validation follows");
+                }
+            } catch (java.util.concurrent.CancellationException | ParallelMemoryGuard.Pressure ex) { throw ex; } catch (RuntimeException ex) {
                 log.warn("strategy {} failed: {}", s, ex.toString(), ex);
                 // A failed computation is not evidence that consumers have no geometric path.
                 String code = ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT"
@@ -173,7 +199,7 @@ public final class HeatnetSolver {
                         if (retryErrors.isEmpty()) { checked.add(retry);diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
                         errors=retryErrors;
                     }
-                } catch (java.util.concurrent.CancellationException ex) { throw ex; } catch (RuntimeException ex) {
+                } catch (java.util.concurrent.CancellationException | ParallelMemoryGuard.Pressure ex) { throw ex; } catch (RuntimeException ex) {
                     String code=ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT" : "INTERNAL_ERROR";
                     diag.error(code,"Exact-clearance retry for " + vr.strategy() + " failed: " + ex.getMessage());
                 }
@@ -208,11 +234,17 @@ public final class HeatnetSolver {
         diag.info("SOLVE_SUMMARY", "variants=" + valid.size() + " of " + candidates.size() + " candidates in " + ms + " ms");
         java.util.Map<String, Object> metrics = new java.util.LinkedHashMap<>(ctx.graphStats());
         if(config.executionMode==SolverConfig.ExecutionMode.PARALLEL_2) {
+            List<Map<String,Object>> attempts = new ArrayList<>(strategyMetrics);
+            attempts.addAll(recoveryStrategyMetrics);
+            metrics = ParallelMetrics.aggregate(metrics, discardedPreparation, attempts);
             metrics.put("parallel_strategy_metrics",strategyMetrics);
+            metrics.put("recovery_strategy_metrics",recoveryStrategyMetrics);
             metrics.put("parallel_preparation_ms",parallelPreparationMs);
             metrics.put("parallel_fallback",parallelFallback==null ? "NONE" : parallelFallback);
             metrics.put("parallel_working_set_estimate_bytes",ParallelStrategies.workingSetEstimate(input,config));
             metrics.put("parallel_memory_guard",memory.metrics());
+            metrics.put("recovery_strategies",recoveredStrategies);
+            metrics.put("recovery_time_ms",recoveryMs);
         }
         metrics.put("variants_evaluated", candidates.size());
         metrics.put("strategies", strategies.size());
@@ -227,10 +259,36 @@ public final class HeatnetSolver {
         }
     }
 
+    /** Recovery remains sequential, but interrupted strategies keep independent allowances over a fresh base. */
+    private VariantResult recoverStrategy(SolverContext base, Strategy strategy, ParallelMemoryGuard memory,
+                                          List<Map<String,Object>> metrics) {
+        SolverContext local = null;
+        ParallelStrategies.Outcome attempt = new ParallelStrategies.Outcome();
+        long start = System.nanoTime();
+        memory.started();
+        try {
+            local = base.experimentalFork();
+            attempt.result = strategyRunner.apply(local,strategy);
+            return attempt.result;
+        } catch (RuntimeException ex) {
+            attempt.failure = ex;
+            throw ex;
+        } finally {
+            attempt.classify();
+            Map<String,Object> detail = local == null ? new LinkedHashMap<>() : local.graphStats();
+            detail.put("strategy",strategy.name()); detail.put("state",attempt.state.name());
+            detail.put("wall_time_ms",(System.nanoTime()-start)/1_000_000);
+            if (attempt.failure != null) detail.put("failure",attempt.failure.getMessage());
+            metrics.add(detail);
+            if (local != null) local.releaseExperimentalResources();
+            memory.finished();
+        }
+    }
+
     private List<ValidationIssue> validateCandidate(VariantResult candidate, Diagnostics diag) {
         if (validator == null) return Collections.emptyList();
         try { return validator.validateIssues(candidate).stream().filter(i -> i.getSeverity() == ValidationIssue.Severity.ERROR).collect(java.util.stream.Collectors.toList()); }
-        catch (java.util.concurrent.CancellationException ex) { throw ex; } catch (RuntimeException ex) {
+        catch (java.util.concurrent.CancellationException | ParallelMemoryGuard.Pressure ex) { throw ex; } catch (RuntimeException ex) {
             String code = ex instanceof ru.lct.heatnet.routing.ComplexityLimitException ? "COMPLEXITY_LIMIT"
                     : ex instanceof ru.lct.heatnet.geo.GeometryProcessingException || ex instanceof org.locationtech.jts.geom.TopologyException
                     ? "INTERNAL_GEOMETRY_PROCESSING_FAILURE" : "INTERNAL_ERROR";

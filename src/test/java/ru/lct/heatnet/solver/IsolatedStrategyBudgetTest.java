@@ -23,8 +23,7 @@ class IsolatedStrategyBudgetTest extends ParallelStrategyStateTest {
             x.get();y.get();assertEquals(prepared,original.visibilityCheckCount());assertEquals(cap,a.visibilityCheckCount());assertEquals(cap,b.visibilityCheckCount());
         }finally{pool.shutdownNow();assertTrue(pool.awaitTermination(2,TimeUnit.SECONDS));}
     }
-    @Test void localFailureReplaysOnceAfterWorkersExitAndRecoversOriginalOutput()throws Exception {
-        var expectedInput=scene();var expected=new HeatnetSolver(SolverConfig.defaults(),new SolverVariantValidator(expectedInput)).solve(expectedInput);
+    @Test void deterministicLocalFailuresAreNotRepeatedWithTheSameLimits()throws Exception {
         var cfg=smallConfig();var model=scene();var control=new HeatnetSolver(cfg,new SolverVariantValidator(model));
         var parallelCalls=new AtomicInteger();var sequentialCalls=new AtomicInteger();var active=new AtomicInteger();
         var result=new HeatnetSolver(cfg,new SolverVariantValidator(model),(ctx,s)->{
@@ -35,8 +34,11 @@ class IsolatedStrategyBudgetTest extends ParallelStrategyStateTest {
             assertEquals(0,active.get());assertTrue(Thread.getAllStackTraces().keySet().stream().noneMatch(t->t.isAlive()&&t.getName().equals("heatnet-strategy")));
             sequentialCalls.incrementAndGet();return StrategyTestSupport.build(control,ctx,s);
         },StrategyTestSupport::controlledMemory).solve(model);
-        assertEquals(5,parallelCalls.get(),result.metrics().toString());assertEquals(5,sequentialCalls.get());assertEquals("LOCAL_COMPLEXITY_LIMIT",result.metrics().get("parallel_fallback"));
-        assertEquals(geo(expected),geo(result));
+        assertEquals(5,parallelCalls.get(),result.metrics().toString());assertEquals(0,sequentialCalls.get());
+        assertEquals("NONE",result.metrics().get("parallel_fallback"));
+        assertTrue(result.variants().isEmpty());
+        assertEquals(5,result.diagnostics().errors().stream().filter(d->d.getCode().equals("COMPLEXITY_LIMIT")).count());
+        assertTrue(Thread.getAllStackTraces().keySet().stream().noneMatch(t->t.isAlive()&&t.getName().equals("heatnet-strategy")));
     }
     @Test void memoryGuardChoosesOriginalPathBeforeLaunchingWorkers()throws Exception {
         var cfg=smallConfig();cfg.parallelWorkingSetBytes=1;var input=scene();var control=new HeatnetSolver(cfg,new SolverVariantValidator(input));

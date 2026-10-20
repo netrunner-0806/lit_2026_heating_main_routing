@@ -50,6 +50,7 @@ public final class ForestBuilder {
     private final Strategy strategy;
     private final Map<JsonId, ClearanceClass> classFloor;
     private final SolverConfig cfg;
+    private final Runnable beforeAttachment;
 
     private NewNetwork net = new NewNetwork();
     private DynamicObstacles dyn;
@@ -80,6 +81,12 @@ public final class ForestBuilder {
     }
 
     public ForestBuilder(SolverContext ctx, Strategy strategy, Map<JsonId, ClearanceClass> classFloor) {
+        this(ctx, strategy, classFloor, null);
+    }
+
+    /** Test seam for deterministic exhaustion at a committed attachment boundary. */
+    ForestBuilder(SolverContext ctx, Strategy strategy, Map<JsonId, ClearanceClass> classFloor, Runnable beforeAttachment) {
+        this.beforeAttachment = beforeAttachment;
         this.ctx = ctx;
         this.strategy = strategy;
         this.classFloor = classFloor == null ? Collections.emptyMap() : classFloor;
@@ -113,8 +120,29 @@ public final class ForestBuilder {
             }
         }
         List<ConnectionPoint> order = order();
-        for (ConnectionPoint cp : order) attach(cp);
-        if (strategy.improve() && cfg.improve) improve(order);
+        boolean resourceLimited = false;
+        for (int i = 0; i < order.size(); i++) {
+            // tryAttach evaluates a private network; this reference is already a committed checkpoint.
+            NewNetwork committed = net;
+            CalculationTrace.Checkpoint traceBefore = trace.checkpoint();
+            java.util.Set<String> notesBefore = new java.util.LinkedHashSet<>(notes);
+            try { attach(order.get(i)); }
+            catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {
+                if (committed.connectionNodes().isEmpty()) throw ex;
+                net = committed;
+                trace.rollback(traceBefore); notes.clear(); notes.addAll(notesBefore);
+                for (ConnectionPoint pending : order.subList(i, order.size())) {
+                    unconnected.put(pending, ex.getMessage());
+                    trace.add("ROUTE_REJECTED", pending.id().text(), "unconnected", ex.getMessage(), null, null);
+                }
+                notes.add(ex.getMessage()); resourceLimited = true;
+                break;
+            }
+        }
+        if (!resourceLimited && strategy.improve() && cfg.improve) {
+            try { improve(order); }
+            catch (ru.lct.heatnet.routing.ComplexityLimitException ex) { notes.add(ex.getMessage()); }
+        }
         List<Double> penalties = new ArrayList<>();
         for (ConnectionPoint cp : unconnected.keySet()) penalties.add(cp.flowTph());
         ctx.countHydraulics();
@@ -176,6 +204,7 @@ public final class ForestBuilder {
     private boolean attach(ConnectionPoint cp) { return attach(cp, true); }
 
     private boolean attach(ConnectionPoint cp, boolean allowAdaptive) {
+        if (beforeAttachment != null) beforeAttachment.run();
         rejectionCounts.clear();
         attemptedClassUpgrades.clear();
         checkingAdaptiveCandidate = adaptivelyConnected.contains(cp.id());
@@ -896,20 +925,26 @@ public final class ForestBuilder {
             CalculationTrace.Checkpoint traceBefore = trace.checkpoint();
             java.util.Set<String> notesBefore = new java.util.LinkedHashSet<>(notes);
             double before = CostCalculator.summarize(net, Collections.emptyList()).score();
-            net.removeLeaf(leaf);
-            rebuildDynamic();
-            // A valid previous route already exists here; retain it if ordinary improvement cannot reattach.
-            boolean ok = attach(cp, false);
-            double after = ok ? CostCalculator.summarize(net, Collections.emptyList()).score() : Double.POSITIVE_INFINITY;
-            if (!ok || after >= before - 1e-9) {
-                net = backup;
-                trace.rollback(traceBefore);
-                notes.clear(); notes.addAll(notesBefore);
-                unconnected.remove(cp);
+            boolean accepted = false;
+            try {
+                net.removeLeaf(leaf);
                 rebuildDynamic();
-            } else {
-                improved = true;
-                log.info("  improvement: {} re-attached, score {} -> {}", cp.id(), String.format(java.util.Locale.ROOT, "%.4f", before), String.format(java.util.Locale.ROOT, "%.4f", after));
+                // A valid previous route already exists here; retain it if ordinary improvement cannot reattach.
+                boolean ok = attach(cp, false);
+                double after = ok ? CostCalculator.summarize(net, Collections.emptyList()).score() : Double.POSITIVE_INFINITY;
+                if (ok && after < before - 1e-9) {
+                    accepted = true;
+                    improved = true;
+                    log.info("  improvement: {} re-attached, score {} -> {}", cp.id(), String.format(java.util.Locale.ROOT, "%.4f", before), String.format(java.util.Locale.ROOT, "%.4f", after));
+                }
+            } finally {
+                if (!accepted) {
+                    net = backup;
+                    trace.rollback(traceBefore);
+                    notes.clear(); notes.addAll(notesBefore);
+                    unconnected.remove(cp);
+                    rebuildDynamic();
+                }
             }
         }
         return improved;

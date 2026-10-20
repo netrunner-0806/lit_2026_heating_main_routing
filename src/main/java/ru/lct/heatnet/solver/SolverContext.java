@@ -80,6 +80,7 @@ public final class SolverContext {
                 for(Approach a:values){Approach copy=new Approach(a.cp(),a.ownPolygon(),a.boundaryPoint(),a.freePoint(),a.finalSegment(),a.nearestBoundary());copy.setVertex(a.vertex());copies.add(copy);}
                 approaches.put(id,copies);
             });
+            inheritedVisibilityChecks += source.graph.visibilityCheckCount();
             } catch(RuntimeException|Error failure) {graph.releaseMemoryTracking();throw failure;}
         }
 
@@ -184,6 +185,8 @@ public final class SolverContext {
     private int fallbackActivations;
     private int regionExpansions;
     private long hydraulicRecomputations, topologyCopies;
+    private long inheritedVisibilityChecks;
+    private boolean graphMetricsComplete = true;
     public void countHydraulics() { hydraulicRecomputations++; }
     public void countTopologyCopy() { topologyCopies++; }
 
@@ -217,6 +220,9 @@ public final class SolverContext {
         m.put("candidate_pairs_examined", resources.values().stream().mapToLong(r -> r.graph.pairCandidateCount()).sum());
         m.put("certified_interior_rejections", resources.values().stream().mapToLong(r -> r.graph.interiorRejectionCount()).sum());
         m.put("visibility_checks", resources.values().stream().mapToLong(r -> r.graph.visibilityCheckCount()).sum());
+        m.put("inherited_visibility_checks", inheritedVisibilityChecks);
+        // A constructor can fail before its graph becomes available for inspection.
+        m.put("operation_counts_complete", graphMetricsComplete);
         m.put("restriction_check_buffers", resources.values().stream().mapToLong(r -> r.space.preparedObjectCount()).sum());
         m.put("tie_in_candidates", tieIns);
         m.put("candidate_hydraulic_recomputations", hydraulicRecomputations);
@@ -285,8 +291,10 @@ public final class SolverContext {
             ClassResources built = experimentalBase==null ? new ClassResources(cls) : new ClassResources(experimentalBase.resources(cls));
             resources.put(cls, built);
             return built;
-        } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {
-            resourceFailures.put(key, ex);
+        } catch (RuntimeException ex) {
+            graphMetricsComplete = false;
+            if (ex instanceof ru.lct.heatnet.routing.ComplexityLimitException)
+                resourceFailures.put(key, (ru.lct.heatnet.routing.ComplexityLimitException) ex);
             throw ex;
         }
     }
