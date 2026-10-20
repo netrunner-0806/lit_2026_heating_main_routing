@@ -87,6 +87,14 @@ public final class HeatnetSolver {
 
     public SolveResult solve(InputModel input, List<Strategy> strategies, java.util.function.Consumer<String> progress) {
         config.resolveExecutionBudget();
+        SolverProgress observation = new SolverProgress(config, strategies, progress);
+        java.util.function.BiFunction<SolverContext, Strategy, VariantResult> observedRunner = (context, strategy) -> {
+            observation.start(strategy);
+            VariantResult value = null;
+            try { value = strategyRunner.apply(context, strategy); return value; }
+            finally { observation.finish(strategy, value != null); }
+        };
+        observation.phase("Building routing graph");
         try (ru.lct.heatnet.routing.ComputeCancellation.Scope scope=config.cancellation.bind();
              ParallelMemoryGuard memory=config.executionMode==SolverConfig.ExecutionMode.PARALLEL_2?memoryGuardFactory.apply(input,config):null) {
         config.cancellation.check();
@@ -103,7 +111,7 @@ public final class HeatnetSolver {
         long parallelPreparationMs = 0;
         if (config.executionMode == SolverConfig.ExecutionMode.PARALLEL_2) {
             {
-                try (ParallelStrategies execution = new ParallelStrategies(ctx,strategies,strategyRunner).withMemoryGuard(memory)) {
+                try (ParallelStrategies execution = new ParallelStrategies(ctx,strategies,observedRunner).withMemoryGuard(memory)) {
                     try {parallelOutcomes=execution.run();}
                     finally {parallelPreparationMs=execution.preparationMs;}
                     for (ParallelStrategies.Outcome outcome:parallelOutcomes) strategyMetrics.add(outcome.metrics);
@@ -122,6 +130,7 @@ public final class HeatnetSolver {
                 }
             }
             if(memory.pressured())parallelFallback="MEMORY_PRESSURE";
+            if (parallelFallback != null) observation.recovery();
             // A deterministic construction limit is already memoized by resource key; keep that memo.
             if(parallelFallback!=null && !"SHARED_PREPARATION_LIMIT".equals(parallelFallback)) {
                 // Workers have really exited. Keep completed outcomes; only interrupted work needs recovery.
@@ -140,7 +149,6 @@ public final class HeatnetSolver {
         List<VariantResult> candidates = new ArrayList<>();
         for (Strategy s : strategies) {
             config.cancellation.check();
-            if (progress != null) progress.accept("strategy " + s.name());
             try {
                 ParallelStrategies.Outcome outcome = parallelOutcomes == null ? null : parallelOutcomes.get(strategyOrdinal);
                 boolean retry = outcome != null && outcome.failure instanceof ParallelMemoryGuard.Pressure;
@@ -149,8 +157,8 @@ public final class HeatnetSolver {
                 try {
                     // Repeating a deterministic local limit with the same budget has no benefit.
                     // Pressure recovery is different: worker overlays are gone and a fresh sample admitted it.
-                    vr = retry ? recoverStrategy(ctx,s,memory,recoveryStrategyMetrics)
-                            : outcome == null ? strategyRunner.apply(ctx, s) : outcome.get();
+                    vr = retry ? recoverStrategy(ctx,s,memory,recoveryStrategyMetrics,observedRunner)
+                            : outcome == null ? observedRunner.apply(ctx, s) : outcome.get();
                 } finally {
                     if (parallelFallback != null && (outcome == null || retry)) {
                         recoveredStrategies++;
@@ -177,6 +185,7 @@ public final class HeatnetSolver {
             }
             finally { strategyOrdinal++; }
         }
+        observation.phase("Validating and ranking");
         // validate, dedupe, rank
         List<VariantResult> valid = new ArrayList<>();
         List<VariantResult> checked = new ArrayList<>();
@@ -192,11 +201,12 @@ public final class HeatnetSolver {
                 try {
                     ctx.requireExactClearance();
                     Strategy strategy = strategies.stream().filter(s -> s.name().equals(vr.strategy())).findFirst().orElseThrow();
-                    VariantResult retry = strategyRunner.apply(ctx,strategy);
+                    VariantResult retry = observedRunner.apply(ctx,strategy);
+                    observation.phase("Validating and ranking");
                     if (retry != null) {
                         retry.reserveInputIds(input.inputIds());retry.setDepthMode(config.depthMode);retry.setVariantId(vr.variantId());retry.setRank(0);
                         List<ValidationIssue> retryErrors = validateCandidate(retry, diag);
-                        if (retryErrors.isEmpty()) { checked.add(retry);diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
+                        if (retryErrors.isEmpty()) { checked.add(retry);observation.validated(checked.size());diag.info("EXACT_CLEARANCE_RETRY", "Strategy " + strategy.name() + " rebuilt after actual-DU clearance rejection");continue; }
                         errors=retryErrors;
                     }
                 } catch (java.util.concurrent.CancellationException | ParallelMemoryGuard.Pressure ex) { throw ex; } catch (RuntimeException ex) {
@@ -210,6 +220,7 @@ public final class HeatnetSolver {
                 continue;
             }
             checked.add(vr);
+            observation.validated(checked.size());
         }
         checked.sort(Comparator.comparingDouble(v -> v.summary().score()));
         for (VariantResult vr : checked) {
@@ -261,14 +272,14 @@ public final class HeatnetSolver {
 
     /** Recovery remains sequential, but interrupted strategies keep independent allowances over a fresh base. */
     private VariantResult recoverStrategy(SolverContext base, Strategy strategy, ParallelMemoryGuard memory,
-                                          List<Map<String,Object>> metrics) {
+                                          List<Map<String,Object>> metrics, java.util.function.BiFunction<SolverContext,Strategy,VariantResult> observedRunner) {
         SolverContext local = null;
         ParallelStrategies.Outcome attempt = new ParallelStrategies.Outcome();
         long start = System.nanoTime();
         memory.started();
         try {
             local = base.experimentalFork();
-            attempt.result = strategyRunner.apply(local,strategy);
+            attempt.result = observedRunner.apply(local,strategy);
             return attempt.result;
         } catch (RuntimeException ex) {
             attempt.failure = ex;

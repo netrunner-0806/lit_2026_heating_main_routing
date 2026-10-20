@@ -30,7 +30,7 @@ function app() {
     setTimeout() { return {}; }, clearTimeout() {},
     async fetch() { return { ok: true, status: 200, json: async () => [] }; },
   };
-  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {showVariant, renderBadge, showFeature, renderSummary, renderExplainSummary, renderComparison, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
+  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {showVariant, renderBadge, showFeature, renderSummary, renderExplainSummary, renderComparison, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;indexResultGeometry(r);}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
   return { audit: context.audit, popups, tooltips, elements, listeners, tiles, prefix: () => prefix, uploadProgress: (p) => uploadProgress(p) };
 }
 

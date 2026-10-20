@@ -60,6 +60,7 @@ public class JobRunner {
         JobEntity e = opt.get();
         long t0 = System.currentTimeMillis();
         try {
+            progress(e, "Reading and validating input");
             ParseOptions options = new ParseOptions(ParseOptions.UnknownRestrictionPolicy.valueOf(e.getUnknownRestrictionPolicy()));
             InputModel input = new GeoJsonStreamReader(options).read(Paths.get(e.getInputPath()));
             e.setFeatureCount(input.featureCount());
@@ -79,7 +80,7 @@ public class JobRunner {
             cfg.executionMode = props.getSolverExecutionMode();
             log.info("Job {} solver execution mode: {}", id, cfg.executionMode);
             HeatnetSolver solver = new HeatnetSolver(cfg, new SolverVariantValidator(input));
-            SolveResult result = solver.solve(input, HeatnetSolver.defaultStrategies(), msg -> progress(e, (depth ? "Generating variants, flows, DU and depth profiles: " : "Generating variants, flows and DU: ") + msg));
+            SolveResult result = solver.solve(input, HeatnetSolver.defaultStrategies(), msg -> progress(e, msg));
             progress(e, "Validating");
             long tv = System.currentTimeMillis();
             List<OutputFeature> features = new ArrayList<>();
@@ -97,6 +98,7 @@ public class JobRunner {
                 fail(e, "Final validation failed; no result published", result.diagnostics(), t0);
                 return;
             }
+            progress(e, "Writing validated result");
             Path out = Paths.get(e.getInputPath()).resolveSibling("result.geojson");
             new GeoJsonResultWriter().write(out, features);
             e.setResultPath(out.toString());
@@ -124,7 +126,7 @@ public class JobRunner {
             fail(e, ex.getMessage(), diag, t0);
         } catch (Exception ex) {
             log.error("job {} failed", id, ex);
-            fail(e, "Processing failed: " + ex, null, t0);
+            fail(e, "Расчёт прерван или завершился внутренней ошибкой. Подробности сохранены в журнале сервера.", null, t0);
         }
     }
 

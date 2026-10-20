@@ -59,16 +59,40 @@
     ];
     // collapsed on narrow windows so that it does not cover the map; one click opens it
     const wide = typeof window === 'undefined' || !window.innerWidth || window.innerWidth > 820;
-    div.innerHTML = `<details${wide ? ' open' : ''}><summary>Легенда</summary>` + '<div class="rows">' + rows.map((r) => r[2] === 'special' ? `<label class="plain">${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}">${r[1]}</label>`).join('') + '</div></details>';
+    div.innerHTML = `<details${wide ? ' open' : ''}><summary>Легенда</summary>` + '<div class="rows">' + rows.map((r) => r[2] === 'special' ? `<label class="plain" data-single-network-legend>${r[1]}</label>` : `<label><input type="checkbox" checked data-legend="${r[0]}">${r[1]}</label>`).join('') + '</div></details>';
     L.DomEvent.disableClickPropagation(div);
     div.querySelectorAll('input[data-legend]').forEach((cb) => cb.addEventListener('change', (e) => setLayerVisible(e.target.dataset.legend, e.target.checked, 'legend')));
     return div;
   };
   legend.addTo(map);
 
+  let overlayLegendElement = null;
+  const overlayLegend = L.control({ position: 'topleft' });
+  overlayLegend.onAdd = () => {
+    overlayLegendElement = L.DomUtil.create('div', 'legend variant-legend');
+    overlayLegendElement.hidden = true;
+    L.DomEvent.disableClickPropagation(overlayLegendElement);
+    return overlayLegendElement;
+  };
+  overlayLegend.addTo(map);
+  function updateOverlayLegend(vs = []) {
+    if (overlayLegendElement) {
+      overlayLegendElement.hidden = !overlayMode;
+      overlayLegendElement.innerHTML = '<b>Наложение вариантов</b>' + vs.map(v => {
+        const i = (resultData.variants || []).indexOf(v), style = VARIANT_STYLES[i % 3];
+        return `<div><span class="route-swatch" style="border-color:${style.color};border-top-style:${i === 0 ? 'solid' : i === 1 ? 'dashed' : 'dotted'}"></span> ${esc(v.variantId)}${v.variantId === currentVariant ? ' · выбран' : ''}</div>`;
+      }).join('');
+    }
+    const special = document.querySelector('[data-single-network-legend]');
+    if (special) special.hidden = overlayMode;
+  }
+
   // ---- state ----
   let mode = 'PLANAR';
   let currentJob = null, jobMeta = null, resultData = null, resultGeo = null, inputGeo = null, currentVariant = null, pollTimer = null;
+  let overlayMode = false, overlayWorker = null, overlayGeneration = 0;
+  let selectedVariants = new Set(), indexedVariants = new Map();
+  const VARIANT_STYLES = [{ color: '#2563eb', dashArray: null, weight: 8 }, { color: '#c65d08', dashArray: '12 8', weight: 6 }, { color: '#7c3aed', dashArray: '3 7', weight: 4 }];
   let reference = null, explainData = null, otherMode = null;
   let jobVersion = 0, retryCount = 0;
   const RUN_LABEL = 'Загрузить и рассчитать', RESUME_LABEL = 'Продолжить загрузку';
@@ -122,9 +146,10 @@
   }
 
   // backend progress strings (JobRunner): queued -> Building routing graph -> Generating ...: strategy X -> Validating -> Done
-  const STAGES = ['Разбор входного файла', 'Построение графа маршрутов', 'Подбор вариантов, расходов и ДУ', 'Проверка вариантов валидатором'];
+  const STAGES = ['Разбор входного файла', 'Построение графа маршрутов', 'Подбор вариантов, расходов и ДУ', 'Проверка и ранжирование', 'Формирование результата'];
   function stageOf(progress) {
     const p = String(progress || '').toLowerCase();
+    if (p.startsWith('writing')) return 4;
     if (p.startsWith('building')) return 1;
     if (p.startsWith('generating')) return 2;
     if (p.startsWith('validating')) return 3;
@@ -135,11 +160,12 @@
     if (!progress || status !== 'RUNNING') { box.hidden = true; return; }
     const cur = stageOf(progress);
     const depth = (jobMeta && jobMeta.mode === 'DEPTH') || mode === 'DEPTH';
-    const strategy = cur === 2 ? String(progress).replace(/^[^:]*:\s*/, '').replace(/^strategy\s+/i, '') : '';
+    const fields = Object.fromEntries(String(progress).split('; ').slice(1).map(part => { const i = part.indexOf('='); return [part.slice(0, i), part.slice(i + 1)]; }));
+    const strategy = fields.mode ? `${fields.mode} · завершено стратегий ${fields.completed}/${fields.total} · сформировано ${fields.formed} · проверено ${fields.validated}${fields.active ? ' · работают: ' + fields.active.split(',').map(strategyName).join(', ') : ''}${fields.recovery === 'true' ? ' · восстановление после ресурсного отказа' : ''}` : cur === 2 ? String(progress).replace(/^[^:]*:\s*/, '').replace(/^strategy\s+/i, '') : '';
     box.innerHTML = STAGES.map((s, i) => {
       if (i === 2 && depth) s = 'Подбор вариантов, расходов, ДУ и профилей глубины';
       const cls = i < cur ? 'done' : i === cur ? 'current' : 'pending';
-      return `<div class="stage ${cls}"><span>${s}${i === cur && strategy ? ` <span class="sub">· стратегия ${esc(strategy)}</span>` : ''}</span></div>`;
+      return `<div class="stage ${cls}"><span>${s}${i === cur && strategy ? ` <span class="sub">· ${esc(strategy)}</span>` : ''}</span></div>`;
     }).join('');
     box.hidden = false;
   }
@@ -212,6 +238,11 @@
   });
 
   async function openJob(id, own) {
+    cancelOverlay(); overlayMode = false; indexedVariants = new Map(); selectedVariants.clear();
+    updateOverlayLegend();
+    resultData = null; resultGeo = null; currentVariant = null;
+    ['newNet', 'newChambers', 'techNodes'].forEach(k => groups[k].clearLayers());
+    $('overlayPanel').hidden = true;
     currentJob = id;
     const version = ++jobVersion;
     clearTimeout(pollTimer);
@@ -254,6 +285,7 @@
         loadJobs();
         return;
       }
+      if (j.status !== 'DONE') { showPhase('error', 'Неизвестный статус задания', String(j.status)); setRunBusy(false); return; }
       showPhase('busy', 'Получение результата', modeText);
       setStatus(`Готово · ${esc(j.variantCount)} вариант(а) · режим ${modeText}`);
       await loadResult(id, version);
@@ -315,7 +347,9 @@
     ]);
     await loadReference();
     if (id !== currentJob || version !== jobVersion) return;
-    resultData = res; resultGeo = geo; inputGeo = inp; explainData = null; otherMode = null;
+    resultData = res; resultGeo = geo; inputGeo = inp;
+    indexResultGeometry(geo);
+    initOverlay(); explainData = null; otherMode = null;
     const depth = res.mode === 'DEPTH';
     $('modeTag').textContent = depth ? 'режим с учётом глубины' : '2D';
     $('download').href = '/api/v1/jobs/' + currentJob + '/result.geojson';
@@ -340,7 +374,7 @@
     drawInput();
     if (res.variants && res.variants.length) showVariant(res.variants[0].variantId);
     if (!smallInput) setStatus(`Готово · ${jobMeta.variantCount} вариант(а). Большой исходный файл не отображается целиком; на карте показан результат расчёта.`);
-    loadModeComparison();
+    loadModeComparison().catch(() => { if (id === currentJob && version === jobVersion) $('modeCompareCard').hidden = true; });
     loadExplain();
   }
 
@@ -410,7 +444,15 @@
   }
   $('colorMode').addEventListener('change', () => { if (currentVariant) showVariant(currentVariant); });
 
-  function variantFeatures(vid) { return resultGeo.features.filter((f) => String(f.properties.variant_id) === String(vid)); }
+  function indexResultGeometry(geo) {
+    indexedVariants = new Map();
+    for (const f of geo.features || []) {
+      const key = String((f.properties || {}).variant_id);
+      if (!indexedVariants.has(key)) indexedVariants.set(key, []);
+      indexedVariants.get(key).push(f);
+    }
+  }
+  function variantFeatures(vid) { return indexedVariants.get(String(vid)) || []; }
 
   function showVariant(vid) {
     currentVariant = vid;
@@ -420,7 +462,7 @@
     const byDepth = $('colorMode').value === 'depth' && resultData.mode === 'DEPTH';
     $('depthLegend').hidden = !byDepth;
     if (byDepth) $('depthLegend').innerHTML = '<div>Глубина верха габарита новой сети</div><div class="bar"></div><div class="ticks"><span>0,7 м (мельче)</span><span>3,0 м</span><span>4,0+ м (глубже)</span></div>';
-    feats.forEach((f) => {
+    if (!overlayMode) feats.forEach((f) => {
       const p = f.properties;
       if (p.object_type === 'heat_network') {
         const special = p.laying_method === 'special';
@@ -452,7 +494,8 @@
     renderValidation(vid);
     renderProfilePanel(vid);
     renderExplain(vid);
-    if (!inputGeo) {
+    if (overlayMode) drawOverlay();
+    if (!inputGeo && !overlayMode) {
       const bounds = L.latLngBounds([]);
       feats.forEach((f) => {
         if (f.geometry && f.geometry.type === 'LineString')
@@ -460,6 +503,108 @@
       });
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
     }
+  }
+
+
+  function strategyName(name) {
+    return ({ 'joint-nearest-first': 'Ближайшие сначала', 'joint-farthest-first': 'Дальние сначала',
+      'joint-largest-flow-first': 'Больший расход сначала', 'joint-existing-chambers': 'Существующие камеры',
+      'separate-connections': 'Раздельные подключения' })[name] || name;
+  }
+  function cancelOverlay() {
+    overlayGeneration++;
+    if (overlayWorker) { overlayWorker.terminate(); overlayWorker = null; }
+  }
+  function initOverlay() {
+    cancelOverlay(); overlayMode = false;
+    const vs = resultData.variants || [];
+    selectedVariants = new Set(vs.map(v => String(v.variantId)));
+    $('compareVariants').hidden = vs.length < 2;
+    $('compareVariants').setAttribute?.('aria-expanded', 'false');
+    $('overlayPanel').hidden = true; $('emphasizeDifferences').checked = false;
+    $('overlayChoices').innerHTML = '';
+    vs.forEach((v, i) => {
+      const label = document.createElement('label'), style = VARIANT_STYLES[i % 3];
+      label.innerHTML = `<input type="checkbox" checked><span class="route-swatch" style="border-color:${style.color};border-top-style:${i === 0 ? 'solid' : i === 1 ? 'dashed' : 'dotted'}"></span><span>${esc(v.variantId)}${v.rank === 1 ? ' · лучший score' : ''}</span>`;
+      label.querySelector('input').addEventListener('change', e => {
+        e.target.checked ? selectedVariants.add(String(v.variantId)) : selectedVariants.delete(String(v.variantId));
+        drawOverlay();
+      });
+      $('overlayChoices').appendChild(label);
+    });
+  }
+  $('compareVariants').addEventListener('click', () => {
+    if (!resultGeo) return;
+    overlayMode = true; $('overlayPanel').hidden = false;
+    $('compareVariants').setAttribute?.('aria-expanded', 'true'); drawOverlay();
+  });
+  $('singleVariant').addEventListener('click', () => {
+    overlayMode = false; cancelOverlay(); updateOverlayLegend(); $('overlayPanel').hidden = true;
+    $('compareVariants').setAttribute?.('aria-expanded', 'false');
+    if (currentVariant) showVariant(currentVariant);
+  });
+  $('emphasizeDifferences').addEventListener('change', () => { if (overlayMode) drawOverlay(); });
+  function overlayKpis(vs) {
+    const cell = (v, key, format) => v[key] == null ? '—' : format(v[key]);
+    const total = jobMeta && jobMeta.connectionPointCount;
+    const rows = [ ['Score', v => cell(v, 'score', fmtScore)], ['Стоимость, ₽', v => cell(v, 'calculatedCost', fmtMoney)],
+      ['Длина, м', v => cell(v, 'newNetworkLength', x => fmtNum(x, 1))],
+      ['Подключено ОКС', v => v.connectedOksCount == null ? '—' : `${v.connectedOksCount}/${total == null ? '—' : total}`],
+      ['Новые камеры', v => cell(v, 'newChamberCount', String)] ];
+    $('overlayKpis').innerHTML = vs.length ? '<table><caption>Выбранные варианты</caption><thead><tr><th>Показатель</th>' +
+      vs.map(v => `<th class="${v.rank === 1 ? 'best' : ''}">${esc(v.variantId)}${v.rank === 1 ? ' · лучший S' : ''}</th>`).join('') +
+      '</tr></thead><tbody>' + rows.map(([name, value]) => '<tr><th scope="row">' + name + '</th>' + vs.map(v => '<td>' + esc(value(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' : '';
+  }
+  function drawOverlay() {
+    cancelOverlay(); const generation = overlayGeneration;
+    const all = resultData.variants || [], vs = all.filter(v => selectedVariants.has(String(v.variantId)));
+    overlayKpis(vs); updateOverlayLegend(vs); $('depthLegend').hidden = true;
+    const routes = vs.flatMap(v => variantFeatures(v.variantId).filter(f => f.properties.object_type === 'heat_network'));
+    const render = features => {
+      if (!overlayMode || generation !== overlayGeneration) return;
+      ['newNet', 'newChambers', 'techNodes'].forEach(k => groups[k].clearLayers());
+      // Wider blue base, then orange dashes and narrow purple dots preserve coincident routes.
+      for (const v of vs) {
+        const style = VARIANT_STYLES[all.indexOf(v) % 3];
+        const matching = features.filter(f => String(f.properties.variant_id) === String(v.variantId));
+        const group = L.geoJSON({ type: 'FeatureCollection', features: matching }, {
+          style: f => ({ ...style, opacity: f.common ? 0.22 : 0.92, weight: style.weight + (currentVariant === v.variantId ? 1 : 0) }),
+          onEachFeature: (f, layer) => {
+            layer.on('click', () => showFeature(f.properties));
+            layer.bindTooltip(`${esc(v.variantId)} · ДУ ${esc(f.properties.diameter)}${f.common ? ' · общий плановый участок' : ''}`, { sticky: true });
+          }
+        });
+        groups.newNet.addLayer(group);
+        for (const f of variantFeatures(v.variantId)) {
+          const type = f.properties.object_type;
+          if (!['heat_chamber', 'technical_node'].includes(type) || f.geometry?.type !== 'Point') continue;
+          const c = f.geometry.coordinates;
+          const marker = L.circleMarker([c[1], c[0]], { radius: type === 'heat_chamber' ? 5 : 3, color: style.color, fillOpacity: 0.6, weight: 2 });
+          marker.bindTooltip(`${esc(v.variantId)} · ${type === 'heat_chamber' ? 'камера' : 'технический узел'} ${esc(f.properties.id)}`);
+          marker.on('click', () => showFeature(f.properties)); groups[type === 'heat_chamber' ? 'newChambers' : 'techNodes'].addLayer(marker);
+        }
+      }
+    };
+    render(routes);
+    $('overlayStatus').textContent = vs.length ? 'Наложение выбранных вариантов. Профиль и пояснения — для активной вкладки.' : 'Выберите хотя бы один вариант.';
+    if (!$('emphasizeDifferences').checked || vs.length < 2) return;
+    if (typeof Worker === 'undefined') { $('overlayStatus').textContent = 'Сравнение геометрии недоступно в этом браузере; показано наложение.'; return; }
+    $('overlayStatus').textContent = 'Сравниваем геометрию…';
+    try {
+      overlayWorker = new Worker('/variant-geometry.js');
+      overlayWorker.onmessage = event => {
+        if (generation !== overlayGeneration) return;
+        overlayWorker.terminate(); overlayWorker = null;
+        if (event.data.error) { $('overlayStatus').textContent = event.data.error; return; }
+        render(event.data.features); $('overlayStatus').textContent = 'Общие участки двух и более вариантов приглушены; сравнение в плане с допуском 5 см.';
+      };
+      overlayWorker.onerror = () => {
+        if (generation !== overlayGeneration) return;
+        overlayWorker.terminate(); overlayWorker = null;
+        $('overlayStatus').textContent = 'Не удалось сравнить геометрию; показано наложение.';
+      };
+      overlayWorker.postMessage(routes);
+    } catch (_) { cancelOverlay(); $('overlayStatus').textContent = 'Не удалось запустить сравнение; показано наложение.'; }
   }
 
   function renderSummary(s, v) {
@@ -479,7 +624,7 @@
         kv('Пересечения по вертикали', `${s.vertical_crossing_count} · над ${s.above_crossing_count} · под ${s.below_crossing_count}`) + kv('Переходов глубины', s.depth_transition_count);
     } else ds.hidden = true;
     const u = s.unconnected_oks_ids || [];
-    $('unconnected').innerHTML = u.length ? `<span class="bad">Не подключены (маршрут не найден): ${u.map(esc).join(', ')}</span>` : '<span class="ok">Все точки подключения подключены</span>';
+    $('unconnected').innerHTML = u.length ? `<span class="bad">Не подключены (причины — в пояснениях и диагностике): ${u.map(esc).join(', ')}</span>` : '<span class="ok">Все точки подключения подключены</span>';
     const notes = (v.notes || []).map(esc).join('<br>');
     const attach = (v.attachmentPoints || []).map(esc).join('; ');
     $('techJob').innerHTML = $('techJob').innerHTML.split('<br>')[0] + (attach ? `<br>Точки присоединения: ${attach}` : '') + (notes ? `<br>${notes}` : '');
@@ -635,13 +780,16 @@
 
   // ---- planar vs depth comparison ----
   async function loadModeComparison() {
+    const version = jobVersion;
     $('modeCompareCard').hidden = true;
     if (!jobMeta) return;
     const other = jobMeta.mode === 'DEPTH' ? 'PLANAR' : 'DEPTH';
     const jobs = await fetch('/api/v1/jobs').then((r) => r.json()).catch(() => []);
+    if (version !== jobVersion || !Array.isArray(jobs)) return;
     const cand = jobs.find((j) => j.status === 'DONE' && j.mode === other && j.originalFilename === jobMeta.originalFilename && j.inputSize === jobMeta.inputSize && j.variantCount > 0);
     if (!cand) return;
     const [res, geo] = await Promise.all([fetch('/api/v1/jobs/' + cand.id + '/result').then((r) => r.json()), fetch('/api/v1/jobs/' + cand.id + '/result.geojson').then((r) => r.json())]);
+    if (version !== jobVersion || !resultData?.variants?.length || !res.variants?.length) return;
     otherMode = { job: cand, res, geo };
     const mine = resultData.variants[0], theirs = res.variants[0];
     const planar = jobMeta.mode === 'DEPTH' ? theirs : mine, depthV = jobMeta.mode === 'DEPTH' ? mine : theirs;
@@ -671,7 +819,10 @@
 
   // ---- explainability ----
   async function loadExplain() {
-    explainData = await fetch('/api/v1/jobs/' + currentJob + '/explain').then((r) => r.json()).catch(() => null);
+    const version = jobVersion;
+    const data = await fetchJson('/api/v1/jobs/' + currentJob + '/explain').catch(() => null);
+    if (version !== jobVersion) return;
+    explainData = data;
     if (currentVariant) renderExplain(currentVariant);
   }
   function renderExplain(vid) {

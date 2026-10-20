@@ -240,3 +240,14 @@ details.sub > summary:hover { color: var(--text); }
   header .brand-tag { display: none; }
   header nav a { padding: 6px 7px; }
 }
+
+.overlay-tools { margin: 10px 0; }
+.overlay-tools fieldset { border: 1px solid #cbd5e1; border-radius: 6px; margin: 10px 0; padding: 8px; }
+#overlayChoices { display: flex; flex-wrap: wrap; gap: 12px; }
+#overlayChoices label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.route-swatch { width: 26px; border-top: 4px solid; display: inline-block; }
+.overlay-kpis { overflow-x: auto; margin: 10px 0; }
+.overlay-kpis table { width: 100%; font-variant-numeric: tabular-nums; }
+.overlay-kpis th, .overlay-kpis td { padding: 5px; white-space: nowrap; }
+.overlay-kpis .best { background: #eef6ff; }
+.overlay-tools button:focus-visible, .overlay-tools input:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }

@@ -65,6 +65,17 @@
       <div id="badge" class="badge" hidden></div>
       <div id="perf" class="perf"></div>
       <div id="variantTabs" class="tabs" role="tablist" aria-label="Варианты"></div>
+      <div class="overlay-tools">
+        <button id="compareVariants" type="button" class="button secondary" aria-expanded="false" hidden>Сравнить варианты</button>
+        <div id="overlayPanel" hidden>
+          <fieldset><legend>Варианты на карте</legend><div id="overlayChoices"></div></fieldset>
+          <label><input id="emphasizeDifferences" type="checkbox"> Акцентировать различия</label>
+          <p class="muted">Сравнивается проекция на плоскость (допуск 5 см). Общие участки двух и более вариантов приглушаются. Это не сравнение ДУ или глубин.</p>
+          <div id="overlayStatus" role="status" aria-live="polite"></div>
+          <div id="overlayKpis" class="overlay-kpis"></div>
+          <button id="singleVariant" type="button" class="button secondary">Один вариант</button>
+        </div>
+      </div>
       <div id="summary" class="summary"></div>
       <div id="depthSummary" class="summary depth" hidden></div>
       <div id="unconnected" class="unconnected"></div>
@@ -133,6 +144,6 @@
 </main>
 <script src="/webjars/leaflet/1.9.4/dist/leaflet.js"></script>
 <script src="/upload.js?v=1"></script>
-<script src="/app.js?v=14"></script>
+<script src="/app.js?v=15"></script>
 </body>
 </html>
