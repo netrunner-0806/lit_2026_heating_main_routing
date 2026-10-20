@@ -75,10 +75,12 @@ public final class DepthProfileOptimizer {
     public Result optimize(double length, List<VerticalObstacle> obstacles, Double startFixed, Double endFixed, DoubleUnaryOperator costPerMetre) {
         List<Plateau> plateaus = buildPlateaus(length, obstacles);
         for (Plateau p : plateaus) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (p.options.isEmpty()) return Result.infeasible("no feasible vertical combination for " + p.obstacles);
         }
         long combos = 1;
         for (Plateau p : plateaus) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (combos > MAX_ENUMERATED_COMBOS / p.options.size())
                 throw new ru.lct.heatnet.routing.ComplexityLimitException("DEPTH profile search exceeds " + MAX_ENUMERATED_COMBOS + " complete combinations");
             combos *= p.options.size();
@@ -98,6 +100,7 @@ public final class DepthProfileOptimizer {
         Result best = null;
         double[] bestKey = null;
         for (int[] choice : choiceSets) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Candidate c = solve(length, plateaus, choice, startFixed, endFixed, costPerMetre);
             if (c == null) continue;
             double[] key = {c.extraCost, c.deviation, c.transitions};
@@ -113,6 +116,7 @@ public final class DepthProfileOptimizer {
 
     private static boolean lexLess(double[] a, double[] b) {
         for (int i = 0; i < a.length; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (a[i] < b[i] - 1e-9) return true;
             if (a[i] > b[i] + 1e-9) return false;
         }
@@ -126,6 +130,7 @@ public final class DepthProfileOptimizer {
         sorted.sort((a, b) -> Double.compare(a.from(), b.from()));
         List<Plateau> out = new ArrayList<>();
         for (VerticalObstacle o : sorted) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double f = Math.max(0, o.from()), t = Math.min(length, o.to());
             if (t - f < 1e-6) continue;
             Plateau last = out.isEmpty() ? null : out.get(out.size() - 1);
@@ -148,6 +153,7 @@ public final class DepthProfileOptimizer {
     private static void enumerateOptions(Plateau p) {
         List<List<CrossingDepthOption>> perObject = new ArrayList<>();
         for (VerticalObstacle o : p.obstacles) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             List<CrossingDepthOption> ch = new ArrayList<>();
             if (o.isUtility()) {
                 DepthInterval a = clamp(o.above()), b = clamp(o.below());
@@ -164,9 +170,11 @@ public final class DepthProfileOptimizer {
         combos.add(new ArrayList<>());
         feasible.add(new DepthInterval(DepthRules.MIN_DEPTH_M, DepthRules.SANITY_MAX_DEPTH_M));
         for (List<CrossingDepthOption> ch : perObject) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             List<List<CrossingDepthOption>> next = new ArrayList<>();
             List<DepthInterval> nextIntervals = new ArrayList<>();
             for (int i=0;i<combos.size();i++) for (CrossingDepthOption option : ch) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 DepthInterval iv = feasible.get(i).intersect(option.interval());
                 if (iv.isEmpty()) continue;
                 boolean duplicate = false;
@@ -213,6 +221,7 @@ public final class DepthProfileOptimizer {
         DepthInterval prev = startFixed == null ? free : new DepthInterval(startFixed, startFixed);
         double prevPos = 0;
         for (int i = 0; i < n; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Plateau p = plateaus.get(i);
             double gap = p.from - prevPos;
             reach[i] = plateaus.get(i).intervals.get(choice[i]).intersect(prev.expand(maxSlope * gap + 1e-9));
@@ -227,6 +236,7 @@ public final class DepthProfileOptimizer {
         double endDepth = endFixed != null ? endFixed : endSet.closestTo(target);
         double nextDepth = endDepth, nextPos = length;
         for (int i = n - 1; i >= 0; i--) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Plateau p = plateaus.get(i);
             double gap = nextPos - p.to;
             DepthInterval allowed = reach[i].intersect(new DepthInterval(nextDepth - maxSlope * gap - 1e-9, nextDepth + maxSlope * gap + 1e-9));
@@ -245,6 +255,7 @@ public final class DepthProfileOptimizer {
         pts.add(new double[]{0, startDepth});
         double curPos = 0, curDepth = startDepth;
         for (int i = 0; i < n; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Plateau p = plateaus.get(i);
             if (!connect(pts, curPos, curDepth, p.from, depth[i])) return null;
             pts.add(new double[]{p.to, depth[i]});

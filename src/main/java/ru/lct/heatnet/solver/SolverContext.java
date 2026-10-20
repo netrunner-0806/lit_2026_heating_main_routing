@@ -45,7 +45,8 @@ public final class SolverContext {
             long t0 = System.currentTimeMillis();
             this.cls = cls;
             this.space = new ObstacleSpace(input, cls, input.restrictions().size()>2048, initialNavigationRegion(), exactClearance);
-            this.graph = new NavGraph(space, config.staticRadius, config.helperGridSpacing);
+            this.graph = new NavGraph(space, config.staticRadius, config.helperGridSpacing,config.computeBudget,config.cancellation);
+            try {
             double maxExistingHalf = 0;
             for (ExistingNetworkLine l : input.networkLines()) maxExistingHalf = Math.max(maxExistingHalf, l.halfWidthM());
             this.tieInDiscRadius = RestrictionRules.existingHeatNetwork().tieInExemptRadiusM(cls.representativeDu(), maxExistingHalf);
@@ -64,6 +65,22 @@ public final class SolverContext {
             graphBuildMs += System.currentTimeMillis() - t0;
             log.info("class {}: obstacles={}, static vertices={}, edges={}, tie-in candidates={}, base graph size={} ({} ms)",
                     cls, space.obstacles().size(), graph.staticCount(), graph.edgeCount(), tieIns.size(), baseSize, System.currentTimeMillis() - t0);
+            } catch(RuntimeException|Error failure) {graph.releaseMemoryTracking();throw failure;}
+        }
+
+        ClassResources(ClassResources source) {
+            cls=source.cls;
+            // Private lazy geometry caches and exact-clearance flag; share input coordinates, never mutate them.
+            space=new ObstacleSpace(input,cls,input.restrictions().size()>2048,initialNavigationRegion(),exactClearance);
+            graph=source.graph.experimentalFork(space);
+            try {
+            tieIns=source.tieIns; baseSize=source.baseSize;tieInDiscRadius=source.tieInDiscRadius;softSeparation=source.softSeparation;
+            source.approaches.forEach((id,values)->{
+                List<Approach> copies=new ArrayList<>();
+                for(Approach a:values){Approach copy=new Approach(a.cp(),a.ownPolygon(),a.boundaryPoint(),a.freePoint(),a.finalSegment(),a.nearestBoundary());copy.setVertex(a.vertex());copies.add(copy);}
+                approaches.put(id,copies);
+            });
+            } catch(RuntimeException|Error failure) {graph.releaseMemoryTracking();throw failure;}
         }
 
         /**
@@ -153,6 +170,9 @@ public final class SolverContext {
         public List<Approach> approaches(ConnectionPoint cp) { return approaches.get(cp.id()); }
     }
 
+    /** Called only after the worker has exited; release private graph arrays before the next lease. */
+    void releaseExperimentalResources() { resources.values().forEach(r->r.graph.releaseMemoryTracking());resources.clear();resourceFailures.clear(); }
+    private SolverContext experimentalBase;
     private final InputModel input;
     private final ExistingNetworkIndex netIndex;
     private final SolverConfig config;
@@ -214,10 +234,19 @@ public final class SolverContext {
     private RuntimeException clearanceUpgradeFailure;
     public SolverContext(InputModel input, SolverConfig config) { this(input, config, true); }
     SolverContext(InputModel input, SolverConfig config, boolean exactClearance) {
+        config.resolveExecutionBudget();
         this.exactClearance=exactClearance;
         this.input = input;
         this.config = config;
         this.netIndex = new ExistingNetworkIndex(input);
+    }
+
+    /** Research seam: base is only prepared, never used by a running ForestBuilder. */
+    SolverContext experimentalFork() {
+        SolverContext fork=new SolverContext(input,config,exactClearance);
+        fork.experimentalBase=this;
+        fork.separateDistance=separateDistances();
+        return fork;
     }
 
     /** Upgrade candidate graphs in place after an actual-DU clearance rejection. Keeps budgets and indexes. */
@@ -243,6 +272,7 @@ public final class SolverContext {
     public SolverConfig config() { return config; }
 
     public synchronized ClassResources resources(ClearanceClass cls) {
+        config.cancellation.check();
         ClassResources existing = resources.get(cls);
         if (existing != null) return existing;
         // Only immutable input + identical construction parameters share a deterministic budget failure.
@@ -252,7 +282,7 @@ public final class SolverContext {
                 config.tieInCorridorOffset, config.separationExtra);
         if (resourceFailures.containsKey(key)) throw resourceFailures.get(key);
         try {
-            ClassResources built = new ClassResources(cls);
+            ClassResources built = experimentalBase==null ? new ClassResources(cls) : new ClassResources(experimentalBase.resources(cls));
             resources.put(cls, built);
             return built;
         } catch (ru.lct.heatnet.routing.ComplexityLimitException ex) {

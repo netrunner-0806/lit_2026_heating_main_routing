@@ -72,6 +72,7 @@ public final class ForestBuilder {
     Map<JsonId, ClearanceClass> clearanceUpgradeRequests() {
         Map<JsonId, ClearanceClass> result = new LinkedHashMap<>();
         for (ConnectionPoint cp : unconnected.keySet()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Map<JsonId, ClearanceClass> requests = failedAttachmentUpgrades.get(cp.id());
             if (requests != null) requests.forEach((id, cls) -> result.merge(id, cls, ClearanceClass::max));
         }
@@ -95,6 +96,7 @@ public final class ForestBuilder {
         for (ConnectionPoint cp : ctx.input().connectionPoints()) maxCls = maxCls.max(classOf(cp));
         dyn = new DynamicObstacles(cfg.newLineHardDistance, ctx.resources(maxCls).softSeparation);
         for (ClearanceClass cls : ClearanceClass.values()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (cls.ordinal() > maxCls.ordinal()) continue;
             boolean used = false;
             for (ConnectionPoint cp : ctx.input().connectionPoints()) if (classOf(cp) == cls) used = true;
@@ -105,6 +107,7 @@ public final class ForestBuilder {
             discs.put(cls, new HashMap<>());
             vertexByKey.put(cls, new HashMap<>());
             for (TieInCandidate t : r.tieIns) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 targets.get(cls).put(t.vertex(), Target.tieIn(t));
                 discs.get(cls).put(t.vertex(), new Object[]{t.point(), 2.0 * dyn.softDistance(), null});
             }
@@ -188,9 +191,12 @@ public final class ForestBuilder {
         // over every reachable candidate within the safety budgets — a point is never declared unconnected while an
         // unexplored candidate remains within the budget
         for (boolean widen : new boolean[]{false, true}) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             for (boolean relaxed : new boolean[]{false, true}) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 if (relaxed && strategy.allowJunctions() && strategy.tieInPolicy() == Strategy.TieInPolicy.ANY) break; // nothing to relax
                 for (Approach ap : approaches) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     best = evaluateApproach(cp, ap, r, relaxed, widen, evaluation);
                     if (best != null) break;
                 }
@@ -210,11 +216,13 @@ public final class ForestBuilder {
                 List<Approach> expanded = planner.planExpanded(cp);
                 if (expanded.isEmpty()) reason = "NO_VALID_OKS_EXIT: sampled exterior exits rejected: " + planner.rejectionSummary();
                 for (Approach ap : expanded) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     ap.setVertex(r.graph.addVertex(ap.freePoint(), Exemptions.NONE, cfg.terminalRadius, ap.heading()));
                     best = evaluateApproach(cp, ap, r, true, true, evaluation);
                     if (best != null) break;
                 }
                 if (best == null) for (Approach ap : expanded) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     Approach wide = AdaptiveRouting.wideTerminal(ap, r.graph);
                     best = evaluateApproach(cp, wide, r, true, true, evaluation);
                     if (best != null) break;
@@ -222,6 +230,7 @@ public final class ForestBuilder {
                 if (best == null && !expanded.isEmpty()) {
                     AdaptiveRouting.refineClearanceVertices(r.graph, cfg.staticRadius);
                     for (Approach ap : expanded) {
+                        ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                         best = evaluateApproach(cp, ap, r, true, true, evaluation);
                         if (best != null) break;
                     }
@@ -247,8 +256,10 @@ public final class ForestBuilder {
                 if (best == null && !expanded.isEmpty()) {
                     // Two resolutions cover open gaps and refine corridors. Budgets are checked before allocation.
                     for (double spacing : new double[]{80, 20}) {
+                        ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                         AdaptiveRouting.expandGrid(r.graph, spacing, cfg.staticRadius);
                         for (Approach ap : expanded) {
+                            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                             best = evaluateApproach(cp, ap, r, true, true, evaluation);
                             if (best != null) break;
                         }
@@ -280,6 +291,7 @@ public final class ForestBuilder {
             if(proven != null) reason = proven;
             if (!reason.startsWith("COMPLEXITY_LIMIT") && reason.startsWith("NO_PATH")) {
                 for (String code : new String[]{"COMPLEXITY_LIMIT", "HYDRAULIC_REJECTED", "TOPOLOGY_REJECTED", "GEOMETRY_REJECTED"}) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     if (rejectionCounts.containsKey(code)) { reason = code + ": no accepted route after adaptive search; rejections=" + rejectionCounts; break; }
                 }
             }
@@ -315,11 +327,13 @@ public final class ForestBuilder {
         for (TieInCandidate t : r.tieIns) addExactTie(ties, seen, t);
         // Class clearance can exclude the tie-in itself, so recover chambers/projections as well.
         for (var ch : ctx.input().chambers()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             int degree = ctx.netIndex().existingAdjacency(ch);
             if (degree > 0 && degree < Constants.MAX_CHAMBER_DEGREE)
                 addExactTie(ties, seen, new TieInCandidate(TieInCandidate.Kind.EXISTING_CHAMBER, ch.coordinate(), ch, null, degree));
         }
         for (var line : ctx.input().networkLines()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Coordinate p = ru.lct.heatnet.geo.GeometryUtils.nearestPoint(line.line(), cp.coordinate());
             if (!ctx.netIndex().usableChambersNear(p).isEmpty()) continue;
             var adjacent = ctx.netIndex().linesNear(p, ru.lct.heatnet.geo.GeometryTolerance.ON_LINE_M);
@@ -331,6 +345,7 @@ public final class ForestBuilder {
         }
         int evaluated = 0;
         for (Approach ap : approaches) for (TieInCandidate t : ties) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (++evaluated > cfg.maxCandidateEvaluations)
                 throw new ru.lct.heatnet.routing.ComplexityLimitException("exact-DU fallback candidate budget");
             r.graph.reserveFallbackChecks(1);
@@ -361,6 +376,7 @@ public final class ForestBuilder {
     /** Diameter and depth decisions of the final network (recorded once per variant). */
     private void explainFinalNetwork() {
         for (NetLink l : net.links()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             DiameterSpec byFlow = DiameterTable.minByFlow(l.flow()).orElse(DiameterTable.largest());
             String why;
             if (l.du() == byFlow.du()) why = "minimum DU whose capacity covers the flow; max continuous length satisfied";
@@ -375,7 +391,9 @@ public final class ForestBuilder {
                             "from", l.child().kind() == NetNode.Kind.CONNECTION_POINT ? l.child().connectionPoint().id().text() : l.child().toString(), "to", l.parent().toString()), null);
             if (l.profile() != null) {
                 for (ru.lct.heatnet.depth.DepthProfile.PlateauDecision d : l.profile().decisions()) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     for (ru.lct.heatnet.depth.CrossingDepthOption o : d.options) {
+                        ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                         String type = o.method() == ru.lct.heatnet.depth.CrossingDepthOption.Method.BELOW ? "DEPTH_BELOW_SELECTED" : o.method() == ru.lct.heatnet.depth.CrossingDepthOption.Method.ABOVE ? "DEPTH_ABOVE_SELECTED" : "DEPTH_UNDER_SELECTED";
                         List<String> alts = new ArrayList<>();
                         if (o.obstacle().isUtility()) {
@@ -410,6 +428,7 @@ public final class ForestBuilder {
         PathSearch.Result res = search.run(ap.vertex());
         List<double[]> ranked = new ArrayList<>();
         for (Map.Entry<Integer, Target> e : tg.entrySet()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             int v = e.getKey();
             if (!res.reached(v)) continue;
             Target t = e.getValue();
@@ -426,6 +445,7 @@ public final class ForestBuilder {
         List<String> rejectedNotes = new ArrayList<>();
         lastDepthRejection = null;
         for (double[] cand : ranked) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (evaluated >= limit) {
                 if (best != null) break;
                 if (!widen && evaluated >= stage1Cap) break;
@@ -463,6 +483,7 @@ public final class ForestBuilder {
                 int altLimit = Math.max(0, cfg.depthRouteAlternatives);
                 int alt = 0;
                 while (alt < altLimit && prev != null) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     java.util.Set<Long> crossingEdges = verticalCrossingEdges(prev, r.graph);
                     if (crossingEdges.isEmpty()) break;
                     // geometrically distinct alternatives: odd alternatives cross the same objects elsewhere (the crossing
@@ -511,6 +532,7 @@ public final class ForestBuilder {
             List<Coordinate> cs = link.coords();
             double acc = 0;
             for (int i = 1; i < cs.size(); i++) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 double seg = cs.get(i - 1).distance(cs.get(i));
                 if (t.position <= acc + seg + 1e-9 || i == cs.size() - 1) {
                     if (seg < 1e-9) return null;
@@ -551,6 +573,7 @@ public final class ForestBuilder {
         java.util.Set<Integer> ignoreOwn = ap.ownPolygon() == null ? Collections.emptySet() : Collections.singleton(ap.ownPolygon().index());
         Attempt best = null;
         for (DynamicObstacles.Seg sg : dyn.near(a, pa + maxDist)) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Coordinate x = ray.intersection(new org.locationtech.jts.geom.LineSegment(sg.a, sg.b));
             if (x == null) continue;
             double ang = ru.lct.heatnet.geo.GeometryUtils.acuteAngleDeg(u[0], u[1], sg.b.x - sg.a.x, sg.b.y - sg.a.y);
@@ -682,6 +705,7 @@ public final class ForestBuilder {
             Map<ConnectionPoint, String> pending = new LinkedHashMap<>();
             List<Double> penalties = new ArrayList<>();
             for (ConnectionPoint point : ctx.input().connectionPoints()) if (!connected.contains(point.id())) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 pending.put(point, "pending attachment"); penalties.add(point.flowTph());
             }
             VariantResult check = new VariantResult("adaptive-candidate", n, pending, CostCalculator.summarize(n, penalties), Collections.emptyList());
@@ -691,6 +715,7 @@ public final class ForestBuilder {
                 // A long detour may increase DU by length, even with a small flow. The primary search already
                 // re-routes such forests with raised class floors. Adaptive validation must not hide that signal.
                 for (NetLink candidate : n.links()) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     ClearanceClass needed = ClearanceClass.forDu(candidate.du());
                     List<NetNode> affected = HeatnetSolver.subtreeLeaves(candidate);
                     boolean canRaise = affected.stream().anyMatch(leaf -> classOf(leaf.connectionPoint()).ordinal() < needed.ordinal());
@@ -723,6 +748,7 @@ public final class ForestBuilder {
     private static List<org.locationtech.jts.geom.Geometry> verticalCrossingGeometries(Route route) {
         List<org.locationtech.jts.geom.Geometry> out = new ArrayList<>();
         for (SpecialPassage p : route.passagesAlongRoute()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (!ru.lct.heatnet.config.DepthRules.forType(p.obstacle().rule().type()).isPresent()) continue;
             org.locationtech.jts.geom.Geometry g = p.obstacle().geometry();
             if (!out.contains(g)) out.add(g);
@@ -735,6 +761,7 @@ public final class ForestBuilder {
         java.util.Set<Long> out = new java.util.HashSet<>();
         List<Coordinate> cs = route.coords();
         for (int i = 1; i < cs.size(); i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             boolean vertical = false;
             for (SpecialPassage p : route.segments().get(i - 1).passages())
                 if (ru.lct.heatnet.config.DepthRules.forType(p.obstacle().rule().type()).isPresent()) vertical = true;
@@ -753,6 +780,7 @@ public final class ForestBuilder {
         List<Coordinate> res = new ArrayList<>();
         res.add(out.get(0));
         for (int i = 1; i < out.size() - 1; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (ru.lct.heatnet.geo.GeometryUtils.turnAngleDeg(res.get(res.size() - 1), out.get(i), out.get(i + 1)) > 1e-4) res.add(out.get(i));
         }
         res.add(out.get(out.size() - 1));
@@ -791,6 +819,7 @@ public final class ForestBuilder {
         dc.entrySet().removeIf(e -> !tg.containsKey(e.getKey()));
         double disc = 2.0 * dyn.softDistance();
         for (NetNode node : net.nodes()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (node.kind() == NetNode.Kind.NEW_CHAMBER_JUNCTION && node.spareDegree() >= 1) {
                 int v = vertexFor(r, keys, node.coord(), disc);
                 tg.put(v, Target.node(node));
@@ -798,7 +827,9 @@ public final class ForestBuilder {
             }
         }
         for (NetLink link : net.links()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             for (double pos : junctionPositions(link)) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 Coordinate c = CostCalculator.sub(link.coords(), pos, pos).get(0);
                 if (r.space.insideAnyZone(c)) continue;
                 int v = vertexFor(r, keys, c, disc);
@@ -826,10 +857,12 @@ public final class ForestBuilder {
         double acc = 0;
         List<Coordinate> cs = link.coords();
         for (int i = 1; i < cs.size() - 1; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             acc += cs.get(i - 1).distance(cs.get(i));
             if (acc >= lo && acc <= hi) out.add(acc);
         }
         for (double p = Math.ceil(lo / cfg.junctionStep) * cfg.junctionStep; p <= hi; p += cfg.junctionStep) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             boolean dup = false;
             for (double q : out) if (Math.abs(q - p) < cfg.junctionStep * 0.3) { dup = true; break; }
             if (!dup) out.add(p);
@@ -844,6 +877,7 @@ public final class ForestBuilder {
     /** Re-attaches every connected point (bounded number of passes); keeps a change only if the score strictly improves. */
     private void improve(List<ConnectionPoint> order) {
         for (int pass = 0; pass < Math.max(1, cfg.improvePasses); pass++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (!improvePass(order)) break;
         }
         currentScore = CostCalculator.summarize(net, Collections.emptyList()).score();
@@ -853,6 +887,7 @@ public final class ForestBuilder {
     private boolean improvePass(List<ConnectionPoint> order) {
         boolean improved = false;
         for (ConnectionPoint cp : order) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             NetNode leaf = null;
             for (NetNode n : net.connectionNodes()) if (n.connectionPoint() == cp) leaf = n;
             if (leaf == null) continue;

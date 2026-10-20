@@ -76,6 +76,8 @@ public class JobRunner {
             cfg.maxVariants = e.getMaxVariants();
             cfg.improve = props.isImprove();
             cfg.depthMode = depth;
+            cfg.executionMode = props.getSolverExecutionMode();
+            log.info("Job {} solver execution mode: {}", id, cfg.executionMode);
             HeatnetSolver solver = new HeatnetSolver(cfg, new SolverVariantValidator(input));
             SolveResult result = solver.solve(input, HeatnetSolver.defaultStrategies(), msg -> progress(e, (depth ? "Generating variants, flows, DU and depth profiles: " : "Generating variants, flows and DU: ") + msg));
             progress(e, "Validating");

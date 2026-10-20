@@ -2,6 +2,33 @@ package ru.lct.heatnet.solver;
 
 /** Tunable solver parameters (not rules of the annex). */
 public final class SolverConfig {
+    public enum ExecutionMode { SEQUENTIAL, PARALLEL_2 }
+    public ExecutionMode executionMode = ExecutionMode.SEQUENTIAL;
+    /** Soft admission forecast, with a separate critical running-resource stop. No JVM settings are changed. */
+    public long parallelWorkingSetBytes = 7L << 30;
+    public long parallelCriticalHeapBytes = 9L << 30;
+    public long parallelCriticalRssBytes = 11L << 30;
+    public long parallelOverlayReserveBytes = 128L << 20;
+    private final ru.lct.heatnet.routing.ComputeBudget sequentialDefault = ru.lct.heatnet.routing.ComputeBudget.production();
+    private final ru.lct.heatnet.routing.ComputeBudget parallelDefault = ru.lct.heatnet.routing.ComputeBudget.parallel2Default();
+    private ru.lct.heatnet.routing.ComputeBudget automaticBudget = sequentialDefault;
+    private boolean explicitBudget;
+    /** Resolved at execution/context creation. Configure explicit overrides through useBudget(). */
+    public ru.lct.heatnet.routing.ComputeBudget computeBudget = automaticBudget;
+    public final ru.lct.heatnet.routing.ComputeCancellation cancellation = new ru.lct.heatnet.routing.ComputeCancellation();
+    public void useBudget(ru.lct.heatnet.routing.ComputeBudget budget) { computeBudget=java.util.Objects.requireNonNull(budget);explicitBudget=true;maxCandidateEvaluations=budget.candidateEvaluations; }
+
+    /** Select a profile once, never multiply an existing budget. Configure before starting a job. */
+    public synchronized void resolveExecutionBudget() {
+        // Preserve both explicit useBudget() and legacy direct field overrides.
+        if(explicitBudget || computeBudget!=automaticBudget)return;
+        var selected=executionMode==ExecutionMode.PARALLEL_2?parallelDefault:sequentialDefault;
+        if(selected==automaticBudget)return;
+        if(maxCandidateEvaluations==automaticBudget.candidateEvaluations)
+            maxCandidateEvaluations=selected.candidateEvaluations;
+        computeBudget=selected;automaticBudget=selected;
+    }
+
     /** Max distance between static navigation vertices connected by a visibility edge, m. */
     public double staticRadius = 300;
     /** Spacing of helper free-space vertices ensuring connectivity across open areas, m (0 = none). */

@@ -41,31 +41,38 @@ public final class HydraulicCalculator {
         // 1. flows
         for (NetLink l : net.links()) { setFlow(l, 0); }
         for (NetNode cp : net.connectionNodes()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double q = cp.connectionPoint().flowTph();
             for (NetLink l = cp.parent(); l != null; l = l.parent().parent()) setFlow(l, l.flow() + q);
         }
         // 2. initial DU by flow
         for (NetLink l : net.links()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Optional<DiameterSpec> s = DiameterTable.minByFlow(l.flow());
             if (!s.isPresent()) return new Result(false, "flow " + l.flow() + " t/h exceeds the largest DU capacity on " + l);
             setDu(l, s.get().du());
         }
         // 3. fixed point of monotonicity + max length
         for (int iter = 0; iter < 200; iter++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             boolean changed = false;
             // monotonic: parent >= children (post-order)
             for (NetNode root : net.roots()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 for (NetLink top : root.children()) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     if (enforceMonotonic(top)) changed = true;
                 }
             }
             // max length per path
             for (NetNode cp : net.connectionNodes()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 List<NetLink> path = new ArrayList<>();
                 for (NetLink l = cp.parent(); l != null; l = l.parent().parent()) path.add(l);
                 double run = 0;
                 int prevDu = -1;
                 for (NetLink l : path) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     if (l.du() != prevDu) { run = 0; prevDu = l.du(); }
                     run += l.length();
                     DiameterSpec spec = DiameterTable.requireDu(l.du());
@@ -89,6 +96,7 @@ public final class HydraulicCalculator {
         boolean changed = false;
         int maxChild = 0;
         for (NetLink c : l.child().children()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (enforceMonotonic(c)) changed = true;
             maxChild = Math.max(maxChild, c.du());
         }
@@ -103,6 +111,7 @@ public final class HydraulicCalculator {
                 && Double.compare(top.flow(), top.parent().parent().flow()) == 0)
             top = top.parent().parent();
         for (NetLink l = top; ; ) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (l.du() < du) setDu(l, du);
             if (l.child().children().size() != 1) break;
             NetLink child = l.child().children().get(0);
@@ -121,9 +130,11 @@ public final class HydraulicCalculator {
     public static List<String> lengthViolations(NewNetwork net) {
         List<String> out = new ArrayList<>();
         for (NetNode cp : net.connectionNodes()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double run = 0;
             int prevDu = -1;
             for (NetLink l = cp.parent(); l != null; l = l.parent().parent()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 if (l.du() != prevDu) { run = 0; prevDu = l.du(); }
                 run += l.length();
                 if (run > DiameterTable.requireDu(l.du()).maxLengthM() + 1e-6)

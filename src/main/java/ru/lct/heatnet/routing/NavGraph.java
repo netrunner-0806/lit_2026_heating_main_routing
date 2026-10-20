@@ -27,7 +27,7 @@ public final class NavGraph {
     public static final int MAX_DIRECTED_EDGES = 4_000_000;
     public static final long MAX_VISIBILITY_CHECKS = 50_000_000;
     private final java.util.concurrent.atomic.AtomicInteger directedEdges = new java.util.concurrent.atomic.AtomicInteger();
-    private final java.util.concurrent.atomic.AtomicLong visibilityChecks = new java.util.concurrent.atomic.AtomicLong();
+    private java.util.concurrent.atomic.AtomicLong visibilityChecks = new java.util.concurrent.atomic.AtomicLong();
     private final java.util.concurrent.atomic.LongAdder interiorRejections = new java.util.concurrent.atomic.LongAdder();
     public long interiorRejectionCount() { return interiorRejections.sum(); }
     private final java.util.concurrent.atomic.LongAdder geometryChecks = new java.util.concurrent.atomic.LongAdder();
@@ -38,6 +38,11 @@ public final class NavGraph {
     public long traversalCount() { return traversals; }
     public long geometryCheckCount() { return geometryChecks.sum(); }
     public long dynamicInsertionCount() { return dynamicInsertions; }
+    private final ComputeBudget budget;
+    private final ComputeCancellation cancellation;
+    public ComputeBudget budget() { return budget; }
+    public void checkCancelled() { cancellation.check(); }
+    private void beforeMutation() { cancellation.check(); }
     private final int maxEdges;
     private final long maxVisibilityChecks;
 
@@ -60,20 +65,35 @@ public final class NavGraph {
     private final BitSet active = new BitSet();
     private final STRtree staticIndex = new STRtree();
     private int staticCount;
+    private volatile int memoryNodes;
+    private int sharedBaseEdges;
+    /** Includes COW replacement/incoming rows; shared primitive rows are owned by the base only. */
+    public long estimatedOwnedBytes() {
+        long edges=directedEdges.get();
+        return 512L*memoryNodes+32L*sharedBaseEdges+80L*Math.max(0,edges-sharedBaseEdges);
+    }
+    public void releaseMemoryTracking() { cancellation.releaseMemory(this); }
 
     public NavGraph(ObstacleSpace space, double staticRadius, double helperGridSpacing) {
         this(space, staticRadius, helperGridSpacing, MAX_DIRECTED_EDGES, MAX_VISIBILITY_CHECKS);
     }
 
     NavGraph(ObstacleSpace space, double staticRadius, double helperGridSpacing, int maxEdges, long maxVisibilityChecks) {
-        this.maxEdges = maxEdges;
-        this.maxVisibilityChecks = maxVisibilityChecks;
+        this(space,staticRadius,helperGridSpacing,new ComputeBudget(MAX_NAVIGATION_NODES,maxEdges,maxVisibilityChecks,MAX_GRID_NODES,1000),new ComputeCancellation());
+    }
+
+    public NavGraph(ObstacleSpace space, double staticRadius, double helperGridSpacing, ComputeBudget budget, ComputeCancellation cancellation) {
+        this.budget=budget;this.cancellation=cancellation;
+        this.maxEdges = budget.directedEdges;
+        this.maxVisibilityChecks = budget.visibilityChecks;
         this.space = space;
         this.staticRadius = staticRadius;
+        cancellation.registerMemory(this,this::estimatedOwnedBytes);
+        try {
         // Estimate the full bbox grid before collecting or allocating its vertices.
-        if (helperGridSpacing > 0) checkedGridSize(space.navigationEnvelope(), helperGridSpacing);
-        List<Coordinate> vs = space.navigationVertices(MAX_NAVIGATION_NODES);
-        if (helperGridSpacing > 0) vs.addAll(helperGrid(space, helperGridSpacing, MAX_NAVIGATION_NODES - vs.size()));
+        if (helperGridSpacing > 0) checkedGridSize(space.navigationEnvelope(), helperGridSpacing,budget.gridCells);
+        List<Coordinate> vs = space.navigationVertices(budget.navigationNodes);
+        if (helperGridSpacing > 0) vs.addAll(helperGrid(space, helperGridSpacing, budget.navigationNodes - vs.size()));
         for (Coordinate c : vs) {
             coords.add(c);
             exemptions.add(Exemptions.NONE);
@@ -85,12 +105,37 @@ public final class NavGraph {
             active.set(coords.size() - 1);
         }
         staticCount = coords.size();
+        memoryNodes=staticCount;
         for (int i = 0; i < staticCount; i++) staticIndex.insert(new Envelope(coords.get(i)), i);
         staticIndex.build();
         buildStaticEdges();
+        } catch(RuntimeException|Error failure) {releaseMemoryTracking();throw failure;}
     }
 
-    static long checkedGridSize(Envelope source, double spacing) {
+    /** Research-only copy-on-write graph fork. Caller must freeze the source at the common base. */
+    public NavGraph experimentalFork(ObstacleSpace localSpace) {
+        return new NavGraph(this, localSpace);
+    }
+    private NavGraph(NavGraph source, ObstacleSpace localSpace) {
+        budget=source.budget;cancellation=source.cancellation;
+        maxEdges=source.maxEdges; maxVisibilityChecks=source.maxVisibilityChecks;
+        space=localSpace;staticRadius=source.staticRadius;staticCount=source.staticCount;
+        // Arrays are never edited in place by NavGraph: append/remove replace complete rows.
+        coords.addAll(source.coords); exemptions.addAll(source.exemptions); headings.addAll(source.headings);
+        adj.addAll(source.adj); weights.addAll(source.weights); special.addAll(source.special);
+        for (List<Integer> row: source.incoming) incoming.add(row==null?null:new ArrayList<>(row));
+        active.or(source.active);directedEdges.set(source.directedEdges.get());
+        visibilityChecks=new java.util.concurrent.atomic.AtomicLong(source.visibilityChecks.get()); // independent strategy allowance, including immutable preparation
+        sharedBaseEdges=source.directedEdges.get();memoryNodes=coords.size();
+        cancellation.registerMemory(this,this::estimatedOwnedBytes);
+        try {
+        for(int i=0;i<staticCount;i++)staticIndex.insert(new Envelope(coords.get(i)),i);
+        staticIndex.build();
+        } catch(RuntimeException|Error failure) {releaseMemoryTracking();throw failure;}
+    }
+
+    static long checkedGridSize(Envelope source, double spacing) { return checkedGridSize(source,spacing,MAX_GRID_NODES); }
+    static long checkedGridSize(Envelope source, double spacing,int limit) {
         if (!Double.isFinite(spacing) || spacing <= 0) throw new IllegalArgumentException("Grid spacing must be finite and positive");
         if (source.isNull()) return 0;
         Envelope env = new Envelope(source);
@@ -100,14 +145,14 @@ public final class NavGraph {
         double nx = Math.floor(env.getWidth() / spacing) + 1;
         double ny = Math.floor(env.getHeight() / spacing) + 1;
         double cells = nx * ny;
-        if (!Double.isFinite(cells) || cells > MAX_GRID_NODES)
-            throw new ComplexityLimitException("Navigation grid exceeds " + MAX_GRID_NODES
+        if (!Double.isFinite(cells) || cells > limit)
+            throw new ComplexityLimitException("Navigation grid exceeds " + limit
                     + " cells; the input extent is too large for automatic routing");
         return (long) cells;
     }
 
-    private static List<Coordinate> helperGrid(ObstacleSpace space, double spacing, int remaining) {
-        checkedGridSize(space.vertexZoneUnion().getEnvelopeInternal(), spacing);
+    private List<Coordinate> helperGrid(ObstacleSpace space, double spacing, int remaining) {
+        checkedGridSize(space.vertexZoneUnion().getEnvelopeInternal(), spacing,budget.gridCells);
         List<Coordinate> out = new ArrayList<>();
         Envelope env = space.vertexZoneUnion().getEnvelopeInternal();
         if (env.isNull()) return out;
@@ -117,6 +162,7 @@ public final class NavGraph {
                 org.locationtech.jts.geom.prep.PreparedGeometryFactory.prepare(space.vertexZoneUnion());
         for (double x = env.getMinX(); x <= env.getMaxX(); x += spacing) {
             for (double y = env.getMinY(); y <= env.getMaxY(); y += spacing) {
+                cancellation.check();
                 Coordinate c = new Coordinate(x, y);
                 if (!vertexZone.intersects(GeometryUtils.point(c))) {
                     if (out.size() >= remaining) throw navigationLimit();
@@ -127,8 +173,8 @@ public final class NavGraph {
         return out;
     }
 
-    private static IllegalArgumentException navigationLimit() {
-        return new ComplexityLimitException("Navigation graph exceeds " + MAX_NAVIGATION_NODES
+    private IllegalArgumentException navigationLimit() {
+        return new ComplexityLimitException("Navigation graph exceeds " + budget.navigationNodes
                 + " nodes; the input geometry is too complex for automatic routing");
     }
 
@@ -139,7 +185,11 @@ public final class NavGraph {
         boolean[][] resS = new boolean[n][];
         boolean[][] resF = new boolean[n][];   // i->j allowed
         boolean[][] resB = new boolean[n][];   // j->i allowed
+        java.util.concurrent.atomic.AtomicReference<RuntimeException> failure=new java.util.concurrent.atomic.AtomicReference<>();
         IntStream.range(0, n).parallel().forEach(i -> {
+            if(failure.get()!=null)return;
+            try (ComputeCancellation.Scope scope=cancellation.bind()) {
+            cancellation.check();
             Coordinate ci = coords.get(i);
             Envelope env = new Envelope(ci);
             env.expandBy(staticRadius);
@@ -151,6 +201,8 @@ public final class NavGraph {
             List<Boolean> fs = new ArrayList<>();
             List<Boolean> bs = new ArrayList<>();
             for (int j : cand) {
+                cancellation.check();
+                if(failure.get()!=null)return;
                 if (j <= i) continue;
                 Coordinate cj = coords.get(j);
                 double d = ci.distance(cj);
@@ -173,7 +225,17 @@ public final class NavGraph {
             boolean[] sb = new boolean[ss.size()], fb = new boolean[ss.size()], bb = new boolean[ss.size()];
             for (int k = 0; k < sb.length; k++) { sb[k] = ss.get(k); fb[k] = fs.get(k); bb[k] = bs.get(k); }
             resS[i] = sb; resF[i] = fb; resB[i] = bb;
+            } catch(RuntimeException ex) { failure.compareAndSet(null,ex); }
         });
+        cancellation.check();
+        if(failure.get() instanceof ComplexityLimitException) {
+            // Static tasks have no logical first operation. The deterministic failure is the
+            // construction envelope, not whichever of its atomic counters happened to reject first.
+            // Counters still stop before exceeding either bound; no partial graph is published.
+            throw new ComplexityLimitException("Navigation graph static resource envelope exhausted"
+                    + " (directed edges <= " + maxEdges + ", visibility checks <= " + maxVisibilityChecks + ")");
+        }
+        if(failure.get()!=null)throw failure.get();
         // directed adjacency (edges may be one-directional because of the road/tram entry angle rule)
         int[] deg = new int[n];
         for (int i = 0; i < n; i++) for (int k = 0; k < res[i].length; k++) { if (resF[i][k]) deg[i]++; if (resB[i][k]) deg[res[i][k]]++; }
@@ -223,22 +285,29 @@ public final class NavGraph {
     }
 
     private void reserveEdges(int count) {
-        if (directedEdges.addAndGet(count) > maxEdges) {
-            directedEdges.addAndGet(-count);
-            throw new ComplexityLimitException("Navigation graph exceeds " + maxEdges + " directed edges");
+        cancellation.check();
+        for (;;) {
+            int used=directedEdges.get();
+            if(count > maxEdges-used)throw new ComplexityLimitException("Navigation graph exceeds " + maxEdges + " directed edges");
+            if(directedEdges.compareAndSet(used,used+count))return;
         }
     }
 
     /** Charge bounded fallback checks to the same class budget; never reset it for a retry. */
     public void reserveFallbackChecks(long count) {
+        beforeMutation();
         if (count < 0) throw new IllegalArgumentException("negative checks");
         reserveVisibilityChecks(count);
     }
 
     private void reserveVisibilityChecks(long count) {
-        if (visibilityChecks.addAndGet(count) > maxVisibilityChecks)
-            throw new ComplexityLimitException("Navigation visibility exceeds " + maxVisibilityChecks + " pair checks per clearance class; nodes=" + size() + ", dynamic insertions=" + dynamicInsertions
-                    + ", geometry checks=" + geometryChecks.sum());
+        cancellation.check();
+        for (;;) {
+            long used=visibilityChecks.get();
+            if (count > maxVisibilityChecks-used)
+                throw new ComplexityLimitException("Navigation visibility exceeds " + maxVisibilityChecks + " pair checks per clearance class");
+            if (visibilityChecks.compareAndSet(used,used+count)) return;
+        }
     }
 
     /**
@@ -247,7 +316,8 @@ public final class NavGraph {
      * Edges to other dynamic vertices are checked with merged exemptions.
      */
     public synchronized int addVertex(Coordinate c, Exemptions ex, double radius, Heading heading) {
-        if (coords.size() >= MAX_NAVIGATION_NODES) throw navigationLimit();
+        if (coords.size() >= budget.navigationNodes) throw navigationLimit();
+        beforeMutation();
         dynamicInsertions++;
         int v = coords.size();
         List<Integer> js = new ArrayList<>();
@@ -263,7 +333,11 @@ public final class NavGraph {
         for (int j = staticCount; j < v; j++) if (active.get(j) && env.contains(coords.get(j))) cand.add(j);
         pairCandidates.add(cand.size());
         final Exemptions exV = ex == null ? Exemptions.NONE : ex;
+        java.util.concurrent.atomic.AtomicReference<RuntimeException> failure=new java.util.concurrent.atomic.AtomicReference<>();
         List<Object[]> found = cand.parallelStream().map(j -> {
+            if(failure.get()!=null)return null;
+            try (ComputeCancellation.Scope scope=cancellation.bind()) {
+            cancellation.check();
             if (!active.get(j)) return null;
             Coordinate cj = coords.get(j);
             double d = c.distance(cj);
@@ -278,7 +352,10 @@ public final class NavGraph {
             SegmentCheck sc = space.check(c, cj, merged);
             if (!sc.valid() && !sc.validReverse()) return null;
             return new Object[]{j, sc.effectiveLength(), sc.hasSpecial(), sc.valid(), sc.validReverse()};
+            } catch(RuntimeException error) { failure.compareAndSet(null,error);return null; }
         }).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
+        if(failure.get()!=null)throw failure.get();
+        cancellation.check();
         for (Object[] f : found) {
             if ((Boolean) f[3]) { js.add((Integer) f[0]); ws.add((Double) f[1]); ss.add((Boolean) f[2]); }
             if ((Boolean) f[4]) reverse.add(f);
@@ -286,6 +363,7 @@ public final class NavGraph {
         // Check before changing graph state: a failed fallback must leave the graph usable.
         reserveEdges(js.size() + reverse.size());
         coords.add(c);
+        memoryNodes=coords.size();
         exemptions.add(exV);
         headings.add(heading);
         incoming.add(new ArrayList<>());
@@ -319,6 +397,7 @@ public final class NavGraph {
 
     /** Remove only edges rejected by exact class clearance. All surviving order, weights and budgets are kept. */
     public synchronized void recheckClearances() {
+        beforeMutation();
         for (int from=0;from<coords.size();from++) {
             int[] targets=adj.get(from).clone();
             for (int to : targets) {
@@ -342,6 +421,7 @@ public final class NavGraph {
             List<Integer> in = incoming.get(v);
             if (in != null) for (int j : in) removeEdge(j, v);
             coords.remove(v); exemptions.remove(v); headings.remove(v); adj.remove(v); weights.remove(v); special.remove(v);
+            memoryNodes=coords.size();
             incoming.remove(v);
             active.clear(v);
         }

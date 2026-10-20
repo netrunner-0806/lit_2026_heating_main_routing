@@ -11,6 +11,7 @@ public class HeatnetProperties {
     private int workers = 2;
     private int maxVariants = Constants.MAX_VARIANTS;
     private boolean improve = true;
+    private ru.lct.heatnet.solver.SolverConfig.ExecutionMode solverExecutionMode = ru.lct.heatnet.solver.SolverConfig.ExecutionMode.SEQUENTIAL;
     /** Configured extra restriction types (extension of the annex, see docs); standard types cannot be overridden. */
     private java.util.List<CustomRestriction> customRestrictions = new java.util.ArrayList<>();
 
@@ -67,6 +68,10 @@ public class HeatnetProperties {
     public void setWorkers(int workers) { this.workers = workers; }
     public int getMaxVariants() { return maxVariants; }
     public void setMaxVariants(int maxVariants) { this.maxVariants = maxVariants; }
+    public ru.lct.heatnet.solver.SolverConfig.ExecutionMode getSolverExecutionMode() { return solverExecutionMode; }
+    public void setSolverExecutionMode(ru.lct.heatnet.solver.SolverConfig.ExecutionMode mode) {
+        this.solverExecutionMode = java.util.Objects.requireNonNull(mode, "solverExecutionMode");
+    }
     public boolean isImprove() { return improve; }
     public void setImprove(boolean improve) { this.improve = improve; }
 }

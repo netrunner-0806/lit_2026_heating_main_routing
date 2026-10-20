@@ -24,6 +24,7 @@ public final class DynamicObstacles {
         }
     }
 
+    private final ComputeCancellation cancellation=ComputeCancellation.currentOrNew();
     private final List<Seg> segs = new ArrayList<>();
     private static final int BLOCK_SIZE = 16;
     private Envelope[] blockBounds;
@@ -85,6 +86,7 @@ public final class DynamicObstacles {
     /** The exact original envelope predicate still selects each returned segment. */
     private int nextCandidate(int start, Envelope envelope) {
         for (int i = start; i < segs.size();) {
+            if((i & 255)==0) cancellation.check();
             if (blockBounds != null && i % BLOCK_SIZE == 0
                     && !blockBounds[i / BLOCK_SIZE].intersects(envelope)) {
                 i += BLOCK_SIZE;
@@ -117,6 +119,7 @@ public final class DynamicObstacles {
      * exemptions), else 0. Soft mode: returns the accumulated proximity penalty.
      */
     private double proximity(Coordinate a, Coordinate b, List<Object[]> exempt, boolean hard) {
+        cancellation.check();
         double len = a.distance(b);
         if (len < 1e-9) return 0;
         double reach = hard ? hardDistance : softDistance;
@@ -129,7 +132,7 @@ public final class DynamicObstacles {
             List<double[]> exIv = new ArrayList<>();
             if (exempt != null) {
                 for (Object[] e : exempt) {
-                    Coordinate c = (Coordinate) e[0];
+                            Coordinate c = (Coordinate) e[0];
                     Object owner = e.length > 2 ? e[2] : null;
                     boolean applies = (owner != null && owner.equals(s.owner)) || s.a.distance(c) < 1e-3 || s.b.distance(c) < 1e-3;
                     if (!applies) continue;
@@ -140,7 +143,7 @@ public final class DynamicObstacles {
             // split the query segment into non-exempt parts and check each
             List<double[]> parts = subtract(new double[]{0, len}, exIv);
             for (double[] p : parts) {
-                if (p[1] - p[0] < 1e-6) continue;
+                    if (p[1] - p[0] < 1e-6) continue;
                 Coordinate pa = at(a, b, len, p[0]), pb = at(a, b, len, p[1]);
                 double d = new LineSegment(pa, pb).distance(new LineSegment(s.a, s.b));
                 if (hard) {
@@ -172,7 +175,7 @@ public final class DynamicObstacles {
         for (double[] c : covers) {
             List<double[]> next = new ArrayList<>();
             for (double[] r : rem) {
-                if (c[1] <= r[0] || c[0] >= r[1]) { next.add(r); continue; }
+                    if (c[1] <= r[0] || c[0] >= r[1]) { next.add(r); continue; }
                 if (c[0] > r[0]) next.add(new double[]{r[0], c[0]});
                 if (c[1] < r[1]) next.add(new double[]{c[1], r[1]});
             }

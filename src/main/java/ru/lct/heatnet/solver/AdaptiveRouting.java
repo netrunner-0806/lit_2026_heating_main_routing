@@ -18,13 +18,14 @@ final class AdaptiveRouting {
         double nx=Math.floor(region.getWidth()/spacing)+1,ny=Math.floor(region.getHeight()/spacing)+1;
         // Region growth replaces coverage of the primary graph, not the optional fine-grid refinement.
         // A smaller 4096-cell refinement budget would reject detours that the ordinary graph can represent.
-        if(!Double.isFinite(nx*ny)||nx*ny>NavGraph.MAX_GRID_NODES)
-            throw new ComplexityLimitException("expanded navigation region requires " + (nx*ny) + " grid cells; budget " + NavGraph.MAX_GRID_NODES);
+        if(!Double.isFinite(nx*ny)||nx*ny>graph.budget().gridCells)
+            throw new ComplexityLimitException("expanded navigation region requires " + (nx*ny) + " grid cells; budget " + graph.budget().gridCells);
         List<Coordinate> vertices=graph.space().navigationVertices(region,MAX_VISIBILITY_VERTICES);
-        if(vertices.size()+graph.size()>NavGraph.MAX_NAVIGATION_NODES)
+        if(vertices.size()+graph.size()>graph.budget().navigationNodes)
             throw new ComplexityLimitException("expanded region exceeds navigation vertex budget");
         for(Coordinate p:vertices)if(graph.indexOf(p)<0)graph.addVertex(p,Exemptions.NONE,radius,null);
         for(int ix=0;ix<(int)nx;ix++)for(int iy=0;iy<(int)ny;iy++) {
+            graph.checkCancelled();
             Coordinate p=new Coordinate(region.getMinX()+ix*spacing,region.getMinY()+iy*spacing);
             if(graph.indexOf(p)<0&&!graph.space().insideAnyZone(p))graph.addVertex(p,Exemptions.NONE,radius,null);
         }
@@ -32,7 +33,7 @@ final class AdaptiveRouting {
 
     static void refineClearanceVertices(NavGraph graph, double radius) {
         List<Coordinate> vertices = graph.space().refinedNavigationVertices(MAX_VISIBILITY_VERTICES);
-        if (vertices.size() + graph.size() > NavGraph.MAX_NAVIGATION_NODES)
+        if (vertices.size() + graph.size() > graph.budget().navigationNodes)
             throw new ComplexityLimitException("adaptive clearance vertices exceed navigation node budget");
         for (Coordinate p : vertices) if (graph.indexOf(p) < 0) graph.addVertex(p, Exemptions.NONE, radius, null);
     }
@@ -57,6 +58,7 @@ final class AdaptiveRouting {
         if (!Double.isFinite(nx * ny) || nx * ny > MAX_GRID_CELLS)
             throw new ComplexityLimitException("adaptive grid requires " + (nx * ny) + " cells at " + spacing + " m; budget " + MAX_GRID_CELLS);
         for (int ix = 0; ix < (int) nx; ix++) for (int iy = 0; iy < (int) ny; iy++) {
+            graph.checkCancelled();
             Coordinate p = new Coordinate(env.getMinX() + ix * spacing, env.getMinY() + iy * spacing);
             if (graph.indexOf(p) < 0 && !graph.space().insideForbidden(p)) graph.addVertex(p, Exemptions.NONE, radius, null);
         }

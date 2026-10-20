@@ -81,7 +81,11 @@ final class ReferenceCostOracle {
                     for (ExistingNetworkLine adjacent : in.networkLines())
                         if (adjacent.line().distance(ru.lct.heatnet.geo.CrsTransformer.METRIC_FACTORY.createPoint(ch.metric)) <= 0.05)
                             maxDu = Math.max(maxDu, adjacent.diameter());
-                    if (ex.line().distance(ru.lct.heatnet.geo.CrsTransformer.METRIC_FACTORY.createPoint(ch.metric)) > 0.05)
+                    // MultiLineString components retain the original feature ID. Test the entire named line.
+                    boolean onNamedLine = in.networkLines().stream()
+                            .filter(part -> ReferenceOutputOracle.key(part.id().toJavaValue()).equals(ReferenceOutputOracle.key(ch.existingLineId)))
+                            .anyMatch(part -> part.line().distance(ru.lct.heatnet.geo.CrsTransformer.METRIC_FACTORY.createPoint(ch.metric)) <= 0.05);
+                    if (!onNamedLine)
                         out.add("chamber " + ch.id + " is not on the existing line " + ch.existingLineId);
                 }
                 existingAdj = ReferenceOutputOracle.existingAdjacency(ch.metric, in);

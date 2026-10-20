@@ -73,6 +73,7 @@ public final class PathSearch {
 
     /** Runs from the source; if targets is non-null, stops once all targets are settled. */
     public Result run(int source, Set<Integer> targets) {
+        graph.checkCancelled();
         graph.countTraversal();
         int n = graph.size();
         double[] dist = new double[n];
@@ -85,6 +86,7 @@ public final class PathSearch {
         pq.add(new double[]{0, source});
         int remaining = targets == null ? -1 : targets.size();
         while (!pq.isEmpty()) {
+            graph.checkCancelled();
             double[] top = pq.poll();
             int u = (int) top[1];
             if (done[u]) continue;
@@ -94,6 +96,7 @@ public final class PathSearch {
             int[] nb = graph.neighbours(u);
             double[] w = graph.weights(u);
             for (int k = 0; k < nb.length; k++) {
+                if((k & 255)==0)graph.checkCancelled();
                 int v = nb[k];
                 if (done[v] || !graph.isActive(v)) continue;
                 if (bannedEdges != null && (bannedEdges.contains(edgeKey(u, v)) || bannedEdges.contains(edgeKey(v, u)))) continue;

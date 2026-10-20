@@ -33,7 +33,9 @@ public final class NetworkDepthPlanner {
     public Result plan(NewNetwork net) {
         for (NetLink l : net.links()) l.setProfile(null);
         for (NetNode root : net.roots()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             for (NetLink top : root.children()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 Result r = planChain(top, DepthRules.NORMAL_DEPTH_M);
                 if (!r.feasible) return r;
             }
@@ -48,6 +50,7 @@ public final class NetworkDepthPlanner {
         List<NetLink> chain = new ArrayList<>();
         NetLink cur = parentLink;
         while (true) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             chain.add(0, cur);
             NetNode child = cur.child();
             NetLink cont = collinearContinuation(child, cur);
@@ -59,8 +62,10 @@ public final class NetworkDepthPlanner {
         List<VerticalObstacle> obstacles = new ArrayList<>();
         List<double[]> cpmRanges = new ArrayList<>();
         for (NetLink l : chain) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double hNew = DiameterTable.requireDu(l.du()).heightM();
             for (SpecialPassage p : l.passages()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 VerticalObstacle vo = toVertical(p, hNew);
                 if (vo != null) obstacles.add(vo.shifted(total));
             }
@@ -77,15 +82,18 @@ public final class NetworkDepthPlanner {
         // cut the chain profile into link profiles and plan side branches
         double off = 0;
         for (NetLink l : chain) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             l.setProfile(res.profile.sub(off, off + l.length()));
             off += l.length();
         }
         for (int i = 0; i < chain.size(); i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             NetLink l = chain.get(i);
             NetNode child = l.child();
             if (child.kind() == NetNode.Kind.CONNECTION_POINT) continue;
             double junctionDepth = l.profile().startDepth();
             for (NetLink branch : child.children()) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 if (i > 0 && branch == chain.get(i - 1)) continue; // the collinear continuation belongs to this chain
                 Result r = planChain(branch, junctionDepth);
                 if (!r.feasible) return r;
@@ -102,6 +110,7 @@ public final class NetworkDepthPlanner {
         NetLink best = null;
         double bestTurn = 1.0;
         for (NetLink c : node.children()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             List<org.locationtech.jts.geom.Coordinate> cc = c.coords();
             if (cc.size() < 2) continue;
             double turn = GeometryUtils.turnAngleDeg(cc.get(cc.size() - 2), cc.get(cc.size() - 1), oc.get(1));

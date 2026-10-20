@@ -96,6 +96,7 @@ public final class ObstacleSpace {
         this.chambers = input.chambers();
         List<Obstacle> list = new ArrayList<>();
         for (Restriction r : input.restrictions()) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (r.rule() == null) continue;
             list.add(Obstacle.of(list.size(), r));
         }
@@ -107,6 +108,7 @@ public final class ObstacleSpace {
         List<Geometry> forbiddenZones = new ArrayList<>();
         List<Geometry> vertexZones = new ArrayList<>();
         for (Obstacle o : list) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             try {
             double d = o.requiredAxisDistance(routingDu);
             required[o.index()] = d;
@@ -134,6 +136,7 @@ public final class ObstacleSpace {
         List<Obstacle> interiorCandidates = navigationRegion == null ? list : query(navigationRegion);
         int interiorCount = 0;
         for (Obstacle o : interiorCandidates) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (interiorCount >= 4096) break;
             if (!o.isForbidden() || !(o.geometry() instanceof Polygon) || required[o.index()] <= CHECK_EPS) continue;
             Polygon polygon = (Polygon) o.geometry();
@@ -238,6 +241,7 @@ public final class ObstacleSpace {
         @SuppressWarnings("unchecked")
         List<Obstacle> cands = index.query(new Envelope(c));
         for (Obstacle o : cands) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (!o.isForbidden() || ex.ignores(o)) continue;
             if ((prepared(o).intersects(p) || exactClearance && o.geometry().isWithinDistance(p,required[o.index()]-CHECK_EPS)) && !ex.exemptAt(o, c)) return true;
         }
@@ -277,6 +281,7 @@ public final class ObstacleSpace {
         if (len <= COVER_TOL) return false;
         @SuppressWarnings("unchecked") List<Object[]> candidates = forbiddenInteriors.query(new Envelope(a, b));
         for (Object[] entry : candidates) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Obstacle o = (Obstacle) entry[0]; if (ex.ignores(o)) continue;
             Envelope e = (Envelope) entry[1];
             double from = 0, to = 1;
@@ -310,6 +315,7 @@ public final class ObstacleSpace {
         boolean[] dirOk = {true, true};   // [0] traversal a->b, [1] traversal b->a (road/tram entry angle rule)
         String[] dirReason = {null, null};
         for (Obstacle o : cands) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             if (ex.ignores(o)) continue;
             if (!prepared(o).intersects(seg) && (!exactClearance || !o.geometry().isWithinDistance(seg, required[o.index()] - CHECK_EPS))) continue;
             List<double[]> exempt = ex.exemptIntervals(o, a, b, len);
@@ -337,6 +343,7 @@ public final class ObstacleSpace {
         if (o.isPolygonal()) {
             List<double[]> inside = intervals(core, a, len);
             for (double[] iv : inside) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 double entry = iv[0], exit = iv[1];
                 boolean entryExempt = inExempt(entry, exempt), exitExempt = inExempt(exit, exempt);
                 if (exit - entry < 1e-6) continue; // touching
@@ -371,6 +378,7 @@ public final class ObstacleSpace {
             // linear object: crossing points; collinear overlaps are not allowed
             List<Double> ts = new ArrayList<>();
             for (int i = 0; i < core.getNumGeometries(); i++) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 Geometry g = core.getGeometryN(i);
                 if (g.isEmpty()) continue;
                 if (g instanceof Point) {
@@ -384,6 +392,7 @@ public final class ObstacleSpace {
                 }
             }
             for (double t : ts) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 // termination at the object (tie-in / junction): only at an exempt segment end
                 if (inExempt(t, exempt) && (t <= ru.lct.heatnet.config.Constants.TERMINATION_TOL_M || t >= len - ru.lct.heatnet.config.Constants.TERMINATION_TOL_M)) continue;
                 // passing through the END point of a linear object is not a crossing (the pipe simply ends there): it is
@@ -412,6 +421,7 @@ public final class ObstacleSpace {
         sorted.sort(java.util.Comparator.comparingDouble(v -> v[0]));
         double at = 0;
         for (double[] cover : sorted) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double end = Math.min(len, cover[0]);
             if (end > at + 1e-9 && o.geometry().distance(GeometryUtils.line(at(a,b,len,at),at(a,b,len,end)))
                     < required[o.index()] - CHECK_EPS) return false;
@@ -448,6 +458,7 @@ public final class ObstacleSpace {
     private static boolean touchesLineEnd(Obstacle o, Coordinate x) {
         Geometry g = o.geometry();
         for (int i = 0; i < g.getNumGeometries(); i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Geometry part = g.getGeometryN(i);
             if (!(part instanceof LineString) || part.isEmpty()) continue;
             Coordinate[] cs = part.getCoordinates();
@@ -476,6 +487,7 @@ public final class ObstacleSpace {
         List<double[]> out = new ArrayList<>();
         if (g == null || g.isEmpty()) return out;
         for (int i = 0; i < g.getNumGeometries(); i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Geometry part = g.getGeometryN(i);
             if (part instanceof LineString && part.getLength() > 1e-9) out.add(intervalOf(part, a, len));
             else if (part instanceof Point) {
@@ -492,6 +504,7 @@ public final class ObstacleSpace {
         Coordinate[] cs = line.getCoordinates();
         double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
         for (Coordinate c : cs) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double t = a.distance(c);
             min = Math.min(min, t);
             max = Math.max(max, t);
@@ -502,12 +515,15 @@ public final class ObstacleSpace {
     /** True if every interval is covered by the union of the covers (up to COVER_TOL of uncovered length per gap). */
     static boolean covered(List<double[]> intervals, List<double[]> covers) {
         for (double[] iv : intervals) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             double from = iv[0], to = iv[1];
             List<double[]> rem = new ArrayList<>();
             rem.add(new double[]{from, to});
             for (double[] c : covers) {
+                ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                 List<double[]> next = new ArrayList<>();
                 for (double[] r : rem) {
+                    ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
                     if (c[1] <= r[0] || c[0] >= r[1]) { next.add(r); continue; }
                     if (c[0] > r[0]) next.add(new double[]{r[0], c[0]});
                     if (c[1] < r[1]) next.add(new double[]{c[1], r[1]});
@@ -563,6 +579,7 @@ public final class ObstacleSpace {
     private List<Coordinate> navigationVertices(Geometry union, int maxNodes) {
         List<Coordinate> out = new ArrayList<>();
         for (Polygon poly : GeometryUtils.polygons(union)) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             collectConvex(poly.getExteriorRing().getCoordinates(), true, out, maxNodes);
             for (int i = 0; i < poly.getNumInteriorRing(); i++) collectConvex(poly.getInteriorRingN(i).getCoordinates(), false, out, maxNodes);
         }
@@ -578,6 +595,7 @@ public final class ObstacleSpace {
         boolean reverse = shell ? ccw : !ccw;
         int n = ring.length - 1;
         for (int i = 0; i < n; i++) {
+            ru.lct.heatnet.routing.ComputeCancellation.checkpoint();
             Coordinate prev = ring[(i - 1 + n) % n], cur = ring[i], next = ring[(i + 1) % n];
             if (reverse) { Coordinate t = prev; prev = next; next = t; }
             double cross = (cur.x - prev.x) * (next.y - cur.y) - (cur.y - prev.y) * (next.x - cur.x);
