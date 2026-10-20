@@ -30,7 +30,7 @@ function app() {
     setTimeout() { return {}; }, clearTimeout() {},
     async fetch() { return { ok: true, status: 200, json: async () => [] }; },
   };
-  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {showVariant, renderBadge, showFeature, renderSummary, renderExplainSummary, renderComparison, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;indexResultGeometry(r);}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
+  vm.runInNewContext(source.replace('  loadJobs();\n  const jobParam', `  globalThis.audit = {setVariantVisible, renderBadge, showFeature, renderSummary, renderExplainSummary, overlayKpis, renderValidation, loadJobs, drawInput, setResult: (r) => {resultData=r;}, setInput: (r) => {inputGeo=r;}, setGeo: (r) => {resultGeo=r;indexResultGeometry(r);}};\n  loadJobs();\n  const jobParam`), context, { filename: 'app.js' });
   return { audit: context.audit, popups, tooltips, elements, listeners, tiles, prefix: () => prefix, uploadProgress: (p) => uploadProgress(p) };
 }
 
@@ -52,7 +52,7 @@ test('summary, variants and validation never interpolate raw API text', () => {
   const ui=app(); ui.audit.renderSummary({unconnected_oks_ids:[payload]}, {strategy:payload,notes:[payload]});
   safe(ui.elements.get('summary').innerHTML); safe(ui.elements.get('unconnected').innerHTML);
   ui.audit.setResult({variants:[{variantId:payload,strategy:payload}, {variantId:'v2'}],validation:{issues:[{severity:payload,code:payload,message:payload}]}});
-  ui.audit.renderComparison(payload); safe(ui.elements.get('comparison').innerHTML);
+  ui.audit.overlayKpis([{variantId:payload,rank:1}]); safe(ui.elements.get('overlayKpis').innerHTML);
   ui.audit.renderValidation(payload); safe(ui.elements.get('validation').innerHTML);
 });
 test('GeoJSON popup IDs, names and properties stay escaped', () => {
@@ -63,10 +63,10 @@ test('GeoJSON popup IDs, names and properties stay escaped', () => {
 });
 
 test('result map tooltips and validation badge escape API text', () => {
-  const ui=app(); ui.audit.setInput({features:[]}); ui.audit.setResult({mode:'PLANAR',variants:[],validation:{issues:[]}});
+  const ui=app(); ui.audit.setInput({features:[]}); ui.audit.setResult({mode:'PLANAR',variants:[{variantId:'v1'}],validation:{issues:[]}});
   ui.audit.setGeo({features:['heat_network','heat_chamber','technical_node'].map(object_type=>({
     properties:{object_type,variant_id:'v1',id:payload,diameter:payload,laying_method:'special',k_spec:payload},
     geometry:{type:object_type==='heat_network'?'LineString':'Point',coordinates:[37,55]}}))});
-  ui.audit.showVariant('v1');assert.equal(ui.tooltips.length,3);ui.tooltips.forEach(safe);
+  ui.audit.setVariantVisible('v1',true);assert.equal(ui.tooltips.length,3);ui.tooltips.forEach(safe);
   ui.audit.renderBadge({errors:payload,warnings:payload,checks:{geometry:payload}});safe(ui.elements.get('badge').innerHTML);
 });
