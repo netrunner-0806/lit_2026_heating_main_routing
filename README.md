@@ -1,7 +1,6 @@
 # heatnet-router
 
-## MAIN DEMO: [heatnet.netrun.netcraze.pro](https://heatnet.netrun.netcraze.pro)
-## RESERVE DEMO: [ntrn.site](https://ntrn.site)
+## [MAIN DEMO](https://heatnet.netrun.netcraze.pro) || [RESERVE DEMO](https://ntrn.site)
 
 Сервис автоматизированного проектирования трасс подключения объектов капитального строительства
 к существующим тепловым сетям. Вход — GeoJSON с сетью, камерами, точками потребления и ограничениями.
